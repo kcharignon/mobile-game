@@ -567,7 +567,7 @@ class ScreenshotsTest {
     fun aPickupDropsItsCrateAndItShowsOnTheBoard() {
         // un niveau où un pick-up peut partir tout de suite, sans mener à une impasse
         fun safeMove(level: Level, pickup: Car) =
-            Move.entries.firstOrNull { m -> ParkingGame(level).canMove(pickup, m) && !ParkingGame(level).also { it.tap(pickup.id, m) }.isStuck }
+            Move.entries.firstOrNull { m -> ParkingGame(level).canMove(pickup, m) && !ParkingGame(level).also { it.tap(pickup.id, m) }.mustSmashACrate }
         val level = (61..100).map { LevelGenerator.level(it) }.first { l -> l.cars.any { it.carrier && safeMove(l, it) != null } }
         val pickup = level.cars.first { it.carrier && safeMove(level, it) != null }
         val move = safeMove(level, pickup)!!
@@ -578,19 +578,37 @@ class ScreenshotsTest {
     }
 
     @Test
-    fun walkingIntoACrateTrapOffersToStartAgain() {
+    fun aVehicleDrivingOverACrateSmashesItAndItIsOnlyAFault() {
         // un niveau piégé : un pick-up qui part du mauvais côté laisse sa caisse là où elle ferme le dernier passage
         val level = (61..100).map { LevelGenerator.level(it) }.first { Solver.analyse(it).traps >= 1 }
-        val pickup = level.cars.first { it.carrier && Move.entries.any { m -> ParkingGame(level).canMove(it, m) && ParkingGame(level).also { g -> g.tap(it.id, m) }.isStuck } }
-        val bad = Move.entries.first { m -> ParkingGame(level).canMove(pickup, m) && ParkingGame(level).also { g -> g.tap(pickup.id, m) }.isStuck }
-        show(null) { PlayScreen(level, hasNext = true, onFinished = {}, onNext = {}, onLevels = {}) }
-        perform(level, pickup, bad)
-        rule.mainClock.advanceTimeBy(3000)
-        rule.onNodeWithText("Oups, bloqué !").assertExists()
-        rule.onRoot().captureRoboImage("../../docs/screenshots/21-jeu-bloque.png")
-        rule.onNodeWithText("Recommencer").performClick()
-        rule.mainClock.advanceTimeBy(300)
-        rule.onNodeWithText("Oups, bloqué !").assertDoesNotExist()
+        fun badMove(pickup: Car) = Move.entries.firstOrNull { m -> ParkingGame(level).canMove(pickup, m) && ParkingGame(level).also { g -> g.tap(pickup.id, m) }.mustSmashACrate }
+        val pickup = level.cars.first { it.carrier && badMove(it) != null }
+        // le même parcours dans le moteur : le mauvais coup, puis les indices jusqu'au bout (le premier coup qui écrase la caisse est repéré)
+        val mirror = ParkingGame(level)
+        val plan = arrayListOf(pickup to badMove(pickup)!!)
+        mirror.tap(pickup.id, plan[0].second)
+        mirror.finishMotion(pickup.id)
+        var smashStep = -1
+        while (!mirror.isWon) {
+            val hint = mirror.hint() ?: error("l'indice doit toujours proposer un coup, même après une caisse mal placée")
+            if (smashStep < 0 && mirror.smashes(hint.car, hint.move).isNotEmpty()) smashStep = plan.size
+            plan += hint.car to hint.move
+            mirror.tap(hint.car.id, hint.move)
+            mirror.finishMotion(hint.car.id)
+        }
+        assertTrue("une caisse a été écrasée", smashStep >= 0 && mirror.bumps >= 1)
+        var faults = -1
+        show(null) { PlayScreen(level, hasNext = true, onFinished = { faults = it }, onNext = {}, onLevels = {}) }
+        for ((i, step) in plan.withIndex()) {
+            perform(level, step.first, step.second)
+            if (i == smashStep) {
+                rule.mainClock.advanceTimeBy(380) // la caisse éclate quand le véhicule arrive sur sa case
+                rule.onRoot().captureRoboImage("../../docs/screenshots/21-jeu-caisse-cassee.png")
+            }
+            rule.mainClock.advanceTimeBy(1800)
+            rule.onNodeWithText("Pouet !").assertDoesNotExist() // écraser une caisse n'est pas un klaxon : on continue sa route
+        }
+        assertEquals("on a fini le niveau, la caisse écrasée est une faute", mirror.bumps, faults)
     }
 
     @Test
