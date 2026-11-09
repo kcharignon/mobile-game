@@ -22,7 +22,7 @@ enum class Dir(val dc: Int, val dr: Int) {
 data class Cell(val col: Int, val row: Int)
 
 /**
- * Une voiture (2 cases) ou un minibus (3 cases), large d'une case.
+ * Un véhicule large d'une case : voiture (2 cases), camion (3 cases), bus ou poids lourd (4 cases).
  *
  * (col, row) est la case en haut à gauche de son emprise ; [dir] est le sens du nez ; [color] un indice dans la palette de l'interface.
  */
@@ -35,7 +35,7 @@ data class Car(
     val color: Int,
 ) {
     init {
-        require(len == 2 || len == 3) { "une voiture fait 2 ou 3 cases, pas $len" }
+        require(len in 2..4) { "un véhicule fait 2 à 4 cases, pas $len" }
     }
 
     /** Cases occupées, de l'arrière vers l'avant si la voiture roule vers la droite ou le bas, de l'avant vers l'arrière sinon. */

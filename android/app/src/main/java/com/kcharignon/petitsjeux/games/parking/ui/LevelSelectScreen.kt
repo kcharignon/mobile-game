@@ -43,6 +43,7 @@ import com.kcharignon.petitsjeux.core.ui.PjIcon
 import com.kcharignon.petitsjeux.core.ui.PjText
 import com.kcharignon.petitsjeux.core.ui.RoundIconButton
 import com.kcharignon.petitsjeux.core.ui.StarPill
+import com.kcharignon.petitsjeux.core.ui.withTapSound
 import com.kcharignon.petitsjeux.core.ui.Stars
 import com.kcharignon.petitsjeux.games.parking.ParkingProgress
 import com.kcharignon.petitsjeux.games.parking.engine.Worlds
@@ -133,7 +134,7 @@ private fun LevelCell(level: Int, progress: ParkingProgress, current: Int, onPla
         Modifier
             .fillMaxWidth()
             .testTag("level-$level")
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, enabled = unlocked) { onPlay(level) },
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, enabled = unlocked, onClick = withTapSound { onPlay(level) }),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(Modifier.fillMaxWidth().height(60.dp)) {

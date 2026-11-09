@@ -19,7 +19,8 @@ object LevelGenerator {
     private val cache = ConcurrentHashMap<Int, Level>()
 
     /** Réglages d'un niveau. */
-    data class Params(val cols: Int, val rows: Int, val cars: Int, val longShare: Double, val wantedDepth: Int)
+    /** [longShare] : part de véhicules de 3 cases ou plus ; [busShare] : part de ceux-ci qui font 4 cases (bus, poids lourds : à partir du monde 3). */
+    data class Params(val cols: Int, val rows: Int, val cars: Int, val longShare: Double, val busShare: Double, val wantedDepth: Int)
 
     // Par monde : grille et nombre de voitures au début puis à la fin (la grille grandit à mi-monde, le nombre de voitures monte en continu).
     private class WorldSpec(val cols0: Int, val rows0: Int, val cars0: Int, val cols1: Int, val rows1: Int, val cars1: Int)
@@ -45,6 +46,7 @@ object LevelGenerator {
             rows = if (late) spec.rows1 else spec.rows0,
             cars = (spec.cars0 + (spec.cars1 - spec.cars0) * t).roundToInt(),
             longShare = if (capped <= 3) 0.0 else 0.15 + 0.15 * overall,
+            busShare = if (capped <= 2 * Worlds.LEVELS_PER_WORLD) 0.0 else 0.25 + 0.15 * (capped - 2 * Worlds.LEVELS_PER_WORLD - 1) / (Worlds.LEVEL_COUNT - 2 * Worlds.LEVELS_PER_WORLD - 1.0),
             wantedDepth = (2 + 9 * overall).roundToInt(),
         )
     }
@@ -72,7 +74,8 @@ object LevelGenerator {
     /** Pose des voitures au hasard, dans un ordre mélangé, en refusant toute pose qui crée un cycle d'attente. */
     private fun place(rng: SplitMix64, p: Params): List<Car> {
         val poses = ArrayList<Car>()
-        for (dir in Dir.entries) for (len in 2..3) {
+        val maxLength = if (p.busShare > 0) 4 else 3
+        for (dir in Dir.entries) for (len in 2..maxLength) {
             val rowsFit = p.rows - if (dir.horizontal) 0 else len - 1
             val colsFit = p.cols - if (dir.horizontal) len - 1 else 0
             for (row in 0 until rowsFit) for (col in 0 until colsFit) poses += Car(0, col, row, len, dir, 0)
@@ -80,19 +83,23 @@ object LevelGenerator {
         rng.shuffle(poses)
 
         val maxLong = (p.cars * p.longShare).roundToInt()
+        val maxBuses = (maxLong * p.busShare).roundToInt()
+        val maxTrucks = maxLong - maxBuses
         val chosen = ArrayList<Car>()
         val used = HashSet<Cell>()
-        var longs = 0
+        var trucks = 0
+        var buses = 0
         for (pose in poses) {
             if (chosen.size >= p.cars) break
-            if (pose.len == 3 && longs >= maxLong) continue
-            if (pose.len == 2 && chosen.size - longs >= p.cars - maxLong) continue
+            if (pose.len == 3 && trucks >= maxTrucks) continue
+            if (pose.len == 4 && buses >= maxBuses) continue
+            if (pose.len == 2 && chosen.size - trucks - buses >= p.cars - maxLong) continue
             if (pose.cells.any { it in used }) continue
             val candidate = pose.copy(id = chosen.size)
             if (Dependencies.of(chosen + candidate, p.cols, p.rows) == null) continue
             chosen += candidate
             used += candidate.cells
-            if (candidate.len == 3) longs++
+            if (candidate.len == 3) trucks++ else if (candidate.len == 4) buses++
         }
         return paint(chosen, rng)
     }

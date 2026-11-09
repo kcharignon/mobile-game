@@ -11,9 +11,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.compose.runtime.compositionLocalOf
-import kotlin.math.PI
-import kotlin.math.exp
-import kotlin.math.sin
+import java.util.concurrent.atomic.AtomicReferenceArray
 
 /** Les retours sonores et tactiles des jeux. Les jeux ne connaissent que cette interface (sans son ni vibration en test et en capture). */
 interface Feedback {
@@ -28,6 +26,12 @@ interface Feedback {
 
     /** Un bouton : petit « pop ». */
     fun tap()
+
+    /** L'étoile numéro [index] (0, 1, 2) s'allume sur l'écran de victoire : « ding » de plus en plus aigu. */
+    fun star(index: Int)
+
+    /** Un indice est donné : « tin-tin ». */
+    fun hint()
 }
 
 object NoFeedback : Feedback {
@@ -35,6 +39,8 @@ object NoFeedback : Feedback {
     override fun bump() = Unit
     override fun win() = Unit
     override fun tap() = Unit
+    override fun star(index: Int) = Unit
+    override fun hint() = Unit
 }
 
 val LocalFeedback = compositionLocalOf<Feedback> { NoFeedback }
@@ -52,13 +58,32 @@ class AndroidFeedback(context: Context, private val soundOn: () -> Boolean, priv
     }
     private val handler = Handler(Looper.getMainLooper())
 
-    private val exitPcm by lazy { Synth.vroum() }
-    private val bumpPcm by lazy { Synth.horn() }
-    private val winPcm by lazy { Synth.fanfare() }
-    private val tapPcm by lazy { Synth.pop() }
+    // Tous les sons sont calculés dès le démarrage, sur un fil à part : le premier « vroum » n'attend donc rien.
+    private val exits = AtomicReferenceArray<ShortArray>(3)
+    private val starPcm = AtomicReferenceArray<ShortArray>(3)
+    @Volatile private var bumpPcm: ShortArray? = null
+    @Volatile private var winPcm: ShortArray? = null
+    @Volatile private var tapPcm: ShortArray? = null
+    @Volatile private var hintPcm: ShortArray? = null
+    private var nextExit = 0
+
+    init {
+        Thread {
+            runCatching {
+                tapPcm = Synth.pop()
+                for ((k, pitch) in doubleArrayOf(1.0, 0.9, 1.13).withIndex()) exits.set(k, Synth.vroum(pitch))
+                bumpPcm = Synth.honk()
+                for (k in 0 until 3) starPcm.set(k, Synth.star(k))
+                hintPcm = Synth.hint()
+                winPcm = Synth.fanfare()
+            }
+        }.start()
+    }
 
     override fun exit() {
-        play { exitPcm }
+        // trois « vroum » un peu différents, à tour de rôle : pas de répétition lassante quand on enchaîne les voitures
+        val k = nextExit++ % exits.length()
+        play { exits.get(k) }
         buzz(18)
     }
 
@@ -74,16 +99,20 @@ class AndroidFeedback(context: Context, private val soundOn: () -> Boolean, priv
 
     override fun tap() = play { tapPcm }
 
+    override fun star(index: Int) = play { if (index in 0 until starPcm.length()) starPcm.get(index) else null }
+
+    override fun hint() = play { hintPcm }
+
     private fun buzz(ms: Long) {
         if (!vibrationOn()) return
         runCatching { vibrator?.takeIf { it.hasVibrator() }?.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE)) }
     }
 
-    private fun play(pcm: () -> ShortArray) {
+    private fun play(pcm: () -> ShortArray?) {
         if (!soundOn()) return
         Thread {
             runCatching {
-                val data = pcm()
+                val data = pcm() ?: return@runCatching // pas encore calculé (les tout premiers instants) : on se tait
                 val track = AudioTrack.Builder()
                     .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
                     .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(Synth.RATE).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
@@ -95,57 +124,5 @@ class AndroidFeedback(context: Context, private val soundOn: () -> Boolean, priv
                 handler.postDelayed({ runCatching { track.release() } }, data.size * 1000L / Synth.RATE + 200)
             }
         }.start()
-    }
-}
-
-/** Petits sons calculés : (échantillons 16 bits, mono, 22 050 Hz). */
-object Synth {
-    const val RATE = 22_050
-
-    private fun make(seconds: Float, sample: (t: Float) -> Float): ShortArray {
-        val n = (seconds * RATE).toInt()
-        return ShortArray(n) { i ->
-            val t = i / RATE.toFloat()
-            val fadeOut = ((n - i) / (0.02f * RATE)).coerceIn(0f, 1f)
-            (sample(t).coerceIn(-1f, 1f) * fadeOut * 0.55f * Short.MAX_VALUE).toInt().toShort()
-        }
-    }
-
-    private fun saw(phase: Double): Float = (2.0 * (phase - Math.floor(phase + 0.5))).toFloat()
-
-    /** Vroum : un son grave qui monte en accélérant. */
-    fun vroum(): ShortArray {
-        var phase = 0.0
-        return make(0.4f) { t ->
-            val freq = 90.0 + 260.0 * t * t / 0.16
-            phase += freq / RATE
-            val env = (t / 0.04f).coerceAtMost(1f) * exp(-1.6f * t)
-            (saw(phase) * 0.55f + sin(2 * PI * phase * 2).toFloat() * 0.25f) * env
-        }
-    }
-
-    /** Klaxon : deux notes proches jouées ensemble. */
-    fun horn(): ShortArray = make(0.3f) { t ->
-        val env = (t / 0.01f).coerceAtMost(1f) * (1f - t / 0.3f * 0.3f)
-        val a = saw(330.0 * t)
-        val b = saw(415.0 * t)
-        (a + b) * 0.3f * env
-    }
-
-    /** Fanfare : do, mi, sol, do aigu. */
-    fun fanfare(): ShortArray {
-        val notes = floatArrayOf(523.25f, 659.25f, 783.99f, 1046.5f)
-        return make(0.9f) { t ->
-            val k = (t / 0.16f).toInt().coerceAtMost(notes.size - 1)
-            val local = t - k * 0.16f
-            val env = (local / 0.01f).coerceAtMost(1f) * exp(-3f * local) + if (k == notes.size - 1) 0.35f * exp(-2f * local) else 0f
-            val f = notes[k].toDouble()
-            (sin(2 * PI * f * t).toFloat() * 0.6f + sin(2 * PI * f * 2 * t).toFloat() * 0.2f) * env
-        }
-    }
-
-    /** Pop : un petit « bip » qui retombe. */
-    fun pop(): ShortArray = make(0.08f) { t ->
-        sin(2 * PI * (700.0 + 500.0 * (1 - t / 0.08)) * t).toFloat() * exp(-30f * t)
     }
 }

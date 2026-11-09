@@ -135,6 +135,9 @@ class CarVisual {
     fun alpha(len: Int): Float = (1f - ((offset.value - fadeFrom) / (len + 1f)).coerceIn(0f, 1f))
 }
 
+/** Pause entre la sortie de la dernière voiture et la fenêtre de victoire. */
+const val WIN_DELAY_MS = 800L
+
 /** La bulle « Pouet ! » : où (en pixels, dans la zone du plateau) et quand. */
 private class Honk(val at: Offset, val token: Int)
 
@@ -214,8 +217,9 @@ private fun PlayBoard(
                 }
                 scope.launch {
                     visuals.getValue(car.id).exit(result.pathLength, car.len)
-                    // la fenêtre de victoire attend la fin de l'animation
+                    // la fenêtre de victoire attend la fin de l'animation, puis un court instant pour savourer le plateau vide
                     if (game.isWon && !won) {
+                        delay(WIN_DELAY_MS)
                         won = true
                         feedback.win()
                     }
@@ -288,8 +292,8 @@ private fun PlayBoard(
                     val order = level.cars.filterNot { visuals.getValue(it.id).gone }.sortedBy { if (visuals.getValue(it.id).offset.value > 0.01f) 1 else 0 }
                     for (car in order) {
                         val v = visuals.getValue(car.id)
-                        drawCar(
-                            len = car.len,
+                        drawVehicle(
+                            model = vehicleModelFor(car),
                             color = Pj.CarColors[car.color % Pj.CarColors.size],
                             s = g.s,
                             center = carCenter(g, car, v),
@@ -331,12 +335,12 @@ private fun PlayBoard(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Canvas(Modifier.size(44.dp, 26.dp)) {
-                        drawCar(2, Pj.CarColors[4], 20.dp.toPx(), center, 90f, shadow = false)
+                        drawVehicle(VehicleModel.SEDAN, Pj.CarColors[4], 20.dp.toPx(), center, 90f, shadow = false)
                     }
                     PjText("$carsLeft", size = 28.sp, weight = FontWeight.Bold)
                 }
                 ChunkyButton(
-                    "Indice", onClick = { if (!won) hintId = game.hint()?.id },
+                    "Indice", onClick = { if (!won) { hintId = game.hint()?.id; if (hintId != null) feedback.hint() } },
                     Modifier.weight(1f), color = Pj.Orange, dark = Pj.OrangeDark, height = 58.dp, fontSize = 24.sp,
                     leading = { PjIcon(IconKind.BULB, size = 24.dp) },
                 )
@@ -380,10 +384,12 @@ fun WinCard(
     onLevels: () -> Unit,
 ) {
     var shown by remember { mutableIntStateOf(0) }
+    val feedback = LocalFeedback.current
     LaunchedEffect(stars) {
         repeat(stars) {
             delay(320)
             shown = it + 1
+            feedback.star(it)
         }
     }
     Modal(onDismiss = null) {

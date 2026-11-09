@@ -85,6 +85,13 @@ class LevelGeneratorTest {
     }
 
     @Test
+    fun busesAndHeavyTrucksAppearFromTheThirdWorldOnly() {
+        assertTrue("pas de véhicule de 4 cases avant le monde 3", all.take(40).none { level -> level.cars.any { it.len == 4 } })
+        assertTrue("des véhicules de 4 cases dans le monde 3 et après", all.drop(40).count { level -> level.cars.any { it.len == 4 } } >= 40)
+        assertTrue(all.all { level -> level.cars.all { it.len in 2..4 } })
+    }
+
+    @Test
     fun theFirstLevelsAreEasyAndLaterOnesAreHarder() {
         fun avgDepth(range: IntRange) = range.map { Dependencies.of(all[it - 1])!!.depth }.average()
         assertTrue("le niveau 1 doit être simple", all[0].cars.size <= 3)
@@ -119,12 +126,11 @@ class LevelGeneratorTest {
         assertNotNull(Dependencies.of(level))
     }
 
-    @Test
-    fun levelsNeverChange() {
-        // Empreinte de TOUS les niveaux (FNV-1a 64 bits) : si ce test casse, les niveaux ont changé sous les pieds des joueurs
-        // (leurs étoiles sont rangées par numéro de niveau). Ne changer cette valeur que volontairement, avec une nouvelle version.
+    // Empreinte (FNV-1a 64 bits) des niveaux : si un de ces tests casse, des niveaux ont changé sous les pieds des joueurs
+    // (leurs étoiles sont rangées par numéro de niveau). Ne changer ces valeurs que volontairement, avec une nouvelle version.
+    private fun digest(levels: List<Level>): Long {
         var hash = -0x340d631b7bdddcdbL
-        for (level in all) {
+        for (level in levels) {
             val text = buildString {
                 append(level.index).append(':').append(level.cols).append('x').append(level.rows)
                 for (car in level.cars) append(';').append(car.col).append(',').append(car.row).append(',').append(car.len).append(',').append(car.dir.ordinal).append(',').append(car.color)
@@ -134,10 +140,23 @@ class LevelGeneratorTest {
                 hash *= 0x100000001b3L
             }
         }
+        return hash
+    }
+
+    @Test
+    fun theFirstTwoWorldsNeverChange() {
+        val hash = digest(all.take(40))
+        assertEquals("empreinte des niveaux 1 à 40 : ${java.lang.Long.toHexString(hash)}", EXPECTED_DIGEST_WORLDS_1_2, hash)
+    }
+
+    @Test
+    fun levelsNeverChange() {
+        val hash = digest(all)
         assertEquals("empreinte des niveaux : ${java.lang.Long.toHexString(hash)}", EXPECTED_DIGEST, hash)
     }
 
     private companion object {
-        const val EXPECTED_DIGEST = 0x175f619c0e518b83L
+        const val EXPECTED_DIGEST_WORLDS_1_2 = 0x420f5c94583361c0L // identique à la version 0.1.0
+        const val EXPECTED_DIGEST = 0x9842d4b1fc3591fL
     }
 }

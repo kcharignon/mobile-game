@@ -49,17 +49,17 @@ object Pj {
     val StarDark = Color(0xFFE59A00)
     val Glass = Color(0xFF33425F)
 
-    /** Palette des voitures, dans l'ordre des indices de couleur du moteur : vert, orange, cyan, bleu, rose, jaune, violet, beige, rouge. */
+    /** Palette des véhicules, dans l'ordre des indices de couleur du moteur : vert, orange, cyan, bleu, rose, jaune, violet, turquoise, rouge (9 teintes bien distinctes). */
     val CarColors = listOf(
-        Color(0xFF4DD35A),
-        Color(0xFFFF7A3D),
-        Color(0xFF35C6F2),
-        Color(0xFF4A7DF0),
-        Color(0xFFF0409A),
-        Color(0xFFFFD93B),
-        Color(0xFFA55BE8),
-        Color(0xFFEBCB9C),
-        Color(0xFFF2453D),
+        Color(0xFF6BD23C),
+        Color(0xFFFF8A1F),
+        Color(0xFF2BC4EE),
+        Color(0xFF2D5FE0),
+        Color(0xFFF0468A),
+        Color(0xFFFFD41F),
+        Color(0xFF9A4DE3),
+        Color(0xFF14B8A6),
+        Color(0xFFE8362F),
     )
 }
 

@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kcharignon.petitsjeux.core.LocalFeedback
 
 /** Le fond jaune soleil de toute l'appli, avec de grands cercles clairs ; le contenu reste dans les zones sûres (encoche, barres système). */
 @Composable
@@ -93,6 +94,13 @@ fun Panel(
     )
 }
 
+/** Un `onClick` qui joue d'abord le petit « pop » des boutons. */
+@Composable
+fun withTapSound(onClick: () -> Unit): () -> Unit {
+    val feedback = LocalFeedback.current
+    return { feedback.tap(); onClick() }
+}
+
 /** Gros bouton épais à reflet ; il s'enfonce quand on appuie. */
 @Composable
 fun ChunkyButton(
@@ -108,13 +116,14 @@ fun ChunkyButton(
 ) {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
+    val click = withTapSound(onClick)
     val ledge = (height * 0.09f).coerceAtLeast(5.dp)
     val face = if (enabled) color else Pj.Gray
     val edge = if (enabled) dark else Pj.GrayDark
     Box(
         modifier
             .height(height + ledge)
-            .clickable(interactionSource = source, indication = null, enabled = enabled, onClick = onClick),
+            .clickable(interactionSource = source, indication = null, enabled = enabled, onClick = click),
     ) {
         Box(Modifier.fillMaxWidth().height(height).offset(y = ledge).background(edge, CircleShape))
         Box(
@@ -155,8 +164,9 @@ fun RoundIconButton(
 ) {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
+    val click = withTapSound(onClick)
     val ledge = 4.dp
-    Box(modifier.size(diameter, diameter + ledge).clickable(interactionSource = source, indication = null, onClick = onClick)) {
+    Box(modifier.size(diameter, diameter + ledge).clickable(interactionSource = source, indication = null, onClick = click)) {
         Box(Modifier.size(diameter).offset(y = ledge).background(dark, CircleShape))
         Box(
             Modifier

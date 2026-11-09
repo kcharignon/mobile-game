@@ -52,6 +52,7 @@ import com.kcharignon.petitsjeux.core.ui.PjSwitch
 import com.kcharignon.petitsjeux.core.ui.PjText
 import com.kcharignon.petitsjeux.core.ui.RoundIconButton
 import com.kcharignon.petitsjeux.core.ui.consumeTaps
+import com.kcharignon.petitsjeux.core.ui.withTapSound
 import com.kcharignon.petitsjeux.core.ui.drawStar
 
 /** L'accueil d'un joueur : qui il est, son rang, et les jeux. */
@@ -126,7 +127,7 @@ private fun GameCard(game: MiniGame, profile: Profile, onClick: () -> Unit) {
     Box(
         Modifier
             .fillMaxWidth()
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = withTapSound(onClick)),
     ) {
         Panel(Modifier.fillMaxWidth(), corner = 34.dp, fill = Pj.Orange, edge = Pj.OrangeDark, ledge = 10.dp) {
             Column(Modifier.fillMaxWidth().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {

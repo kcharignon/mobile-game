@@ -61,8 +61,10 @@ import com.kcharignon.petitsjeux.core.ui.PjFont
 import com.kcharignon.petitsjeux.core.ui.PjIcon
 import com.kcharignon.petitsjeux.core.ui.PjText
 import com.kcharignon.petitsjeux.core.ui.consumeTaps
+import com.kcharignon.petitsjeux.core.ui.withTapSound
 import com.kcharignon.petitsjeux.core.ui.drawStar
-import com.kcharignon.petitsjeux.games.parking.ui.drawCar
+import com.kcharignon.petitsjeux.games.parking.ui.VehicleModel
+import com.kcharignon.petitsjeux.games.parking.ui.drawVehicle
 
 /**
  * L'écran d'accueil de l'appli : « Qui joue ? ». Cinq emplacements, un par sauvegarde locale.
@@ -96,8 +98,8 @@ fun ProfilesScreen(
             Box(Modifier.fillMaxWidth().padding(top = 28.dp), contentAlignment = Alignment.Center) {
                 Canvas(Modifier.fillMaxWidth().height(64.dp)) {
                     val s = 30.dp.toPx()
-                    drawCar(2, Pj.CarColors[4], s, Offset(20.dp.toPx() + s, size.height / 2), 90f)
-                    drawCar(2, Pj.CarColors[2], s, Offset(size.width - 20.dp.toPx() - s, size.height / 2), 270f)
+                    drawVehicle(VehicleModel.SEDAN, Pj.CarColors[4], s, Offset(20.dp.toPx() + s, size.height / 2), 90f)
+                    drawVehicle(VehicleModel.HATCH, Pj.CarColors[2], s, Offset(size.width - 20.dp.toPx() - s, size.height / 2), 270f)
                 }
                 PjText("Petits Jeux", size = 40.sp, weight = FontWeight.Bold, color = Color.White, outline = Pj.Ink, outlineWidth = 9.dp)
             }
@@ -124,7 +126,7 @@ fun ProfilesScreen(
 private fun PlayerCard(profile: Profile, onClick: () -> Unit) {
     val stars = Games.totalStars(profile)
     Panel(
-        Modifier.fillMaxWidth().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
+        Modifier.fillMaxWidth().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = withTapSound(onClick)),
         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 14.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -154,7 +156,7 @@ private fun EmptySlotCard(onClick: () -> Unit) {
                     style = Stroke(3.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(12.dp.toPx(), 10.dp.toPx()))),
                 )
             }
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = withTapSound(onClick)),
         contentAlignment = Alignment.CenterStart,
     ) {
         Row(Modifier.padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {

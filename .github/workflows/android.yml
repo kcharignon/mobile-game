@@ -19,12 +19,14 @@ on:
     branches: [main]
     paths:
       - android/**
+      - tools/design/**
       - .github/workflows/android.yml
       - compose.yaml
       - Makefile
   pull_request:
     paths:
       - android/**
+      - tools/design/**
       - .github/workflows/android.yml
       - compose.yaml
       - Makefile
@@ -53,6 +55,11 @@ jobs:
           tags: petitsjeux-android:latest
           cache-from: type=gha,scope=android
           cache-to: type=gha,scope=android,mode=max
+      # Les véhicules sont décrits une seule fois (tools/design/vehicles.js) : le Kotlin et la planche d'aperçu en sont générés.
+      - name: Les véhicules générés sont à jour
+        run: |
+          node tools/design/make-vehicles.js
+          git diff --exit-code -- android/app/src/main/java/com/kcharignon/petitsjeux/games/parking/ui/VehicleArt.kt docs/design/vehicules.svg
       - name: Tests Kotlin
         run: make android-test ANDROID_BUILD=
       # Joue l'interface sans téléphone (Robolectric) : parcours complets (créer un joueur, finir un niveau, sauvegarde) et captures des écrans.
