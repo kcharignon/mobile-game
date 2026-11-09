@@ -39,12 +39,42 @@ enum class Dir(val dc: Int, val dr: Int) {
         }
 }
 
+/** Comment un véhicule est arrivé sur une case de son trajet : en roulant, poussé de côté par un tapis roulant, ou sorti d'un téléporteur. */
+enum class Entry { DRIVE, PUSH, JUMP }
+
+/** Ce qui arrête un véhicule sur son trajet sans qu'il ait besoin d'un obstacle posé : [cell] est la case où il ne peut pas aller ([kind] dit pourquoi). */
+data class Stop(val cell: Cell, val kind: ObstacleKind)
+
 /**
- * Le trajet d'un véhicule jusqu'à la sortie : les [cells] qu'il va traverser (la case du nez ne compte pas), dans l'ordre, en tournant sur les taches d'huile ;
- * [finalDirection] = le sens où il roule à la fin ; [exit] = le bord par où il sortirait (un mur peut le fermer), ou `null` si [loops] (il tourne en rond sur
- * des taches d'huile, ou s'il reviendrait sur sa propre place, et ne sortira jamais).
+ * Le trajet d'un véhicule jusqu'à la sortie : les [cells] qu'il va traverser (la case du nez ne compte pas), dans l'ordre, avec les virages des taches d'huile,
+ * les poussées des tapis roulants et les sauts des téléporteurs.
+ *
+ * - [directions] : le sens où il repart de chaque case, après un éventuel virage ;
+ * - [headings] : le sens de marche en arrivant sur chaque case (un tapis ne le change pas : le véhicule glisse de côté sans tourner) ;
+ * - [entries] : comment il est arrivé sur chaque case ;
+ * - [finalDirection] : le sens où il quitte le plateau, [finalHeading] : le sens de marche à ce moment-là ;
+ * - [exit] : le bord par où il sortirait (un mur peut le fermer), ou `null` s'il est arrêté ;
+ * - [stop] : ce qui l'arrête (un sens interdit, ou un tour en rond), ou `null`.
  */
-class Route(val cells: List<Cell>, val directions: List<Dir>, val finalDirection: Dir, val exit: Wall?, val loops: Boolean)
+class Route(
+    val cells: List<Cell>,
+    val directions: List<Dir>,
+    val headings: List<Dir>,
+    val entries: List<Entry>,
+    val finalDirection: Dir,
+    val finalHeading: Dir,
+    val exit: Wall?,
+    val stop: Stop?,
+) {
+    /** Il tourne en rond (ou reviendrait sur sa propre place) : il ne sortira jamais par là. */
+    val loops: Boolean get() = stop?.kind == ObstacleKind.OIL
+
+    /** Les [n] premières cases seulement (un véhicule qui s'arrête devant un obstacle), puis il continue dans le sens où il roulait ([startDirection] s'il n'a pas avancé). */
+    fun take(n: Int, startDirection: Dir): Route {
+        val dir = if (n == 0) startDirection else directions[n - 1]
+        return Route(cells.take(n), directions.take(n), headings.take(n), entries.take(n), dir, dir, null, null)
+    }
+}
 
 /** Un véhicule peut rouler dans le sens de son nez (marche avant) ou à l'opposé (marche arrière), selon le sens où on le glisse. */
 enum class Move {
@@ -94,38 +124,78 @@ data class Car(
     val head: Cell get() = lead(Move.FORWARD)
 
     /** L'endroit par où ce véhicule sortirait du parking dans ce sens : le bout de sa file. S'il y a un mur, il ne peut pas sortir par là. */
-    fun exitEdge(cols: Int, rows: Int, move: Move = Move.FORWARD, oils: Collection<Cell> = emptyList()): Wall? = route(cols, rows, move, oils).exit
+    fun exitEdge(cols: Int, rows: Int, move: Move = Move.FORWARD, floor: Floor = Floor.NONE): Wall? = route(cols, rows, move, floor).exit
 
     /**
-     * Le trajet de ce véhicule dans ce sens. Il roule tout droit ; **sur une tache d'huile il fait un virage à 90° : à droite s'il avance, à gauche s'il recule**
-     * (un quart de tour de son sens de marche), puis repart tout droit dans ce nouveau sens, jusqu'au bord. Toutes les cases du trajet doivent être libres.
+     * Le trajet de ce véhicule dans ce sens. Il roule tout droit, sauf sur ces cases du [floor] :
+     *
+     * - **tache d'huile** : virage à 90°, **à droite s'il avance, à gauche s'il recule**, puis il repart tout droit dans ce nouveau sens ;
+     * - **tapis roulant** : s'il le traverse (en travers), il est poussé d'une case de côté, sans tourner, puis continue tout droit ; dans le sens du tapis ou à
+     *   contresens, il n'a aucun effet ;
+     * - **téléporteur** : il entre par une case et ressort par l'autre, dans le même sens, puis continue tout droit ;
+     * - **sens unique** : on ne peut le franchir que dans le sens de la flèche (sinon [Route.stop]).
+     *
+     * Toutes les cases du trajet doivent être libres. Un trajet qui reviendrait sur la place du véhicule ou tournerait en rond n'en est pas un ([Route.loops]).
      */
-    fun route(cols: Int, rows: Int, move: Move = Move.FORWARD, oils: Collection<Cell> = emptyList()): Route {
+    fun route(cols: Int, rows: Int, move: Move = Move.FORWARD, floor: Floor = Floor.NONE): Route {
         var d = directionOf(move)
         var cell = lead(move)
         val cells = ArrayList<Cell>()
-        val directions = ArrayList<Dir>() // le sens où il repart de chaque case (après un éventuel virage)
-        val turns = HashSet<Pair<Cell, Dir>>()
+        val directions = ArrayList<Dir>()
+        val headings = ArrayList<Dir>()
+        val entries = ArrayList<Entry>()
+        val own = this.cells.toHashSet()
+        val arrived = HashSet<Pair<Cell, Dir>>()
+        fun inGrid(c: Cell) = c.col in 0 until cols && c.row in 0 until rows
+        fun end(exit: Wall?, stop: Stop?, geometric: Dir, heading: Dir) = Route(cells, directions, headings, entries, geometric, heading, exit, stop)
+        fun enter(c: Cell, how: Entry) {
+            cells += c
+            entries += how
+            headings += d
+            directions += d
+            cell = c
+        }
         while (true) {
             val next = Cell(cell.col + d.dc, cell.row + d.dr)
-            if (next.col !in 0 until cols || next.row !in 0 until rows) return Route(cells, directions, d, Wall(cell, d), false)
-            // un virage qui ramène le véhicule sur sa propre place : il se rentrerait dedans, il ne peut pas partir par là
-            if (next in this.cells) return Route(cells, directions, d, null, true)
-            cells += next
-            cell = next
-            if (next in oils) {
-                d = if (move == Move.FORWARD) d.clockwise else d.counterClockwise
+            if (!inGrid(next)) return end(Wall(cell, d), null, d, d)
+            floor.oneWays[next]?.let { if (it != d) return end(null, Stop(next, ObstacleKind.ONEWAY), d, d) }
+            // un trajet qui ramène le véhicule sur sa propre place : il se rentrerait dedans, il ne peut pas partir par là
+            if (next in own) return end(null, Stop(next, ObstacleKind.OIL), d, d)
+            enter(next, Entry.DRIVE)
+            // ce que fait la case où il vient d'arriver (un tapis peut le pousser sur une autre case qui agit à son tour)
+            effects@ while (true) {
                 // revenu au même endroit dans le même sens : il tournerait en rond pour toujours
-                if (!turns.add(cell to d)) {
-                    directions += d
-                    return Route(cells, directions, d, null, true)
+                if (!arrived.add(cell to d)) return end(null, Stop(cell, ObstacleKind.OIL), d, d)
+                val push = floor.belts[cell]
+                val other = floor.portals[cell]
+                when {
+                    cell in floor.oils -> {
+                        d = if (move == Move.FORWARD) d.clockwise else d.counterClockwise
+                        directions[directions.lastIndex] = d
+                        break@effects
+                    }
+                    push != null && push != d && push != d.opposite -> {
+                        val landing = Cell(cell.col + push.dc, cell.row + push.dr)
+                        if (!inGrid(landing)) return end(Wall(cell, push), null, push, d)
+                        floor.oneWays[landing]?.let { if (it != push) return end(null, Stop(landing, ObstacleKind.ONEWAY), d, d) }
+                        if (landing in own) return end(null, Stop(landing, ObstacleKind.OIL), d, d)
+                        enter(landing, Entry.PUSH)
+                    }
+                    other != null -> {
+                        if (other in own) return end(null, Stop(other, ObstacleKind.OIL), d, d)
+                        enter(other, Entry.JUMP)
+                        break@effects // il ressort tout droit : pas d'effet à la sortie du téléporteur
+                    }
+                    else -> break@effects
                 }
             }
-            directions += d
         }
     }
 
-    /** Cases devant le véhicule dans le sens du mouvement (sans tache d'huile : en ligne droite), de la plus proche au bord du plateau. */
+    /** Pour les niveaux qui n'ont que des taches d'huile. */
+    fun route(cols: Int, rows: Int, move: Move, oils: Collection<Cell>): Route = route(cols, rows, move, Floor(oils = oils.toSet()))
+
+    /** Cases devant le véhicule dans le sens du mouvement (sans rien sur le sol : en ligne droite), de la plus proche au bord du plateau. */
     fun path(cols: Int, rows: Int, move: Move = Move.FORWARD): List<Cell> = route(cols, rows, move).cells
 
     /** Les cases du véhicule de sa queue à son nez, dans le sens du mouvement. */
@@ -138,9 +208,44 @@ data class Car(
  */
 data class Wall(val cell: Cell, val side: Dir)
 
+/** Une flèche posée sur une case : un **sens unique** (on ne la franchit que dans ce sens) ou un **tapis roulant** (il pousse de côté vers ce sens). */
+data class Arrow(val cell: Cell, val dir: Dir)
+
+/** Deux cases de téléporteur : un véhicule qui entre par l'une ressort par l'autre. */
+data class Portal(val a: Cell, val b: Cell)
+
+/**
+ * Une barrière : fermée ou ouverte, **elle change à chaque véhicule qui sort du parking** (qu'il passe par elle ou non). Fermée, elle bloque la case comme un plot.
+ * [startsOpen] : ouverte au début (avant que le premier véhicule sorte) ?
+ */
+data class Gate(val cell: Cell, val startsOpen: Boolean) {
+    /** Ouverte quand [exits] véhicules sont déjà sortis ? */
+    fun isOpen(exits: Int): Boolean = startsOpen == (exits % 2 == 0)
+}
+
+/**
+ * Le sol du parking : tout ce qui change le trajet d'un véhicule ou le bloque selon l'endroit où il passe. Jamais de véhicule garé dessus.
+ * [oils] : taches d'huile ; [oneWays] : sens uniques ; [belts] : tapis roulants ; [portals] : pour chaque case de téléporteur, l'autre case ; [gates] : barrières.
+ */
+class Floor(
+    val oils: Set<Cell> = emptySet(),
+    val oneWays: Map<Cell, Dir> = emptyMap(),
+    val belts: Map<Cell, Dir> = emptyMap(),
+    val portals: Map<Cell, Cell> = emptyMap(),
+    val gates: List<Gate> = emptyList(),
+) {
+    /** Les cases du sol qui ne changent pas selon le nombre de sorties (tout sauf les barrières). */
+    val isPlain: Boolean get() = gates.isEmpty()
+
+    companion object {
+        val NONE = Floor()
+    }
+}
+
 /**
  * Un parking à vider. [index] commence à 1. [cones] : les plots de chantier (jamais déplacés, on ne passe pas dessus) ; [walls] : les sorties murées ;
- * [oils] : les taches d'huile (on roule dessus, mais le véhicule y fait un virage à 90°).
+ * [oils] : les taches d'huile (virage à 90°) ; [oneWays] : les sens uniques ; [belts] : les tapis roulants (ils poussent de côté) ;
+ * [portals] : les téléporteurs ; [gates] : les barrières (elles changent à chaque véhicule qui sort).
  */
 data class Level(
     val index: Int,
@@ -150,8 +255,21 @@ data class Level(
     val cones: List<Cell> = emptyList(),
     val walls: List<Wall> = emptyList(),
     val oils: List<Cell> = emptyList(),
+    val oneWays: List<Arrow> = emptyList(),
+    val belts: List<Arrow> = emptyList(),
+    val portals: List<Portal> = emptyList(),
+    val gates: List<Gate> = emptyList(),
 ) {
     val world: Int get() = Worlds.of(index)
+
+    /** Le sol de ce niveau. */
+    val floor: Floor = Floor(
+        oils = oils.toSet(),
+        oneWays = oneWays.associate { it.cell to it.dir },
+        belts = belts.associate { it.cell to it.dir },
+        portals = portals.flatMap { listOf(it.a to it.b, it.b to it.a) }.toMap(),
+        gates = gates,
+    )
 
     init {
         val seen = HashSet<Cell>()
@@ -159,14 +277,16 @@ data class Level(
             require(inGrid(cell)) { "le véhicule ${car.id} sort de la grille en $cell" }
             require(seen.add(cell)) { "deux choses sur la case $cell" }
         }
-        for (cone in cones) {
-            require(inGrid(cone)) { "un plot sort de la grille en $cone" }
-            require(seen.add(cone)) { "deux choses sur la case $cone" }
+        fun place(cell: Cell, what: String) {
+            require(inGrid(cell)) { "$what sort de la grille en $cell" }
+            require(seen.add(cell)) { "deux choses sur la case $cell" }
         }
-        for (oil in oils) {
-            require(inGrid(oil)) { "une tache d'huile sort de la grille en $oil" }
-            require(seen.add(oil)) { "deux choses sur la case $oil" }
-        }
+        cones.forEach { place(it, "un plot") }
+        oils.forEach { place(it, "une tache d'huile") }
+        oneWays.forEach { place(it.cell, "un sens unique") }
+        belts.forEach { place(it.cell, "un tapis roulant") }
+        portals.forEach { place(it.a, "un téléporteur"); place(it.b, "un téléporteur") }
+        gates.forEach { place(it.cell, "une barrière") }
         val edges = HashSet<Wall>()
         for (wall in walls) {
             require(inGrid(wall.cell) && isOutside(wall)) { "un mur doit être sur le bord du parking : $wall" }
@@ -191,13 +311,19 @@ data class Level(
  */
 object Worlds {
     const val LEVELS_PER_WORLD = 20
-    const val COUNT = 5
+    const val COUNT = 9
     const val LEVEL_COUNT = COUNT * LEVELS_PER_WORLD
 
-    /** Un monde par mécanique : 1 avant et arrière, 2 plots de chantier, 3 murs sur le bord, 4 pick-up qui laissent tomber une caisse, 5 taches d'huile. */
-    val names = listOf("Le petit parking", "Les travaux", "Le château fort", "Le port", "La station-service")
+    /**
+     * Un monde par mécanique : 1 avant et arrière, 2 plots de chantier, 3 murs sur le bord, 4 pick-up qui laissent tomber une caisse, 5 taches d'huile,
+     * 6 sens uniques, 7 tapis roulants, 8 téléporteurs, 9 barrières.
+     */
+    val names = listOf(
+        "Le petit parking", "Les travaux", "Le château fort", "Le port", "La station-service",
+        "Le parking à étages", "L'usine", "Le parc magique", "Le péage",
+    )
 
-    /** Monde (0 à 4) d'un niveau (1 à 100) ; au-delà, le dernier monde. */
+    /** Monde (0 à 8) d'un niveau (1 à 180) ; au-delà, le dernier monde. */
     fun of(levelIndex: Int): Int = ((levelIndex - 1) / LEVELS_PER_WORLD).coerceIn(0, COUNT - 1)
 
     /** Premier niveau du monde. */

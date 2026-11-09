@@ -214,18 +214,61 @@ class ParkingGameTest {
     }
 
     @Test
-    fun aRollingVehicleFreesTheCellsItsTailHasPassed() {
+    fun vehiclesOnlyCollideIfTheyReallyTouchOnScreen() {
+        // B (colonne 3) traverse la file de A en (3,1) : on compare quand chacun occupe cette case
         val offsets = mutableMapOf<Int, Float>()
         val game = crossingGame(offsets)
         game.tap(0)
-        offsets[0] = 2f
-        assertFalse(game.canMove(crossing.cars[1], Move.FORWARD)) // sa queue est en colonne 2 : (3,1) est encore devant elle
-        offsets[0] = 3.8f
-        assertFalse(game.canMove(crossing.cars[1], Move.FORWARD)) // sa queue est à 3,8 : elle recouvre encore la colonne 3
-        offsets[0] = 3.95f
-        assertTrue(game.canMove(crossing.cars[1], Move.FORWARD)) // sa queue a dépassé la colonne 3
+        for (traveled in listOf(0f, 0.4f)) {
+            offsets[0] = traveled
+            assertFalse("A a parcouru $traveled : elle est sur la route de B", game.canMove(crossing.cars[1], Move.FORWARD))
+        }
+        for (traveled in listOf(0.7f, 1.2f, 2f, 3.8f, 9f)) {
+            offsets[0] = traveled
+            assertTrue("A a parcouru $traveled : elle aura libéré la case avant que B n'y arrive", game.canMove(crossing.cars[1], Move.FORWARD))
+        }
         assertTrue(game.tap(1) is TapResult.Exited)
         assertEquals(0, game.bumps)
+    }
+
+    @Test
+    fun aVehicleThatCrossesInFrontOfARollingOneBeforeItArrivesPasses() {
+        // A est loin de la colonne 8 : B la traverse largement avant qu'elle n'arrive, ils ne se touchent jamais
+        val level = Level(1, 12, 4, listOf(car(0, 0, 1, 2, Dir.RIGHT), car(1, 8, 2, 2, Dir.UP)))
+        val game = ParkingGame(level)
+        assertTrue(game.tap(0) is TapResult.Exited)
+        assertNull(game.blockerOf(level.cars[1], Move.FORWARD))
+        assertTrue(game.tap(1) is TapResult.Exited)
+        assertEquals(0, game.bumps)
+    }
+
+    @Test
+    fun aNearMissIsNotAFault() {
+        // A et B arrivent presque ensemble sur la case commune : à une marge près, ils se frôlent sans se toucher
+        val offsets = mutableMapOf<Int, Float>()
+        val game = crossingGame(offsets)
+        game.tap(0)
+        offsets[0] = 0.7f
+        assertNull(game.blockerOf(crossing.cars[1], Move.FORWARD))
+        offsets[0] = 0.6f
+        assertTrue(game.blockerOf(crossing.cars[1], Move.FORWARD) is Blocker.Vehicle)
+    }
+
+    @Test
+    fun aVehicleThatBouncesOnlyBlocksWhereItIsNowOnceItComesBack() {
+        // A fonce sur un plot en (5,0) puis revient : tant qu'elle fonce elle balaie (3,0) et (4,0) ; quand elle revient, seulement l'endroit où elle est
+        val level = Level(1, 8, 3, listOf(car(0, 1, 0, 2, Dir.RIGHT), car(1, 3, 1, 2, Dir.UP)), cones = listOf(Cell(5, 0)))
+        val offsets = mutableMapOf<Int, Float>()
+        val game = ParkingGame(level).also { it.motionSource = MotionSource { id -> offsets[id] } }
+        assertTrue(game.tap(0) is TapResult.Bumped) // elle avance de 2 cases puis rebondit
+        offsets[0] = 1f
+        assertFalse(game.canMove(level.cars[1], Move.FORWARD)) // son nez est en (3,0) : B, qui monte en (3,0), la heurte
+        offsets[0] = 2.12f
+        assertFalse(game.canMove(level.cars[1], Move.FORWARD)) // elle touche le plot
+        offsets[0] = 1f
+        assertFalse(game.canMove(level.cars[1], Move.FORWARD)) // elle revient, son nez est encore en (3,0)
+        offsets[0] = 0.2f
+        assertTrue(game.canMove(level.cars[1], Move.FORWARD)) // elle est presque revenue : (3,0) est libre, plus de couloir fantôme
     }
 
     @Test

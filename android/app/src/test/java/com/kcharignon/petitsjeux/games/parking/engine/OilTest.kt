@@ -121,7 +121,7 @@ class OilTest {
         // tout droit, le véhicule 0 est arrêté par le 1 ; avec la tache il tourne avant lui et passe
         val cars = listOf(car(0, 0, 2, 2, Dir.RIGHT), car(1, 4, 1, 3, Dir.DOWN))
         assertFalse(Solver.freeMoves(6, 5, emptyList(), cars, cars[0]).contains(Move.FORWARD))
-        assertTrue(Solver.freeMoves(6, 5, emptyList(), cars, cars[0], oils = listOf(Cell(3, 2))).contains(Move.FORWARD))
+        assertTrue(Solver.freeMoves(6, 5, emptyList(), cars, cars[0], floor = Floor(oils = setOf(Cell(3, 2)))).contains(Move.FORWARD))
         assertTrue(Solver.canFinish(Level(1, 6, 5, cars, oils = listOf(Cell(3, 2)))))
     }
 

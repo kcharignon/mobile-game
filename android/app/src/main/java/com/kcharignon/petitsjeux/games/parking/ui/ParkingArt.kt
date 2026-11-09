@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
@@ -19,6 +20,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import com.kcharignon.petitsjeux.core.ui.Pj
 import com.kcharignon.petitsjeux.games.parking.engine.Car
+import com.kcharignon.petitsjeux.games.parking.engine.Dir
 import com.kcharignon.petitsjeux.games.parking.engine.Wall
 
 /**
@@ -139,10 +141,15 @@ class BoardTheme(val top: Color, val side: Color, val tileA: Color, val tileB: C
             BoardTheme(Color(0xFF8A7FA8), Color(0xFF665D86), Color(0xFF9C92BB), Color(0xFF9389B1)), // violet
             BoardTheme(Color(0xFF50586B), Color(0xFF353B4B), Color(0xFF626B80), Color(0xFF596277)), // sombre
             BoardTheme(Color(0xFFA39A86), Color(0xFF7B735F), Color(0xFFB4AC99), Color(0xFFAAA28E)), // sable de chantier
+            BoardTheme(Color(0xFF6E8F95), Color(0xFF4E6B71), Color(0xFF80A2A9), Color(0xFF779AA1)), // bleu canard : le parking à étages
+            BoardTheme(Color(0xFFA08478), Color(0xFF7A5F55), Color(0xFFB29587), Color(0xFFA88B7E)), // brique : l'usine
+            BoardTheme(Color(0xFF4A4377), Color(0xFF322D58), Color(0xFF5A538A), Color(0xFF524B82)), // nuit : le parc magique
+            BoardTheme(Color(0xFF9CA3A8), Color(0xFF747B80), Color(0xFFAEB5B9), Color(0xFFA5ACB0)), // béton clair : le péage
         )
 
-        // un décor par monde : asphalte, sable de chantier (les travaux), vert (le château fort), sombre (le port)
-        private val order = intArrayOf(0, 5, 2, 4)
+        // un décor par monde : asphalte, sable de chantier (les travaux), vert (le château fort), sombre (le port), violet (la station-service),
+        // bleu canard (les étages), brique (l'usine), nuit (le parc magique), béton clair (le péage)
+        private val order = intArrayOf(0, 5, 2, 4, 3, 6, 7, 8, 9)
 
         fun of(world: Int) = worlds[order[world.coerceIn(0, order.lastIndex)]]
     }
@@ -275,4 +282,120 @@ fun DrawScope.drawOil(cx: Float, cy: Float, s: Float) {
     drawOval(Color(0xFFC08CFF).copy(alpha = 0.34f), Offset(cx - 0.05f * s, cy - 0.02f * s), Size(0.28f * s, 0.12f * s))
     drawOval(Color(0xFFFF9ED8).copy(alpha = 0.30f), Offset(cx - 0.20f * s, cy + 0.08f * s), Size(0.22f * s, 0.09f * s))
     drawOval(Color.White.copy(alpha = 0.55f), Offset(cx - 0.22f * s, cy - 0.31f * s), Size(0.18f * s, 0.07f * s))
+}
+
+/**
+ * Un **sens unique** au sol, centré en ([cx], [cy]) : un panneau bleu carré à flèche blanche, tourné vers [dir]. On ne le franchit que dans ce sens.
+ */
+fun DrawScope.drawOneWay(cx: Float, cy: Float, s: Float, dir: Dir) {
+    val half = 0.40f * s
+    drawRoundRect(Color.Black.copy(alpha = 0.22f), Offset(cx - half, cy - half + 0.05f * s), Size(2 * half, 2 * half), CornerRadius(0.14f * s))
+    drawRoundRect(Color(0xFF2F6FE4), Offset(cx - half, cy - half), Size(2 * half, 2 * half), CornerRadius(0.14f * s))
+    drawRoundRect(Color.White.copy(alpha = 0.9f), Offset(cx - half + 0.04f * s, cy - half + 0.04f * s), Size(2 * half - 0.08f * s, 2 * half - 0.08f * s), CornerRadius(0.11f * s), style = Stroke(0.025f * s))
+    rotate(dir.degrees, Offset(cx, cy)) {
+        val arrow = Path().apply {
+            moveTo(cx, cy - 0.28f * s)
+            lineTo(cx + 0.21f * s, cy - 0.02f * s)
+            lineTo(cx + 0.09f * s, cy - 0.02f * s)
+            lineTo(cx + 0.09f * s, cy + 0.26f * s)
+            lineTo(cx - 0.09f * s, cy + 0.26f * s)
+            lineTo(cx - 0.09f * s, cy - 0.02f * s)
+            lineTo(cx - 0.21f * s, cy - 0.02f * s)
+            close()
+        }
+        drawPath(arrow, Color.White)
+    }
+}
+
+/**
+ * Un **tapis roulant** au sol, centré en ([cx], [cy]) : un tapis sombre bordé de jaune, à chevrons qui filent vers [dir]. Un véhicule qui le traverse en travers
+ * est poussé d'une case dans ce sens. [phase] (0 à 1) fait avancer les chevrons.
+ */
+fun DrawScope.drawBelt(cx: Float, cy: Float, s: Float, dir: Dir, phase: Float = 0f) {
+    val half = 0.45f * s
+    rotate(dir.degrees, Offset(cx, cy)) {
+        drawRoundRect(Color.Black.copy(alpha = 0.22f), Offset(cx - half, cy - half + 0.05f * s), Size(2 * half, 2 * half), CornerRadius(0.12f * s))
+        drawRoundRect(Color(0xFF3A3F4E), Offset(cx - half, cy - half), Size(2 * half, 2 * half), CornerRadius(0.12f * s))
+        // bordures jaunes le long du tapis
+        drawRect(Color(0xFFFFC21A), Offset(cx - half + 0.03f * s, cy - half + 0.1f * s), Size(0.07f * s, 2 * half - 0.2f * s))
+        drawRect(Color(0xFFFFC21A), Offset(cx + half - 0.10f * s, cy - half + 0.1f * s), Size(0.07f * s, 2 * half - 0.2f * s))
+        // des chevrons qui montent (vers le haut de ce dessin tourné)
+        for (k in 0..2) {
+            val travel = (phase + k / 3f) % 1f
+            val y = cy + half - 0.15f * s - travel * (2 * half - 0.2f * s)
+            val a = (1f - kotlin.math.abs(travel - 0.5f) * 1.6f).coerceIn(0.15f, 1f)
+            val chevron = Path().apply {
+                moveTo(cx - 0.22f * s, y + 0.10f * s)
+                lineTo(cx, y - 0.10f * s)
+                lineTo(cx + 0.22f * s, y + 0.10f * s)
+            }
+            drawPath(chevron, Color.White.copy(alpha = 0.85f * a), style = Stroke(0.07f * s, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
+    }
+}
+
+/** Les couleurs des paires de téléporteurs : chaque paire a la sienne, pour voir quelle case mène à quelle autre. */
+val PortalColors = listOf(Color(0xFF7B4DFF), Color(0xFF12B5CB), Color(0xFFFF5FA2), Color(0xFF8BC34A))
+
+/** Un **téléporteur** au sol, centré en ([cx], [cy]) : un anneau lumineux de la couleur de sa paire, avec un tourbillon. [phase] (0 à 1) fait tourner le tourbillon. */
+fun DrawScope.drawPortal(cx: Float, cy: Float, s: Float, color: Color, phase: Float = 0f) {
+    val r = 0.42f * s
+    drawCircle(color.copy(alpha = 0.22f), r * 1.12f, Offset(cx, cy))
+    drawCircle(Color(0xFF14102B), r * 0.92f, Offset(cx, cy))
+    drawCircle(color, r * 0.92f, Offset(cx, cy), style = Stroke(0.075f * s))
+    rotate(phase * 360f, Offset(cx, cy)) {
+        for (k in 0..2) {
+            rotate(k * 120f, Offset(cx, cy)) {
+                val swirl = Path().apply {
+                    moveTo(cx, cy - 0.04f * s)
+                    quadraticTo(cx + 0.30f * s, cy - 0.10f * s, cx + 0.12f * s, cy - 0.32f * s)
+                }
+                drawPath(swirl, color.copy(alpha = 0.9f), style = Stroke(0.055f * s, cap = StrokeCap.Round))
+            }
+        }
+    }
+    drawCircle(Color.White.copy(alpha = 0.85f), 0.03f * s, Offset(cx, cy))
+}
+
+/**
+ * Une **barrière** au sol, centrée en ([cx], [cy]) : fermée, un bloc rayé rouge et blanc avec un feu rouge ; ouverte, un contour vert discret avec un feu vert.
+ * Elle change à chaque véhicule qui sort du parking.
+ */
+fun DrawScope.drawGate(cx: Float, cy: Float, s: Float, open: Boolean) {
+    val half = 0.42f * s
+    if (open) {
+        drawRoundRect(Color(0xFF3FBF6B).copy(alpha = 0.22f), Offset(cx - half, cy - half), Size(2 * half, 2 * half), CornerRadius(0.14f * s))
+        drawRoundRect(Color(0xFF3FBF6B), Offset(cx - half, cy - half), Size(2 * half, 2 * half), CornerRadius(0.14f * s), style = Stroke(0.045f * s))
+        // les deux poteaux de chaque côté : la barrière est relevée
+        for (sx in listOf(-1f, 1f)) drawRoundRect(Color(0xFFE8E8E8), Offset(cx + sx * half * 0.78f - 0.04f * s, cy - 0.30f * s), Size(0.08f * s, 0.60f * s), CornerRadius(0.03f * s))
+        drawCircle(Color(0xFF3FD07A), 0.09f * s, Offset(cx, cy))
+        drawCircle(Color.White.copy(alpha = 0.7f), 0.03f * s, Offset(cx - 0.025f * s, cy - 0.03f * s))
+    } else {
+        drawRoundRect(Color.Black.copy(alpha = 0.25f), Offset(cx - half, cy - half + 0.05f * s), Size(2 * half, 2 * half), CornerRadius(0.14f * s))
+        val body = Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(cx - half, cy - half, cx + half, cy + half, CornerRadius(0.14f * s))) }
+        drawPath(body, Color.White)
+        clipPath(body) {
+            val stripe = 0.20f * s
+            var x = cx - half - 2 * half
+            var odd = false
+            while (x < cx + half + 2 * half) {
+                if (odd) {
+                    val p = Path().apply {
+                        moveTo(x, cy + half)
+                        lineTo(x + stripe, cy + half)
+                        lineTo(x + stripe + 2 * half, cy - half)
+                        lineTo(x + 2 * half, cy - half)
+                        close()
+                    }
+                    drawPath(p, Color(0xFFE23B3B))
+                }
+                odd = !odd
+                x += stripe
+            }
+        }
+        drawRoundRect(Color(0xFF8A1F1F), Offset(cx - half, cy - half), Size(2 * half, 2 * half), CornerRadius(0.14f * s), style = Stroke(0.04f * s))
+        drawCircle(Color(0xFF8A1F1F), 0.13f * s, Offset(cx, cy))
+        drawCircle(Color(0xFFFF4040), 0.10f * s, Offset(cx, cy))
+        drawCircle(Color.White.copy(alpha = 0.7f), 0.035f * s, Offset(cx - 0.03f * s, cy - 0.035f * s))
+    }
 }

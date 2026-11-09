@@ -37,8 +37,8 @@ Sur le téléphone : ouvrir le fichier téléchargé, autoriser l'installation d
 - Des **voitures** (3 modèles), des **camions** (pick-up, camion de livraison, fourgon) et, plus loin, des **bus** et des **camions-citernes** : 8 véhicules dessinés par le code ([aperçu](docs/design/vehicules.png)).
 - On gagne quand **toutes** les voitures sont sorties. Pas de chronomètre, jamais de « perdu ».
 - **Étoiles** : 0 faute = 3 ★, 1 ou 2 fautes = 2 ★, plus = 1 ★. Un bouton **Indice** gratuit entoure une voiture qui peut sortir.
-- **100 niveaux**, générés de façon déterministe et **toujours solubles**. **Tous les 20 niveaux, le parking s'agrandit ET une nouvelle mécanique arrive** (elles se cumulent) : marche avant et arrière (1-20), **plots de chantier** (21-40), **murs sur le bord** qui ferment des sorties (41-60), **pick-up qui laissent tomber une caisse** derrière eux, toujours sur la même case (61-80), **taches d'huile** où l'on tourne à droite en avançant et à gauche en reculant (81-100). Les premiers niveaux de chaque mécanique sont plus simples.
-- **Un véhicule qui roule est un obstacle** : si tu en envoies un autre en travers de son passage, ils se percutent. Deux véhicules l'un derrière l'autre sur la même file peuvent partir à la suite.
+- **180 niveaux**, générés de façon déterministe et **toujours solubles**. **Tous les 20 niveaux, le parking s'agrandit ET une nouvelle mécanique arrive** (elles se cumulent) : marche avant et arrière (1-20), **plots de chantier** (21-40), **murs sur le bord** qui ferment des sorties (41-60), **pick-up qui laissent tomber une caisse** derrière eux, toujours sur la même case (61-80), **taches d'huile** où l'on tourne à droite en avançant et à gauche en reculant (81-100), **sens uniques** (101-120), **tapis roulants** qui poussent d'une case de côté (121-140), **téléporteurs** (141-160) et **barrières** qui s'ouvrent et se ferment à chaque véhicule qui sort (161-180). Les premiers niveaux de chaque mécanique sont plus simples.
+- **Les véhicules qui roulent se percutent s'ils se touchent vraiment à l'écran** (avec un peu de marge : s'ils se frôlent, ça passe). Deux véhicules l'un derrière l'autre sur la même file peuvent partir à la suite.
 - **L'évolution du joueur** : ses étoiles font monter son **rang** (Petite voiture, …, Légende du parking), affiché partout où il apparaît.
 
 Règles complètes, sauvegarde et architecture : [`docs/DESIGN.md`](docs/DESIGN.md) ; maquettes : [`docs/design/`](docs/design/).
@@ -55,7 +55,7 @@ Aucun JDK ni SDK Android à installer : seulement Docker.
 
 ```bash
 make android               # APK de débogage : dist/petitsjeux-debug.apk (le premier lancement télécharge le SDK et Gradle : plusieurs minutes)
-make android-test          # tests Kotlin : règles, solveur, solubilité des 100 niveaux, sauvegardes, mise à jour
+make android-test          # tests Kotlin : règles, solveur, solubilité des 180 niveaux, sauvegardes, mise à jour
 make android-screenshots   # rend les écrans en PNG (Robolectric, sans téléphone) dans docs/screenshots/ et joue de vrais parcours
 make android-release-selftest  # prouve la chaîne de publication signée avec une clé jetable
 make design                # régénère les maquettes SVG (PNG : node tools/design/render.js, demande Playwright)
