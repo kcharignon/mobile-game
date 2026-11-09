@@ -86,7 +86,8 @@ object Ranks {
         Rank("Légende du parking", 230),
         Rank("Maître du bitume", 300), // toutes les étoiles des 100 premiers niveaux
         Rank("Roi de la route", 400),
-        Rank("Légende absolue", 540), // toutes les étoiles de tous les niveaux (180 niveaux x 3 étoiles)
+        Rank("Légende absolue", 540), // toutes les étoiles de Parking Malin (180 niveaux x 3 étoiles)
+        Rank("Super champion", 696), // toutes les étoiles de tous les jeux : 540 (Parking Malin) + 12 (Champis Magiques) + 144 (Poussin Traverse)
     )
 
     fun of(stars: Int): Rank = all.last { stars >= it.minStars }

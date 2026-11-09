@@ -3,7 +3,7 @@
 [![Android](https://github.com/kcharignon/mobile-game/actions/workflows/android.yml/badge.svg)](https://github.com/kcharignon/mobile-game/actions/workflows/android.yml)
 
 Appli Android **sans pub et sans suivi**, pour les enfants. Au lancement on choisit **qui joue** (5 sauvegardes locales distinctes),
-puis **le jeu**. Deux jeux : **Parking Malin** — des voitures garées, à faire sortir une par une dans le bon ordre ; **Champis Magiques** — des champignons s'allument dans la forêt, il faut les toucher le plus vite possible.
+puis **le jeu**. Trois jeux : **Parking Malin** — des voitures garées, à faire sortir une par une dans le bon ordre ; **Champis Magiques** — des champignons s'allument dans la forêt, il faut les toucher le plus vite possible ; **Poussin Traverse** — un poussin traverse des routes de plus en plus larges, en paysage.
 D'autres jeux viendront : le menu et la sauvegarde sont faits pour ça.
 
 | Qui joue ? | Les jeux du joueur | Choix du niveau | Un niveau |
@@ -17,6 +17,10 @@ D'autres jeux viendront : le menu et la sauvegarde sont faits pour ça.
 | Plots de chantier (61+) | Murs sur le bord (121+) | Caisse tombée (181+) | Collision avec un véhicule qui roule |
 |---|---|---|---|
 | ![Plots](docs/screenshots/17-jeu-plots.png) | ![Murs](docs/screenshots/18-jeu-murs.png) | ![Caisse](docs/screenshots/19-jeu-caisse.png) | ![Collision](docs/screenshots/22-jeu-collision.png) |
+
+| Poussin Traverse : la petite rue | Une grande route, de nuit | Le poussin écrasé (il perd des points) | Fin de niveau |
+|---|---|---|---|
+| ![Petite rue](docs/screenshots/54-route-jeu.png) | ![Grande route](docs/screenshots/55-route-grande-route.png) | ![Écrasé](docs/screenshots/57-route-ecrase.png) | ![Fin](docs/screenshots/58-route-fin.png) |
 
 ## Installer
 
@@ -35,6 +39,14 @@ Sur le téléphone : ouvrir le fichier téléchargé, autoriser l'installation d
 - Une forêt de **champignons blancs de tailles différentes** : certains **s'allument**, il faut les **toucher le plus vite possible** — plus on est rapide, plus on marque de points.
 - **On ne perd jamais** : une partie dure un nombre fixe de champignons et finit toujours avec au moins une étoile.
 - **4 difficultés** à choisir : « Petit champi » (ils restent allumés), « Champi rapide » (plus nombreux), « Champi filant » (ils s'éteignent si on est trop lent) et « Champi malin » (avec une **couleur interdite**, le violet). On débloque la suivante avec **2 étoiles** sur la précédente.
+
+## Poussin Traverse
+
+- **Toujours en paysage** : l'appli se met toute seule en travers pour ce jeu, et retrouve son portrait en sortant.
+- Un poussin doit **traverser la route** : **toucher n'importe où** le fait sauter d'une ligne vers l'avant ; une petite croix le fait aller de côté ou reculer. Il faut regarder les véhicules et choisir son moment.
+- Une **route à double sens** au début, puis **de plus en plus de voies** (de 2 à 10), des **voitures, scooters, camionnettes, tracteurs, camions, bus, taxis, ambulances, voitures de sport**, et même un **train** sur les voies ferrées des derniers mondes.
+- **Écrasé = des points en moins, jamais la partie perdue** : le poussin revient au dernier refuge (terre-plein) et continue. Des graines à ramasser donnent des points en plus.
+- **48 niveaux** en 8 mondes, **toujours faisables** : un robot vérifie que chaque niveau se traverse sans être touché, et pose les graines le long d'un chemin sans danger. 1 à 3 étoiles selon le score.
 
 ## Parking Malin
 
@@ -61,7 +73,7 @@ Aucun JDK ni SDK Android à installer : seulement Docker.
 
 ```bash
 make android               # APK de débogage : dist/petitsjeux-debug.apk (le premier lancement télécharge le SDK et Gradle : plusieurs minutes)
-make android-test          # tests Kotlin : règles, solveur, solubilité des 180 niveaux, sauvegardes, mise à jour
+make android-test          # tests Kotlin : règles, solveurs, solubilité des 180 niveaux de parking et des 48 traversées, sauvegardes, mise à jour
 make android-screenshots   # rend les écrans en PNG (Robolectric, sans téléphone) dans docs/screenshots/ et joue de vrais parcours
 make android-release-selftest  # prouve la chaîne de publication signée avec une clé jetable
 make design                # régénère les maquettes SVG (PNG : node tools/design/render.js, demande Playwright)
@@ -81,6 +93,7 @@ android/app/src/main/java/com/kcharignon/petitsjeux/
   core/          MiniGame (contrat d'un jeu), registre des jeux, navigation, sons et vibrations
   games/parking  Parking Malin : engine/ (règles pures), ui/ (plateau, voitures, animations), progression
   games/mushrooms  Champis Magiques : engine/ (difficultés, score, partie, forêt), ui/ (forêt, champignons, écrans), progression
+  games/road       Poussin Traverse : engine/ (véhicules, traversée, robot de preuve, 48 niveaux), ui/ (route, véhicules, poussin, écrans en paysage), progression
 android/app/src/test/    tests Kotlin ; screenshots/ = interface rendue par Robolectric (sans téléphone)
 docs/                    DESIGN.md, maquettes (design/), captures du README (screenshots/)
 tools/design/            générateurs (Node, sans dépendance) : maquettes, icône, et les véhicules (vehicles.js -> VehicleArt.kt généré + aperçu)

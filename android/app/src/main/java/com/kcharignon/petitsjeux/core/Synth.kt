@@ -251,6 +251,25 @@ object Synth {
         return pcm(out, 0.5)
     }
 
+    /** Un saut du poussin : un « pip » rond et très court qui monte vite. */
+    fun hop(): ShortArray {
+        val out = samples(0.08)
+        var phase = 0.0
+        for (i in out.indices) {
+            val t = i / RATE.toDouble()
+            phase += (480.0 + 900.0 * (t / 0.08)) / RATE
+            out[i] = sin(TWO_PI * phase) * exp(-t / 0.03) * minOf(1.0, t / 0.004)
+        }
+        return pcm(out, 0.35)
+    }
+
+    /** La cloche du passage à niveau : « ding-dong-ding-dong », deux cloches aiguës qui alternent (sol6 et mi6, de la gamme de do comme tout le reste). */
+    fun crossingBell(): ShortArray {
+        val out = samples(1.5)
+        for (k in 0 until 6) out.mix(bell(if (k % 2 == 0) G6 else E6, 0.22, 0.7, 1.3), k * 0.22)
+        return pcm(reverb(out, 0.15), 0.5)
+    }
+
     /** Pop : un petit « bip » rond qui monte, pour les boutons. */
     fun pop(): ShortArray {
         val out = samples(0.09)

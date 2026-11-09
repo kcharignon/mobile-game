@@ -187,6 +187,8 @@ class MushroomsScreenshotsTest {
         override fun finalPick() { finals++ }
         override fun puff() { puffs++ }
         override fun bonk() { bonks++ }
+        override fun hop() = Unit
+        override fun bell() = Unit
     }
 
     @Test

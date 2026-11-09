@@ -1,7 +1,7 @@
 # Petits Jeux — document de design
 
 Appli Android **sans pub et sans suivi**, pour les enfants : un menu principal où l'on choisit **qui joue** (5 sauvegardes
-locales distinctes), puis **le jeu**. Premier jeu : **Parking Malin** (des voitures garées, à faire sortir une par une dans le bon ordre).
+locales distinctes), puis **le jeu**. Trois jeux : **Parking Malin** (des voitures garées, à faire sortir une par une dans le bon ordre), **Champis Magiques** (des champignons s'allument, à toucher vite) et **Poussin Traverse** (traverser des routes de plus en plus larges, en paysage).
 D'autres jeux viendront : le menu et la sauvegarde sont faits pour ça.
 
 Maquettes : [`docs/design/`](design/) (SVG générés par `tools/design/`, PNG rendus à côté). Elles sont la référence visuelle ;
@@ -21,7 +21,7 @@ le Kotlin reprend les mêmes proportions.
 
 - **Pensé pour un enfant** : gros boutons, peu de texte, jamais de « perdu » : une faute coûte une étoile, pas la partie. Un bouton **Indice** gratuit.
 - **Zéro pub, zéro suivi.** Permissions : la vibration (retour tactile, désactivable), et Internet + installation **uniquement pour la mise à jour** de l'appli (voir plus bas).
-- **Portrait uniquement**, Android 8+ (API 26), une main.
+- **Portrait** partout, une main, Android 8+ (API 26) ; **sauf Poussin Traverse, qui force le paysage** (voir plus bas).
 - **Rapide** : tout est dessiné par le code (Canvas), pas d'image, pas de son à charger. Les sons sont synthétisés.
 - **Extensible** : un jeu = un module qui reçoit le joueur courant et sait lire/écrire **sa part** de la sauvegarde.
 
@@ -175,6 +175,51 @@ On **choisit sa difficulté** au début ; on **débloque la suivante en faisant 
 Le moteur (`games/mushrooms/engine`) est du Kotlin pur piloté par une horloge simulée : `MushroomRound` allume et éteint les champignons, `Scoring` donne les points, `ForestLayout` place des champignons de tailles variées sans qu'ils se touchent (graine fixe = même forêt), `Difficulty` décrit les quatre difficultés. Un test joue des parties complètes avec des « enfants » qui touchent après 0,3 s, 1 s ou 2,6 s et vérifie le score, les étoiles et qu'on ne perd jamais.
 L'interface (`games/mushrooms/ui`) dessine tout au pinceau : `ForestArt` (forêt, champignons, étincelles), le menu des difficultés, l'écran de partie. L'horloge de la partie n'avance que pendant qu'on joue et jamais de plus de 100 ms par image : si l'appli est mise de côté, rien n'expire d'un coup.
 
+## Poussin Traverse : règles
+
+Un jeu d'attention et d'adresse, **où l'on ne perd jamais** : un poussin traverse des routes de plus en plus larges. Se faire écraser fait perdre des points, jamais la partie. L'analyse complète (alternatives écartées, risques) est dans l'[issue #14](https://github.com/kcharignon/mobile-game/issues/14).
+
+- **Toujours en paysage.** Dès qu'on ouvre le jeu (menu des niveaux compris) l'appli se met en paysage, dans les deux sens, même si la rotation automatique est coupée ; en sortant elle retrouve son portrait. Le manifeste déclare `configChanges="orientation|screenSize|…"` : tourner le téléphone ne recrée pas l'activité, donc une traversée en cours n'est pas perdue. (`core/Orientation.kt`, `LockLandscape`.)
+- **La scène** : la route est horizontale (14 cases de large), le poussin part du trottoir du bas et saute **vers le haut** ; la caméra le suit. Les véhicules se voient arriver de loin. Les voies du bas vont vers la droite, celles du haut vers la gauche : une **route à double sens**. Des terre-pleins (herbe, buissons) servent de refuges.
+- **Les contrôles** : **toucher n'importe où** fait sauter le poussin d'une ligne vers l'avant, dès que le doigt se pose. Une petite croix en bas à gauche (◀ ▼ ▶) fait aller de côté ou reculer. Un toucher pendant un saut est gardé et joué à l'atterrissage.
+- **Le score** : +10 la première fois qu'on atteint une ligne, +10 par graine ramassée, +50 à l'arrivée, **−15 quand on est écrasé** (le score ne descend jamais sous 0). Pas de chronomètre.
+- **Écrasé** : le poussin est aplati en dessin animé (yeux en croix, étoiles, plumes), le véhicule klaxonne, puis il revient **au dernier refuge où il s'est posé** (ou au départ), clignote 1,2 s sans pouvoir être retouché, et la partie continue.
+- **Collisions indulgentes** (comme dans Parking Malin) : le poussin se dessine sur 0,32 case de rayon mais n'est touché que sur 0,22, et chaque véhicule est raccourci de 0,08 case à chaque bout : s'ils se frôlent, ça passe. Pendant un saut le poussin compte dans sa ligne de départ pour la première moitié, puis dans la suivante.
+- **Les étoiles** : 1 dès l'arrivée (on ne perd jamais), 2 à 50 % du score maximum, 3 à 80 %. Le maximum d'un niveau = toutes les lignes + toutes les graines + l'arrivée. Elles comptent pour le rang, comme celles des autres jeux (jusqu'à 144 : 48 niveaux × 3).
+- **Les graines** (dorées, trois grains) donnent une raison de se décaler et de prendre un petit risque. Elles sont posées par le robot (voir plus bas) **le long d'un chemin sans aucune touche** : on peut toujours toutes les ramasser, donc les 3 étoiles sont toujours possibles. Chaque graine ramassée joue la note suivante de la petite mélodie de Champis Magiques.
+- Le niveau suivant se débloque quand le précédent est réussi.
+
+### Les 48 niveaux
+
+8 mondes de 6 niveaux, **déterministes** (le niveau n est le même sur tous les téléphones). Voies : `2 + monde + (indice dans le monde) / 3`, donc de **2 voies** (une dans chaque sens) au niveau 1 jusqu'à **10 voies** au niveau 48. Un terre-plein au milieu dès 4 voies, et **jamais plus de 3 voies d'affilée** sans refuge. Chaque monde apporte de nouveaux véhicules (les anciens restent) ; dans une même voie ils vont tous à la même vitesse (voies lentes, normales, lourdes ou rapides).
+
+| Monde | Niveaux | Nom | Voies | Nouveautés | Ambiance |
+|---|---|---|---|---|---|
+| 1 | 1-6 | La petite rue | 2-3 | voitures, scooters | jour |
+| 2 | 7-12 | Le quartier | 3-4 | camionnettes, tracteurs (très lents) | jour |
+| 3 | 13-18 | La nationale | 4-5 | camions, bus (très longs) | campagne |
+| 4 | 19-24 | La grande ville | 5-6 | taxis, ambulances (rapides, gyrophare) | ville |
+| 5 | 25-30 | L'autoroute | 6-7 | voitures de sport (très rapides) | soir, phares allumés |
+| 6 | 31-36 | Le passage à niveau | 7-8 | **voie ferrée** : feux, cloche, puis un train de 14 cases | nuit |
+| 7 | 37-42 | L'heure de pointe | 8-9 | tous les véhicules, un train | soir |
+| 8 | 43-48 | La mégapole | 9-10 | **deux voies ferrées**, tous les véhicules | nuit |
+
+- **Difficulté** : de niveau 1 à 48, la vitesse de base monte de 1,6 à 2,9 cases/s (× le facteur de la voie : 0,7 lente, 1 normale, 0,85 lourde, 1,45 rapide) et la **fenêtre de passage** entre deux véhicules descend de 3 s à 1,1 s.
+- **La voie ferrée** : toutes les 10 s (8 s au monde 8), les feux rouges clignotent et la cloche sonne environ 2,5 s, puis le train traverse toute la route à 12 cases/s (en 2,3 s).
+
+### Garantie « toujours faisable » : le robot
+
+Chaque niveau n'est accepté que si le `Planner` trouve une traversée **sans aucune touche, avec de la marge** (50 essais au plus, sinon le test échoue). C'est une recherche en espace-temps : un état = (ligne, colonne, tick), un tick = 0,1 s, horizon 60 s ; actions : attendre ou sauter (2 ticks). Un état est sûr si aucun véhicule n'est dans une zone **élargie** autour du poussin : la marge de réaction (0,3 case) plus ce que le véhicule parcourt en un tick. Pendant un saut il faut être sûr dans la ligne de départ **et** celle d'arrivée (plus prudent que le vrai moteur). On peut aussi se décaler pour « surfer » sur un trou du trafic. Le robot pose ensuite les graines de graine en graine, dans l'ordre des lignes, en gardant toujours un chemin pour finir. Le test **rejoue le chemin du robot dans le vrai moteur** (horloge injectée) : 0 touche, toutes les graines, l'arrivée, le score maximum, pour les 48 niveaux ; un autre le joue **en touchant l'écran** (Robolectric).
+
+### Dessin et sons
+
+Tout est dessiné par le code (`games/road/ui/RoadArt.kt`). Vue du dessus : bitume avec pointillés entre voies de même sens et double ligne jaune entre sens opposés, trottoirs dallés avec fleurs et passage piéton au départ, damier à l'arrivée, terre-pleins herbeux avec buissons, voie ferrée en gravier avec traverses et feux. 5 ambiances (jour, campagne, ville, soir, nuit : en soirée et la nuit les véhicules allument leurs phares). 9 véhicules (voiture, taxi, voiture de sport, scooter avec son conducteur, camionnette, tracteur, ambulance à gyrophare, camion à remorque, bus) et le train.
+Le poussin est jaune, vu du dessus, bec en avant ; il bat des ailes et grossit au sommet du saut, son ombre rétrécit. Sons (synthétisés, pas de musique de fond) : un petit « pip » à chaque saut, la mélodie pour les graines, le vrai klaxon du véhicule qui écrase (voiture, camion ou bus selon sa longueur), une cloche à deux tons quand les feux de la voie ferrée se mettent à clignoter, et les sons habituels de fin de niveau (étoiles, fanfare). **Jamais écoutés sur un téléphone.**
+
+### Comment c'est fait
+
+Le moteur (`games/road/engine`) est du Kotlin pur piloté par une horloge en millisecondes : tout ce qui roule (`Stream`, `TrainLine`) est une **fonction pure du temps** (flux périodique de véhicules : aucune simulation, aucun hasard pendant la partie), `Crossing` est la traversée (sauts, points, écrasements, retour au refuge), `Planner` est le robot, `RoadLevels` génère les 48 niveaux. Le moteur avance par pas de 20 ms au plus pour qu'aucun véhicule ne « traverse » le poussin sans le toucher. La sauvegarde (`games.road`) garde le meilleur score et les étoiles de chaque niveau, le nombre d'écrasements et de traversées.
+
 ## Progression du joueur (« l'évolution »)
 
 - **Étoiles** cumulées (somme des meilleures notes) → **rang**, affiché partout où le joueur apparaît :
@@ -190,7 +235,8 @@ L'interface (`games/mushrooms/ui`) dessine tout au pinceau : `ForestArt` (forêt
 | 230 | Légende du parking |
 | 300 | Maître du bitume |
 | 400 | Roi de la route |
-| 540 | Légende absolue (toutes les étoiles : 180 niveaux × 3) |
+| 540 | Légende absolue (toutes les étoiles de Parking Malin : 180 niveaux × 3) |
+| 696 | Super champion (toutes les étoiles de tous les jeux : 540 + 12 + 144) |
 
 - Statistiques gardées : voitures sorties, fautes, niveaux réussis, plus haut niveau atteint.
 - Le choix du **joueur** : un prénom (12 caractères) et un **animal** parmi 8 (chat, chien, ours, panda, lapin, grenouille, renard, lion), dessinés par le code.
@@ -249,6 +295,8 @@ games/parking/engine   règles pures (aucune dépendance Android) : grille, voit
 games/parking/ui       plateau, voitures, animations, écrans de niveaux et de jeu
 games/mushrooms/engine règles pures de Champis Magiques : difficultés, score, partie, forêt
 games/mushrooms/ui     forêt, champignons, menu des difficultés, écran de partie
+games/road/engine      règles pures de Poussin Traverse : véhicules (fonctions du temps), traversée, robot, 48 niveaux
+games/road/ui          dessin de la route, des véhicules et du poussin, menu des niveaux, écran de traversée (paysage)
 ```
 
 Le moteur de Parking Malin est du Kotlin pur, testé sur la JVM : règles de sortie et de faute, solveur, **les 180 niveaux solubles et stables**.
@@ -257,4 +305,4 @@ L'écriture de la sauvegarde est testée sur un dossier temporaire. L'interface 
 ## Hors périmètre (pour l'instant)
 
 Publicités, achats, compte en ligne, classement, publication sur le Play Store (l'appli se distribue en APK signé sur GitHub : voir
-[`android/PUBLICATION.md`](../android/PUBLICATION.md)), tablette en paysage.
+[`android/PUBLICATION.md`](../android/PUBLICATION.md)), tablette (l'appli est conçue pour un téléphone ; seul Poussin Traverse passe en paysage).

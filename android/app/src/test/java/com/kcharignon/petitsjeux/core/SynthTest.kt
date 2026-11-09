@@ -26,6 +26,8 @@ class SynthTest {
             "champi-accord" to Synth.chord(),
             "souffle" to Synth.puff(),
             "toc" to Synth.bonk(),
+            "saut" to Synth.hop(),
+            "cloche" to Synth.crossingBell(),
         )
     }
 
@@ -86,6 +88,16 @@ class SynthTest {
         assertTrue(seconds(sounds.getValue("souffle")) < 0.3)
         assertTrue(seconds(sounds.getValue("toc")) < 0.25)
         assertTrue(seconds(sounds.getValue("indice")) < 0.8)
+        assertTrue(seconds(sounds.getValue("saut")) < 0.12)
+        assertTrue(seconds(sounds.getValue("cloche")) in 1.3..1.7)
+    }
+
+    @Test
+    fun theHopRisesInPitchAndTheBellIsHigherThanTheMelody() {
+        val hop = sounds.getValue("saut")
+        assertTrue(zeroCrossings(hop, 0.05, 0.075) > zeroCrossings(hop, 0.005, 0.03))
+        // la cloche du passage à niveau est aiguë (mi6 / sol6 : plus de 1 300 Hz), bien au-dessus d'un saut de 480 Hz au départ
+        assertTrue(zeroCrossings(sounds.getValue("cloche"), 0.0, 0.15) / 2 > 1000)
     }
 
     @Test

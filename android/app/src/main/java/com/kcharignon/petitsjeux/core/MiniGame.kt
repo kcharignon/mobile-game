@@ -5,6 +5,7 @@ import androidx.compose.ui.Modifier
 import com.kcharignon.petitsjeux.core.save.Profile
 import com.kcharignon.petitsjeux.games.mushrooms.MushroomMiniGame
 import com.kcharignon.petitsjeux.games.parking.ParkingMiniGame
+import com.kcharignon.petitsjeux.games.road.RoadMiniGame
 import org.json.JSONObject
 
 /**
@@ -36,7 +37,7 @@ interface MiniGame {
 }
 
 object Games {
-    val all: List<MiniGame> = listOf(ParkingMiniGame, MushroomMiniGame)
+    val all: List<MiniGame> = listOf(ParkingMiniGame, MushroomMiniGame, RoadMiniGame)
 
     fun byId(id: String): MiniGame? = all.firstOrNull { it.id == id }
 
