@@ -10,7 +10,7 @@ class LevelGeneratorTest {
     private val all = (1..Worlds.LEVEL_COUNT).map { LevelGenerator.level(it) }
     private val analyses = all.map { Solver.analyse(it) }
 
-    private fun group(g: Int) = all.filter { Worlds.groupOf(it.index) == g }
+    private fun world(w: Int) = all.filter { Worlds.of(it.index) == w }
 
     @Test
     fun splitMix64MatchesTheReferenceVector() {
@@ -20,11 +20,12 @@ class LevelGeneratorTest {
     }
 
     @Test
-    fun thereAre240LevelsInFourGroupsOf60() {
-        assertEquals(240, Worlds.LEVEL_COUNT)
-        assertEquals(12, Worlds.COUNT)
-        assertEquals(12, Worlds.names.size)
-        assertEquals(listOf(0, 0, 1, 2, 3, 3), listOf(1, 60, 61, 121, 181, 999).map { Worlds.groupOf(it) })
+    fun thereAre100LevelsInFiveWorldsOf20() {
+        assertEquals(100, Worlds.LEVEL_COUNT)
+        assertEquals(5, Worlds.COUNT)
+        assertEquals(5, Worlds.names.size)
+        assertEquals(listOf(0, 0, 1, 1, 2, 3, 4, 4), listOf(1, 20, 21, 40, 41, 61, 81, 999).map { Worlds.of(it) })
+        assertEquals(listOf(1, 21, 41, 61, 81), (0 until Worlds.COUNT).map { Worlds.firstLevel(it) })
     }
 
     @Test
@@ -37,6 +38,7 @@ class LevelGeneratorTest {
                 assertFalse("niveau ${level.index} : impasse alors que l'on suit les indices", game.isStuck)
                 val hint = game.hint() ?: error("niveau ${level.index} : aucun coup alors qu'il reste ${game.carsLeft} véhicules")
                 assertTrue(game.tap(hint.car.id, hint.move) is TapResult.Exited)
+                game.finishMotion(hint.car.id)
                 assertTrue(++guard <= level.cars.size)
             }
             assertEquals("niveau ${level.index} : aucune faute en suivant les indices", 0, game.bumps)
@@ -51,7 +53,9 @@ class LevelGeneratorTest {
             assertEquals(p.rows, level.rows)
             assertEquals("niveau ${level.index} : nombre de véhicules", p.cars, level.cars.size)
             assertEquals("niveau ${level.index} : nombre de plots", p.cones, level.cones.size)
+            assertEquals("niveau ${level.index} : nombre de murs", p.walls, level.walls.size)
             assertEquals("niveau ${level.index} : nombre de pick-up à caisse", p.carriers, level.cars.count { it.carrier })
+            assertEquals("niveau ${level.index} : nombre de taches d'huile", p.oils, level.oils.size)
             assertTrue(level.cars.all { it.color in 0 until LevelGenerator.COLORS })
         }
     }
@@ -68,48 +72,109 @@ class LevelGeneratorTest {
         }
     }
 
-    // ---- une mécanique de plus à chaque groupe de 60 niveaux
+    // ---- tous les 20 niveaux : le parking s'agrandit ET une nouvelle mécanique arrive
 
     @Test
-    fun theFirstGroupHasOnlyVehiclesThatGoBothWays() {
-        assertTrue(group(0).all { it.cones.isEmpty() && it.cars.none { c -> c.carrier } })
-        assertTrue(group(0).all { it.cols <= 6 && it.rows <= 8 })
+    fun theCarParkGrowsEvery20Levels() {
+        for (w in 0 until Worlds.COUNT) {
+            val sizes = world(w).map { it.cols to it.rows }.toSet()
+            assertEquals("le parking ne change pas à l'intérieur du monde ${w + 1}", 1, sizes.size)
+        }
+        val areas = (0 until Worlds.COUNT).map { all[it * 20].cols * all[it * 20].rows }
+        assertTrue("le parking grandit à chaque monde : $areas", areas.zipWithNext().all { (a, b) -> b > a })
+        assertEquals(LevelGenerator.sizes, (0 until Worlds.COUNT).map { all[it * 20].cols to all[it * 20].rows })
     }
 
     @Test
-    fun theSecondGroupAddsRoadworksCones() {
-        assertTrue("des plots à chaque niveau du groupe 2", group(1).all { it.cones.isNotEmpty() })
-        assertTrue(group(1).none { level -> level.cars.any { it.carrier } })
-        assertTrue("plus de plots vers la fin", group(1).last().cones.size > group(1).first().cones.size)
+    fun theFirstWorldHasOnlyVehiclesThatGoBothWays() {
+        assertTrue(world(0).all { it.cones.isEmpty() && it.walls.isEmpty() && it.oils.isEmpty() && it.cars.none { c -> c.carrier } })
     }
 
     @Test
-    fun theThirdGroupEnlargesTheCarPark() {
-        assertTrue(group(2).any { it.cols >= 8 && it.rows >= 10 })
-        assertTrue(group(2).first().cols * group(2).first().rows >= group(1).first().cols * group(1).first().rows)
-        assertTrue(group(2).none { level -> level.cars.any { it.carrier } })
-        assertTrue(group(2).all { it.cones.isNotEmpty() })
+    fun theSecondWorldAddsRoadworksCones() {
+        assertTrue("des plots à chaque niveau du monde 2", world(1).all { it.cones.isNotEmpty() })
+        assertTrue(world(1).all { it.walls.isEmpty() && it.oils.isEmpty() && it.cars.none { c -> c.carrier } })
     }
 
     @Test
-    fun theFourthGroupAddsPickupsThatDropACrate() {
-        assertTrue("au moins un pick-up à caisse à chaque niveau du groupe 4", group(3).all { level -> level.cars.any { it.carrier } })
-        assertTrue(all.filter { it.index < 181 }.none { level -> level.cars.any { it.carrier } })
+    fun theThirdWorldAddsWallsOnTheBorderAndKeepsTheCones() {
+        assertTrue("des murs à chaque niveau du monde 3", world(2).all { it.walls.isNotEmpty() })
+        assertTrue("les plots restent", world(2).all { it.cones.isNotEmpty() })
+        assertTrue(world(2).all { it.oils.isEmpty() && it.cars.none { c -> c.carrier } })
+        // des murs sur le bord du parking
+        assertTrue(world(2).all { level -> level.walls.all { w -> w.cell.col == 0 || w.cell.row == 0 || w.cell.col == level.cols - 1 || w.cell.row == level.rows - 1 } })
+    }
+
+    @Test
+    fun theFourthWorldAddsPickupsThatDropACrateAndKeepsEverythingElse() {
+        assertTrue("au moins un pick-up à caisse à chaque niveau du monde 4", world(3).all { level -> level.cars.any { it.carrier } })
+        assertTrue("les plots et les murs restent", world(3).all { it.cones.isNotEmpty() && it.walls.isNotEmpty() })
+        assertTrue(world(3).all { it.oils.isEmpty() })
+        assertTrue(all.filter { it.index < 61 }.none { level -> level.cars.any { it.carrier } })
         assertTrue(all.all { level -> level.cars.filter { it.carrier }.all { it.len == 3 } })
-        assertTrue("jusqu'à 3 pick-up vers la fin", group(3).last().cars.count { it.carrier } >= 3)
+        assertTrue("3 pick-up à la fin", all[99].cars.count { it.carrier } >= 3)
+    }
+
+    @Test
+    fun theFifthWorldAddsOilSlicksAndKeepsEverythingElse() {
+        assertTrue("des taches d'huile à chaque niveau du monde 5", world(4).all { it.oils.isNotEmpty() })
+        assertTrue("tout le reste est toujours là", world(4).all { it.cones.isNotEmpty() && it.walls.isNotEmpty() && it.cars.any { c -> c.carrier } })
+        assertTrue(all.filter { it.index < 81 }.none { it.oils.isNotEmpty() })
+    }
+
+    @Test
+    fun conesWallsCratesAndOilRampUpGradually() {
+        // 1 au début de leur mécanique (1 ou 2 murs au début), puis de plus en plus
+        assertEquals(1, all[20].cones.size)
+        assertEquals(1, all[40].walls.size)
+        assertEquals(1, all[60].cars.count { it.carrier })
+        assertEquals(1, all[80].oils.size)
+        assertTrue("1 ou 2 murs au début", all.subList(40, 55).all { it.walls.size <= 2 })
+        assertTrue("de plus en plus de plots", all[99].cones.size >= 4 && all[99].cones.size > all[20].cones.size)
+        assertTrue("de plus en plus de murs : ${all[99].walls.size}", all[99].walls.size >= 5 && all[99].walls.size > all[40].walls.size)
+        assertTrue("de plus en plus de taches : ${all[99].oils.size}", all[99].oils.size >= 4 && all[99].oils.size > all[80].oils.size)
+        assertTrue("jusqu'à 3 pick-up", all[99].cars.count { it.carrier } >= 3)
+        for (counts in listOf(all.map { it.cones.size }, all.map { it.walls.size }, all.map { it.oils.size }, all.map { l -> l.cars.count { it.carrier } })) {
+            assertTrue("ça ne redescend jamais : $counts", counts.zipWithNext().all { (a, b) -> b >= a })
+        }
+    }
+
+    @Test
+    fun theFirstLevelsOfEachMechanicAreSimpler() {
+        // la nouveauté arrive avec moins de véhicules que la fin du monde d'avant, puis la difficulté remonte
+        for (start in listOf(21, 41, 61, 81)) {
+            val before = all[start - 2].cars.size // dernier niveau du monde précédent
+            val first = all[start - 1].cars.size
+            assertTrue("niveau $start : $first véhicules contre $before au niveau d'avant", first < before)
+            assertTrue("la difficulté remonte après l'apprentissage", all[start + 9].cars.size > first)
+        }
+        assertEquals(3, all[0].cars.size)
+        assertEquals(0.55, LevelGenerator.introFactor(21), 0.0)
+        assertEquals(0.75, LevelGenerator.introFactor(24), 0.0)
+        assertEquals(0.9, LevelGenerator.introFactor(27), 0.0)
+        assertEquals(1.0, LevelGenerator.introFactor(30), 0.0)
+    }
+
+    @Test
+    fun everyMechanicReallyMatters() {
+        val coneLevels = all.filter { it.cones.isNotEmpty() }
+        assertTrue("des plots qui coupent une voie dans presque tous les niveaux", coneLevels.count { analyses[it.index - 1].coneBlocks >= 1 } >= coneLevels.size * 0.9)
+        val wallLevels = all.filter { it.walls.isNotEmpty() }
+        assertTrue("des murs qui murent une sortie utile dans presque tous les niveaux", wallLevels.count { analyses[it.index - 1].wallBlocks >= 1 } >= wallLevels.size * 0.9)
+        val oilLevels = all.filter { it.oils.isNotEmpty() }
+        assertTrue("des taches sur lesquelles un véhicule tourne dans presque tous les niveaux", oilLevels.count { analyses[it.index - 1].oilTurns >= 1 } >= oilLevels.size * 0.9)
     }
 
     @Test
     fun cratesAreARealTrapInTheLastLevels() {
-        // un camion qui part du mauvais côté ferme un passage : l'indice ne le conseille jamais, mais un joueur peut s'y tromper
-        val trapped = all.filter { it.index >= 190 }.count { analyses[it.index - 1].traps >= 1 }
-        assertTrue("des niveaux piégés dans la fin du groupe 4 ($trapped)", trapped >= 8)
+        val trapped = all.filter { it.index >= 70 }.count { analyses[it.index - 1].traps >= 1 }
+        assertTrue("des niveaux piégés à la fin ($trapped)", trapped >= 6)
     }
 
     @Test
     fun busesAndHeavyTrucksAppearFromTheThirdWorldOnly() {
         assertTrue(all.take(40).none { level -> level.cars.any { it.len == 4 } })
-        assertTrue(all.drop(40).count { level -> level.cars.any { it.len == 4 } } >= 150)
+        assertTrue(all.drop(40).count { level -> level.cars.any { it.len == 4 } } >= 40)
         assertTrue(all.all { level -> level.cars.all { it.len in 2..4 } })
     }
 
@@ -122,18 +187,16 @@ class LevelGeneratorTest {
     }
 
     @Test
-    fun levelsGetHarderAndBigger() {
+    fun levelsGetHarderOverall() {
         fun avgDepth(range: IntRange) = range.map { analyses[it - 1].depth }.average()
-        assertTrue(avgDepth(181..240) > avgDepth(1..20) + 2)
-        assertTrue(avgDepth(121..180) > avgDepth(1..60))
-        assertTrue(all[239].cars.size > all[0].cars.size * 5)
-        assertTrue(group(3).first().cols * group(3).first().rows > group(0).first().cols * group(0).first().rows)
+        assertTrue(avgDepth(71..100) > avgDepth(1..30) + 2)
+        assertTrue(avgDepth(41..70) > avgDepth(1..30))
+        assertTrue(all[99].cars.size > all[0].cars.size * 3)
     }
 
     @Test
-    fun theFirstLevelsAreSmallAndNotTooCrowded() {
-        for (level in all.take(20)) {
-            assertTrue(level.cols <= 5 && level.rows <= 6)
+    fun theFirstLevelsAreNotTooCrowded() {
+        for (level in all.take(30)) {
             val cells = level.cars.sumOf { it.len } + level.cones.size
             assertTrue("niveau ${level.index} : trop dense", cells <= level.cols * level.rows * 0.8)
         }
@@ -141,7 +204,7 @@ class LevelGeneratorTest {
 
     @Test
     fun theGeneratorIsDeterministic() {
-        for (index in listOf(1, 7, 33, 64, 100, 150, 190, 240, 241, 400)) {
+        for (index in listOf(1, 7, 33, 64, 81, 100, 101, 400)) {
             assertEquals(LevelGenerator.generate(index), LevelGenerator.generate(index))
         }
     }
@@ -166,6 +229,8 @@ class LevelGeneratorTest {
                     if (car.carrier) append('c')
                 }
                 for (cone in level.cones) append(";p").append(cone.col).append(',').append(cone.row)
+                for (wall in level.walls) append(";m").append(wall.cell.col).append(',').append(wall.cell.row).append(',').append(wall.side.ordinal)
+                for (oil in level.oils) append(";h").append(oil.col).append(',').append(oil.row)
             }
             for (ch in text) {
                 hash = hash xor ch.code.toLong()
@@ -176,9 +241,10 @@ class LevelGeneratorTest {
     }
 
     @Test
-    fun theFirstGroupNeverChanges() {
-        val hash = digest(all.take(60))
-        assertEquals("empreinte des niveaux 1 à 60 : ${java.lang.Long.toHexString(hash)}", EXPECTED_DIGEST_GROUP_1, hash)
+    fun theFirstFourWorldsNeverChange() {
+        // les 80 premiers niveaux n'ont pas de tache d'huile : ils doivent rester identiques quand une mécanique est ajoutée après
+        val hash = digest(all.take(80))
+        assertEquals("empreinte des niveaux 1 à 80 : ${java.lang.Long.toHexString(hash)}", EXPECTED_DIGEST_80, hash)
     }
 
     @Test
@@ -188,7 +254,7 @@ class LevelGeneratorTest {
     }
 
     private companion object {
-        const val EXPECTED_DIGEST_GROUP_1 = 0x5d04d83bb6a67f9fL
-        val EXPECTED_DIGEST = 0xa2a260b652b59751UL.toLong()
+        val EXPECTED_DIGEST_80 = -5748582831935537625L
+        val EXPECTED_DIGEST = 8486057663845578176L
     }
 }

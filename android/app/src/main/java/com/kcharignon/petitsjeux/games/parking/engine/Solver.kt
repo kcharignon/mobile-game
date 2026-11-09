@@ -22,6 +22,12 @@ data class Analysis(
     val backwardOnly: Int,
     /** Premiers coups possibles qui mènent à une impasse (un camion qui laisse tomber sa caisse au mauvais endroit). */
     val traps: Int,
+    /** Véhicules dont une voie est coupée par un plot de chantier. */
+    val coneBlocks: Int = 0,
+    /** Véhicules dont une sortie est murée. */
+    val wallBlocks: Int = 0,
+    /** Véhicules dont un trajet passe sur une tache d'huile (donc tourne). */
+    val oilTurns: Int = 0,
 )
 
 /**
@@ -31,7 +37,7 @@ data class Analysis(
  * (qui en **ajoutent** un obstacle) demandent de chercher le bon ordre : il y en a peu, la recherche est minuscule.
  */
 object Solver {
-    private class Piece(val car: Car, val cells: Bits, val paths: Array<Bits>, val trailIndex: IntArray)
+    private class Piece(val car: Car, val cells: Bits, val paths: Array<Bits>, val trailIndex: IntArray, val walled: BooleanArray, val usesOil: BooleanArray)
 
     private class Compiled(val cols: Int, val rows: Int, val pieces: List<Piece>, val cones: Bits) {
         fun index(cell: Cell) = cell.row * cols + cell.col
@@ -39,15 +45,21 @@ object Solver {
         fun bits(cells: Iterable<Cell>): Bits = cells.fold(Bits()) { acc, c -> acc.with(index(c)) }
     }
 
-    private fun compile(cols: Int, rows: Int, cones: Collection<Cell>, cars: List<Car>): Compiled {
+    private fun compile(cols: Int, rows: Int, cones: Collection<Cell>, cars: List<Car>, walls: Collection<Wall>, oils: Collection<Cell>): Compiled {
         require(cols * rows <= 128) { "grille trop grande pour le solveur" }
         fun idx(c: Cell) = c.row * cols + c.col
+        val wallSet = walls.toHashSet()
+        val oilSet = oils.toHashSet()
         val pieces = cars.map { car ->
+            // le trajet de chaque sens (il tourne sur les taches d'huile) : ses cases, et si la sortie est fermée (mur, ou tour en rond sans fin)
+            val routes = Array(2) { m -> car.route(cols, rows, Move.entries[m], oilSet) }
             Piece(
                 car,
                 car.cells.fold(Bits()) { acc, c -> acc.with(idx(c)) },
-                Array(2) { m -> car.path(cols, rows, Move.entries[m]).fold(Bits()) { acc, c -> acc.with(idx(c)) } },
+                Array(2) { m -> routes[m].cells.fold(Bits()) { acc, c -> acc.with(idx(c)) } },
                 IntArray(2) { m -> idx(car.trail(Move.entries[m])) },
+                BooleanArray(2) { m -> routes[m].loops || routes[m].exit in wallSet },
+                BooleanArray(2) { m -> routes[m].cells.any { it in oilSet } },
             )
         }
         return Compiled(cols, rows, pieces, cones.fold(Bits()) { acc, c -> acc.with(idx(c)) })
@@ -55,7 +67,7 @@ object Solver {
 
     private fun occupied(pieces: List<Piece>, fixed: Bits): Bits = pieces.fold(fixed) { acc, p -> acc + p.cells }
 
-    private fun isFree(p: Piece, move: Move, occupied: Bits) = !p.paths[move.ordinal].intersects(occupied)
+    private fun isFree(p: Piece, move: Move, occupied: Bits) = !p.walled[move.ordinal] && !p.paths[move.ordinal].intersects(occupied)
 
     private fun isFreeEitherWay(p: Piece, occupied: Bits) = isFree(p, Move.FORWARD, occupied) || isFree(p, Move.BACKWARD, occupied)
 
@@ -86,23 +98,38 @@ object Solver {
     }
 
     /** Peut-on vider [cars] (placés sur une grille [cols] x [rows], avec ces plots et ces caisses déjà tombées) ? */
-    fun canFinish(cols: Int, rows: Int, fixedObstacles: Collection<Cell>, cars: List<Car>): Boolean {
-        val c = compile(cols, rows, fixedObstacles, cars)
+    fun canFinish(
+        cols: Int,
+        rows: Int,
+        fixedObstacles: Collection<Cell>,
+        cars: List<Car>,
+        walls: Collection<Wall> = emptyList(),
+        oils: Collection<Cell> = emptyList(),
+    ): Boolean {
+        val c = compile(cols, rows, fixedObstacles, cars, walls, oils)
         return finish(c.pieces, Bits(), c.cones, HashMap())
     }
 
-    fun canFinish(level: Level): Boolean = canFinish(level.cols, level.rows, level.cones, level.cars)
+    fun canFinish(level: Level): Boolean = canFinish(level.cols, level.rows, level.cones, level.cars, level.walls, level.oils)
 
     /** Les mouvements possibles tout de suite pour [car] parmi [cars] et ces obstacles fixes (plots, caisses). */
-    fun freeMoves(cols: Int, rows: Int, fixedObstacles: Collection<Cell>, cars: List<Car>, car: Car): List<Move> {
-        val c = compile(cols, rows, fixedObstacles, cars)
+    fun freeMoves(
+        cols: Int,
+        rows: Int,
+        fixedObstacles: Collection<Cell>,
+        cars: List<Car>,
+        car: Car,
+        walls: Collection<Wall> = emptyList(),
+        oils: Collection<Cell> = emptyList(),
+    ): List<Move> {
+        val c = compile(cols, rows, fixedObstacles, cars, walls, oils)
         val occ = occupied(c.pieces, c.cones)
         val piece = c.pieces.first { it.car.id == car.id }
         return Move.entries.filter { isFree(piece, it, occ) }
     }
 
     fun analyse(level: Level): Analysis {
-        val c = compile(level.cols, level.rows, level.cones, level.cars)
+        val c = compile(level.cols, level.rows, level.cones, level.cars, level.walls, level.oils)
         val solvable = finish(c.pieces, Bits(), c.cones, HashMap())
         // vagues : à chaque tour, tous les véhicules libres partent ensemble (sans caisses : optimiste)
         var rest = c.pieces
@@ -125,6 +152,9 @@ object Solver {
                 if (isFree(p, m, start) && !finish(c.pieces - p, Bits().with(p.trailIndex[m.ordinal]), c.cones, HashMap())) traps++
             }
         }
-        return Analysis(solvable, rounds, free, backwardOnly, traps)
+        val coneBlocks = c.pieces.count { p -> Move.entries.any { p.paths[it.ordinal].intersects(c.cones) } }
+        val wallBlocks = c.pieces.count { p -> p.walled[0] || p.walled[1] }
+        val oilTurns = c.pieces.count { it.usesOil[0] || it.usesOil[1] }
+        return Analysis(solvable, rounds, free, backwardOnly, traps, coneBlocks, wallBlocks, oilTurns)
     }
 }

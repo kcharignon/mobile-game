@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import com.kcharignon.petitsjeux.core.ui.Pj
 import com.kcharignon.petitsjeux.games.parking.engine.Car
+import com.kcharignon.petitsjeux.games.parking.engine.Wall
 
 /**
  * Les dessins de Parking Malin : plateau, plots, panneau P, et le tracé d'un véhicule. Les véhicules eux-mêmes (voitures, camions, bus) sont dans
@@ -140,7 +141,10 @@ class BoardTheme(val top: Color, val side: Color, val tileA: Color, val tileB: C
             BoardTheme(Color(0xFFA39A86), Color(0xFF7B735F), Color(0xFFB4AC99), Color(0xFFAAA28E)), // sable de chantier
         )
 
-        fun of(world: Int) = worlds[world.coerceAtLeast(0) % worlds.size]
+        // un décor par monde : asphalte, sable de chantier (les travaux), vert (le château fort), sombre (le port)
+        private val order = intArrayOf(0, 5, 2, 4)
+
+        fun of(world: Int) = worlds[order[world.coerceIn(0, order.lastIndex)]]
     }
 }
 
@@ -227,4 +231,48 @@ fun DrawScope.drawChevron(center: Offset, degrees: Float, size: Float, alpha: Fl
         }
         drawPath(path, Color.White.copy(alpha = alpha), style = Stroke(size * 0.5f, cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
+}
+
+/** Un mur de briques posé sur le bord du parking, à la sortie de la file de [wall] : on arrive jusqu'à lui, mais on ne passe pas. */
+fun DrawScope.drawWall(g: BoardGeometry, wall: Wall) {
+    val s = g.s
+    val tl = g.cellTopLeft(wall.cell.col, wall.cell.row)
+    val c = Offset(tl.x + s / 2, tl.y + s / 2)
+    rotate(wall.side.degrees, c) {
+        val x = c.x - s / 2 + s * 0.03f
+        val w = s * 0.94f
+        val h = s * 0.34f
+        val y = c.y - s / 2 - h
+        val corner = CornerRadius(s * 0.07f)
+        drawRoundRect(Color.Black.copy(alpha = 0.2f), Offset(x, y + s * 0.09f), Size(w, h), corner)
+        drawRoundRect(Color(0xFF8E4331), Offset(x, y + s * 0.06f), Size(w, h), corner) // la tranche
+        drawRoundRect(Color(0xFFC4684D), Offset(x, y), Size(w, h), corner)
+        // briques : un joint horizontal et des joints verticaux décalés d'une rangée à l'autre
+        val mortar = Color(0xFFF0D2B4).copy(alpha = 0.75f)
+        val line = s * 0.025f
+        drawLine(mortar, Offset(x + w * 0.02f, y + h * 0.5f), Offset(x + w * 0.98f, y + h * 0.5f), line, StrokeCap.Round)
+        for (k in 1..2) {
+            val vx = x + w * k / 3f
+            drawLine(mortar, Offset(vx, y + h * 0.06f), Offset(vx, y + h * 0.5f), line, StrokeCap.Round)
+        }
+        for (k in 0..2) {
+            val vx = x + w * (k + 0.5f) / 3f
+            drawLine(mortar, Offset(vx, y + h * 0.5f), Offset(vx, y + h * 0.94f), line, StrokeCap.Round)
+        }
+        drawRoundRect(Color.White.copy(alpha = 0.28f), Offset(x + w * 0.06f, y + h * 0.06f), Size(w * 0.88f, h * 0.13f), CornerRadius(h * 0.06f))
+    }
+}
+
+/** Une tache d'huile au sol, centrée en ([cx], [cy]) : une flaque sombre aux reflets irisés. On roule dessus, mais le véhicule y tourne à 90°. */
+fun DrawScope.drawOil(cx: Float, cy: Float, s: Float) {
+    val dark = Color(0xFF1E2133)
+    drawOval(Color.Black.copy(alpha = 0.25f), Offset(cx - 0.46f * s, cy - 0.24f * s), Size(0.92f * s, 0.62f * s))
+    drawOval(dark, Offset(cx - 0.44f * s, cy - 0.30f * s), Size(0.88f * s, 0.60f * s))
+    drawOval(dark, Offset(cx - 0.30f * s, cy - 0.42f * s), Size(0.62f * s, 0.70f * s))
+    drawOval(dark, Offset(cx - 0.36f * s, cy - 0.12f * s), Size(0.70f * s, 0.52f * s))
+    // reflets irisés, comme l'huile sur l'eau
+    drawOval(Color(0xFF6FD3F0).copy(alpha = 0.40f), Offset(cx - 0.28f * s, cy - 0.22f * s), Size(0.30f * s, 0.14f * s))
+    drawOval(Color(0xFFC08CFF).copy(alpha = 0.34f), Offset(cx - 0.05f * s, cy - 0.02f * s), Size(0.28f * s, 0.12f * s))
+    drawOval(Color(0xFFFF9ED8).copy(alpha = 0.30f), Offset(cx - 0.20f * s, cy + 0.08f * s), Size(0.22f * s, 0.09f * s))
+    drawOval(Color.White.copy(alpha = 0.55f), Offset(cx - 0.22f * s, cy - 0.31f * s), Size(0.18f * s, 0.07f * s))
 }
