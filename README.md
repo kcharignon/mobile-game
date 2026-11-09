@@ -43,7 +43,7 @@ Sur le téléphone : ouvrir le fichier téléchargé, autoriser l'installation d
 ## Poussin Traverse
 
 - **Toujours en paysage** : l'appli se met toute seule en travers pour ce jeu, et retrouve son portrait en sortant.
-- Un poussin doit **traverser la route** : **toucher n'importe où** le fait sauter d'une ligne vers l'avant ; une petite croix le fait aller de côté ou reculer. Il faut regarder les véhicules et choisir son moment.
+- Un poussin doit **traverser la route** : **toucher** l'écran le fait sauter d'une ligne vers l'avant ; **glisser le doigt dans le sens où l'on veut aller** le fait sauter de côté ou en arrière. La route occupe tout l'écran. Il faut regarder les véhicules et choisir son moment.
 - Une **route à double sens** au début, puis **de plus en plus de voies** (de 2 à 10), des **voitures, scooters, camionnettes, tracteurs, camions, bus, taxis, ambulances, voitures de sport**, et même un **train** sur les voies ferrées des derniers mondes.
 - **Écrasé = des points en moins, jamais la partie perdue** : le poussin revient au dernier refuge (terre-plein) et continue. Des graines à ramasser donnent des points en plus.
 - **48 niveaux** en 8 mondes, **toujours faisables** : un robot vérifie que chaque niveau se traverse sans être touché, et pose les graines le long d'un chemin sans danger. 1 à 3 étoiles selon le score.

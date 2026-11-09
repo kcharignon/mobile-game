@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -35,10 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.input.pointer.changedToDown
-import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
@@ -87,13 +86,20 @@ private data class Snap(val row: Int, val col: Int, val state: ChickState, val s
 
 private const val ENDING_MS = 1100L
 
+/** À partir de quelle distance (dp) un doigt qui bouge compte comme un glissé. */
+private const val SWIPE_DP = 20f
+
+/** La direction d'un glissé de (dx, dy) pixels (l'écran compte y vers le bas) : vers le haut = avancer, vers le bas = reculer, sinon à gauche ou à droite. */
+internal fun swipeDirection(dx: Float, dy: Float): HopDir =
+    if (abs(dx) > abs(dy)) (if (dx < 0) HopDir.LEFT else HopDir.RIGHT) else (if (dy < 0) HopDir.FORWARD else HopDir.BACK)
+
 /** Où est le bas de l'écran (en lignes) : la caméra suit le poussin ; si la route est plus courte que l'écran, elle est centrée. */
 private fun cameraTarget(chickRow: Float, visibleRows: Float, rows: Int): Float =
     if (rows <= visibleRows) (rows - visibleRows) / 2f else (chickRow - 1.5f).coerceIn(0f, rows - visibleRows)
 
 /**
- * Une traversée : la route (la caméra suit le poussin), le score, les graines. **Toucher n'importe où = sauter d'une ligne vers l'avant** (dès que le doigt se pose) ;
- * la petite croix en bas à gauche fait aller de côté ou reculer. Se faire écraser fait perdre des points, jamais la partie.
+ * Une traversée : la route (la caméra suit le poussin), le score, les graines. **Toucher = sauter d'une ligne vers l'avant** ; **glisser le doigt dans un sens = sauter de ce côté**
+ * (sur tout l'écran, bord à bord). Se faire écraser fait perdre des points, jamais la partie.
  * [onFinished] est appelé UNE fois, à l'arrivée (le joueur est sauvegardé tout de suite) avec le score, les étoiles et le nombre d'écrasements.
  */
 @Composable
@@ -207,13 +213,12 @@ private fun Run(
         sync()
     }
     val hopForward by rememberUpdatedState { doHop(HopDir.FORWARD) }
-    val hopLeft by rememberUpdatedState { doHop(HopDir.LEFT) }
-    val hopRight by rememberUpdatedState { doHop(HopDir.RIGHT) }
-    val hopBack by rememberUpdatedState { doHop(HopDir.BACK) }
+    val hopTowards by rememberUpdatedState<(HopDir) -> Unit> { doHop(it) }
 
     val shown = snap
     Box(modifier.fillMaxSize().background(theme.grass)) {
-        Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+        // la route et les gestes prennent tout l'écran, bord à bord (barres et encoche comprises) ; seuls les boutons et les pastilles restent dans les zones sûres
+        Box(Modifier.fillMaxSize()) {
             Canvas(
                 Modifier
                     .fillMaxSize()
@@ -277,62 +282,76 @@ private fun Run(
                     drawText(measured, topLeft = Offset((f.x * cell).toFloat() - measured.size.width / 2f, topOf(f.row) - cell * 0.1f - p * cell * 0.9f - measured.size.height / 2f))
                 }
             }
-            // toucher n'importe où : sauter vers l'avant, dès que le doigt se pose
+            // les gestes, sur tout l'écran : TOUCHER = avancer ; GLISSER le doigt dans un sens = sauter de ce côté (devant, derrière, gauche, droite), dès que le doigt a un peu bougé.
+            // Les glissés du bord de l'écran ne déclenchent pas le geste « retour » d'Android.
             Box(
                 Modifier
                     .fillMaxSize()
                     .testTag("world")
+                    .systemGestureExclusion()
                     .pointerInput(Unit) {
+                        val slop = SWIPE_DP.dp.toPx()
                         awaitPointerEventScope {
                             while (true) {
-                                val event = awaitPointerEvent()
-                                for (c in event.changes) if (c.changedToDown()) hopForward()
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                var swiped = false
+                                while (true) {
+                                    val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                                    if (!swiped) {
+                                        val moved = change.position - down.position
+                                        if (moved.getDistance() > slop) {
+                                            swiped = true
+                                            hopTowards(swipeDirection(moved.x, moved.y))
+                                        }
+                                    }
+                                    if (!change.pressed) {
+                                        if (!swiped) hopForward()
+                                        break
+                                    }
+                                }
                             }
                         }
                     },
             )
-            // un nœud d'accessibilité (et pour les tests) : où est le poussin
-            Box(
-                Modifier
-                    .size(1.dp)
-                    .testTag("chick")
-                    .semantics {
-                        contentDescription = "Poussin"
-                        stateDescription = "ligne ${shown.row} colonne ${shown.col} " + when (shown.state) {
-                            ChickState.ALIVE -> "en route"
-                            ChickState.SQUASHED -> "écrasé"
-                            ChickState.DONE -> "arrivé"
-                        }
-                    },
-            )
-            // le haut : retour, niveau, score, graines
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                RoundIconButton(IconKind.BACK, onClick = onMenu, diameter = 46.dp)
-                Pill(Modifier.weight(1f)) {
-                    PjText("Niveau ${level.number}", size = 20.sp, weight = FontWeight.Bold, color = Pj.Ink, maxLines = 1)
-                    PjText("  ·  ${RoadWorlds.names[level.world]}", size = 15.sp, weight = FontWeight.Medium, color = Pj.InkSoft, maxLines = 1)
+            // les pastilles et le bouton retour, dans les zones sûres
+            Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+                // un nœud d'accessibilité (et pour les tests) : où est le poussin
+                Box(
+                    Modifier
+                        .size(1.dp)
+                        .testTag("chick")
+                        .semantics {
+                            contentDescription = "Poussin"
+                            stateDescription = "ligne ${shown.row} colonne ${shown.col} " + when (shown.state) {
+                                ChickState.ALIVE -> "en route"
+                                ChickState.SQUASHED -> "écrasé"
+                                ChickState.DONE -> "arrivé"
+                            }
+                        },
+                )
+                // le haut : retour, niveau, score, graines
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    RoundIconButton(IconKind.BACK, onClick = onMenu, diameter = 46.dp)
+                    Pill(Modifier.weight(1f)) {
+                        PjText("Niveau ${level.number}", size = 20.sp, weight = FontWeight.Bold, color = Pj.Ink, maxLines = 1)
+                        PjText("  ·  ${RoadWorlds.names[level.world]}", size = 15.sp, weight = FontWeight.Medium, color = Pj.InkSoft, maxLines = 1)
+                    }
+                    Pill {
+                        PjText("${snap.score}", size = 24.sp, weight = FontWeight.Bold, color = Pj.Ink, maxLines = 1, modifier = Modifier.testTag("score"))
+                        PjText(" pts", Modifier.padding(top = 4.dp), size = 13.sp, weight = FontWeight.Medium, color = Pj.InkSoft)
+                    }
+                    Pill {
+                        Canvas(Modifier.size(24.dp)) { drawGrain(Offset(size.width / 2, size.height / 2), size.minDimension * 0.34f, 0f) }
+                        PjText("${snap.taken}/${level.grains.size}", size = 20.sp, weight = FontWeight.Bold, color = Pj.Ink, maxLines = 1, modifier = Modifier.testTag("grains"))
+                    }
                 }
-                Pill {
-                    PjText("${snap.score}", size = 24.sp, weight = FontWeight.Bold, color = Pj.Ink, maxLines = 1, modifier = Modifier.testTag("score"))
-                    PjText(" pts", Modifier.padding(top = 4.dp), size = 13.sp, weight = FontWeight.Medium, color = Pj.InkSoft)
-                }
-                Pill {
-                    Canvas(Modifier.size(24.dp)) { drawGrain(Offset(size.width / 2, size.height / 2), size.minDimension * 0.34f, 0f) }
-                    PjText("${snap.taken}/${level.grains.size}", size = 20.sp, weight = FontWeight.Bold, color = Pj.Ink, maxLines = 1, modifier = Modifier.testTag("grains"))
-                }
-            }
-            // la croix : de côté et en arrière
-            Row(Modifier.align(Alignment.BottomStart).padding(start = 14.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-                PadButton("pad-left", PadArrow.LEFT, "À gauche") { hopLeft() }
-                PadButton("pad-back", PadArrow.DOWN, "En arrière") { hopBack() }
-                PadButton("pad-right", PadArrow.RIGHT, "À droite") { hopRight() }
-            }
-            if (showHint && phase == Phase.Playing) {
-                Pill(Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 18.dp)) {
-                    PjText("Touche l'écran pour sauter !", size = 18.sp, weight = FontWeight.Bold, color = Pj.Ink)
+                if (showHint && phase == Phase.Playing) {
+                    Pill(Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)) {
+                        PjText("Touche pour avancer  ·  Glisse le doigt pour aller de côté ou reculer", size = 17.sp, weight = FontWeight.Bold, color = Pj.Ink, maxLines = 1)
+                    }
                 }
             }
         }
@@ -352,55 +371,9 @@ private fun Pill(modifier: Modifier = Modifier, content: @Composable androidx.co
     )
 }
 
-private enum class PadArrow { LEFT, RIGHT, DOWN }
-
-/** Un gros bouton rond de la croix : il réagit dès que le doigt se pose (pas besoin de relever). */
-@Composable
-private fun PadButton(tag: String, arrow: PadArrow, label: String, onPress: () -> Unit) {
-    var pressed by remember { mutableStateOf(false) }
-    val press by rememberUpdatedState(onPress)
-    Box(
-        Modifier
-            .size(62.dp)
-            .testTag(tag)
-            .semantics { contentDescription = label }
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        for (c in event.changes) {
-                            if (c.changedToDown()) {
-                                pressed = true
-                                c.consume()
-                                press()
-                            } else if (c.changedToUp()) {
-                                pressed = false
-                            }
-                        }
-                    }
-                }
-            },
-    ) {
-        Canvas(Modifier.fillMaxSize()) {
-            val c = Offset(size.width / 2, size.height / 2)
-            drawCircle(Color.Black.copy(alpha = 0.18f), size.minDimension / 2, c.copy(y = c.y + 4.dp.toPx()))
-            drawCircle(if (pressed) Color(0xFFFFE066) else Color.White.copy(alpha = 0.92f), size.minDimension / 2, c)
-            val s = size.minDimension
-            val path = Path().apply {
-                when (arrow) {
-                    PadArrow.LEFT -> { moveTo(s * 0.3f, s * 0.5f); lineTo(s * 0.66f, s * 0.28f); lineTo(s * 0.66f, s * 0.72f) }
-                    PadArrow.RIGHT -> { moveTo(s * 0.7f, s * 0.5f); lineTo(s * 0.34f, s * 0.28f); lineTo(s * 0.34f, s * 0.72f) }
-                    PadArrow.DOWN -> { moveTo(s * 0.5f, s * 0.7f); lineTo(s * 0.28f, s * 0.34f); lineTo(s * 0.72f, s * 0.34f) }
-                }
-                close()
-            }
-            drawPath(path, Pj.Ink)
-        }
-    }
-}
-
 private fun introLines(level: RoadLevel): List<String> = buildList {
-    add("Touche l'écran pour sauter d'une ligne. Les flèches font aller de côté ou reculer.")
+    add("Touche l'écran pour sauter d'une ligne vers l'avant.")
+    add("Glisse le doigt dans le sens où tu veux aller : de côté, ou en arrière.")
     add("Attends que la route soit libre, ramasse les graines et arrive de l'autre côté !")
     add("Si un véhicule t'écrase, tu perds des points mais tu continues.")
 }
