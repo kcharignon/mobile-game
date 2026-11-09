@@ -138,7 +138,7 @@ function profilsFragment() {
     }
   });
   b += text(195, 764, 'Chaque joueur garde sa progression', { size: 14, weight: 500, fill: T.ink, opacity: 0.6 });
-  b += text(195, 786, 'sur ce téléphone. Aucune pub, aucun réseau.', { size: 14, weight: 500, fill: T.ink, opacity: 0.6 });
+  b += text(195, 786, 'sur ce téléphone. Aucune pub, aucun suivi.', { size: 14, weight: 500, fill: T.ink, opacity: 0.6 });
   return withBg(b);
 }
 write('01-choix-joueur.svg', screen(profilsFragment()));

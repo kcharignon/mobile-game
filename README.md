@@ -2,7 +2,7 @@
 
 [![Android](https://github.com/kcharignon/mobile-game/actions/workflows/android.yml/badge.svg)](https://github.com/kcharignon/mobile-game/actions/workflows/android.yml)
 
-Appli Android **sans pub, sans réseau**, pour les enfants. Au lancement on choisit **qui joue** (5 sauvegardes locales distinctes),
+Appli Android **sans pub et sans suivi**, pour les enfants. Au lancement on choisit **qui joue** (5 sauvegardes locales distinctes),
 puis **le jeu**. Premier jeu : **Parking Malin** — des voitures garées, à faire sortir une par une dans le bon ordre.
 D'autres jeux viendront : le menu et la sauvegarde sont faits pour ça.
 
@@ -20,7 +20,7 @@ Android 8 ou plus. L'appli se distribue en **APK signé** (sans Google Play) :
 
 | Quoi | Où |
 |---|---|
-| Dernière version (adresse fixe) | <https://github.com/kcharignon/mobile-game/releases/download/android-latest/petitsjeux.apk> |
+| Première installation, dernière version (adresse fixe) | <https://github.com/kcharignon/mobile-game/releases/download/android-latest/petitsjeux.apk> |
 | Toutes les versions | <https://github.com/kcharignon/mobile-game/releases> |
 
 Sur le téléphone : ouvrir le fichier téléchargé, autoriser l'installation depuis le navigateur si Android le demande, **Installer**

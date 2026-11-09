@@ -87,6 +87,13 @@ Le workflow construit, teste, signe, **contrôle** (certificat attendu, version,
 2. Ouvre le fichier téléchargé, autorise l'installation depuis Chrome si Android le demande, touche **Installer** (si Play Protect hésite : **Installer quand même**).
 3. **Mettre à jour** : même geste avec la version suivante, par-dessus. Les joueurs, leurs étoiles et leurs niveaux sont conservés.
 
+## Ce dont la mise à jour dans l'appli dépend (à ne pas casser)
+
+- La release **`android-latest`** et son fichier **`version.json`** : le workflow les publie à chaque version (versionName, versionCode, apkUrl, sha256). L'appli lit `https://github.com/kcharignon/mobile-game/releases/download/android-latest/version.json`.
+- L'adresse du dépôt : l'appli n'accepte que des APK sous `https://github.com/kcharignon/mobile-game/releases/download/` (`ReleaseInfo.OFFICIAL_PREFIX`). Si le dépôt change de nom ou de propriétaire, changer cette constante **et** publier une version avec l'ancienne adresse pour que les téléphones déjà installés trouvent la suite.
+- Le **numéro de version ne doit jamais baisser** (l'appli propose une mise à jour seulement si `versionCode` est plus grand) et la **clé de signature ne doit jamais changer** (Android refuserait l'installation).
+- Permissions déclarées (et seules autorisées par le contrôle de l'APK) : vibration, `INTERNET` et `REQUEST_INSTALL_PACKAGES`, uniquement pour cette mise à jour.
+
 ## Versions d'essai (débogage)
 
 Pour essayer une version avant de la publier : `gh workflow run android.yml --ref main` (éventuellement `-f tag=android-dev-2026-11-09b`). Elle publie une **pré-version** `android-dev-<date>` avec `petitsjeux-debug.apk`. Ne l'installe pas sur le téléphone que tu utilises pour jouer vraiment : elle est signée d'une clé publique, et **une version signée d'une autre clé ne s'installe pas par-dessus** (il faudrait désinstaller, donc perdre les sauvegardes).

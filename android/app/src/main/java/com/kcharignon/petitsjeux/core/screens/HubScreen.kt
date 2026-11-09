@@ -31,6 +31,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -54,6 +55,8 @@ import com.kcharignon.petitsjeux.core.ui.RoundIconButton
 import com.kcharignon.petitsjeux.core.ui.consumeTaps
 import com.kcharignon.petitsjeux.core.ui.withTapSound
 import com.kcharignon.petitsjeux.core.ui.drawStar
+import com.kcharignon.petitsjeux.core.update.UpdateController
+import com.kcharignon.petitsjeux.core.update.installedVersion
 
 /** L'accueil d'un joueur : qui il est, son rang, et les jeux. */
 @Composable
@@ -64,6 +67,8 @@ fun HubScreen(
     onSettingsChange: (Settings) -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    /** La mise à jour de l'appli (`null` : pas de mise à jour, par exemple dans les captures). */
+    update: UpdateController? = null,
     /** Pour les captures d'écran : ouvre tout de suite les réglages. */
     initialSettingsOpen: Boolean = false,
 ) {
@@ -72,11 +77,12 @@ fun HubScreen(
     Backdrop(
         modifier,
         overlay = {
-            if (settingsOpen) SettingsCard(profile, onSettingsChange, onDelete = { settingsOpen = false; onDelete() }, onClose = { settingsOpen = false })
+            if (settingsOpen) SettingsCard(profile, onSettingsChange, onDelete = { settingsOpen = false; onDelete() }, onClose = { settingsOpen = false }, update = update)
         },
     ) {
         Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
             PlayerBar(profile, Modifier.padding(top = 20.dp))
+            UpdateBanner(update, Modifier.padding(top = 14.dp))
             PjText("Choisis ton jeu", Modifier.padding(start = 10.dp, top = 18.dp, bottom = 10.dp), size = 22.sp, weight = FontWeight.Bold)
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 for (game in Games.all) GameCard(game, profile, onClick = { onPlay(game) })
@@ -174,9 +180,11 @@ fun SettingsCard(
     onSettingsChange: (Settings) -> Unit,
     onDelete: () -> Unit,
     onClose: () -> Unit,
+    update: UpdateController? = null,
     /** Pour les captures d'écran : montre tout de suite la confirmation d'effacement. */
     initialConfirm: Boolean = false,
 ) {
+    val version = installedVersion(LocalContext.current).first
     var confirm by rememberSaveable { mutableStateOf(initialConfirm) }
     Modal(onDismiss = onClose) {
         Panel(
@@ -189,7 +197,8 @@ fun SettingsCard(
                 SettingRow("Sons", profile.settings.sound, Modifier.padding(top = 18.dp)) { onSettingsChange(profile.settings.copy(sound = it)) }
                 SettingRow("Vibrations", profile.settings.vibration, Modifier.padding(top = 10.dp)) { onSettingsChange(profile.settings.copy(vibration = it)) }
                 if (!confirm) {
-                    ChunkyButton("Fermer", onClose, Modifier.padding(top = 22.dp).fillMaxWidth(), height = 56.dp, fontSize = 24.sp)
+                    UpdateSection(update, version, Modifier.padding(top = 18.dp))
+                    ChunkyButton("Fermer", onClose, Modifier.padding(top = 14.dp).fillMaxWidth(), height = 56.dp, fontSize = 24.sp)
                     ChunkyButton(
                         "Effacer ce joueur", { confirm = true }, Modifier.padding(top = 12.dp).fillMaxWidth(),
                         color = Pj.Slate, dark = Pj.SlateDark, height = 44.dp, fontSize = 16.sp,

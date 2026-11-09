@@ -1,6 +1,6 @@
 # Petits Jeux — document de design
 
-Appli Android **sans pub, sans réseau**, pour les enfants : un menu principal où l'on choisit **qui joue** (5 sauvegardes
+Appli Android **sans pub et sans suivi**, pour les enfants : un menu principal où l'on choisit **qui joue** (5 sauvegardes
 locales distinctes), puis **le jeu**. Premier jeu : **Parking Malin** (des voitures garées, à faire sortir une par une dans le bon ordre).
 D'autres jeux viendront : le menu et la sauvegarde sont faits pour ça.
 
@@ -20,7 +20,7 @@ le Kotlin reprend les mêmes proportions.
 ## Principes
 
 - **Pensé pour un enfant** : gros boutons, peu de texte, jamais de « perdu » : une faute coûte une étoile, pas la partie. Un bouton **Indice** gratuit.
-- **Zéro pub, zéro suivi, zéro permission réseau.** Seule permission : vibration (retour tactile, désactivable).
+- **Zéro pub, zéro suivi.** Permissions : la vibration (retour tactile, désactivable), et Internet + installation **uniquement pour la mise à jour** de l'appli (voir plus bas).
 - **Portrait uniquement**, Android 8+ (API 26), une main.
 - **Rapide** : tout est dessiné par le code (Canvas), pas d'image, pas de son à charger. Les sons sont synthétisés.
 - **Extensible** : un jeu = un module qui reçoit le joueur courant et sait lire/écrire **sa part** de la sauvegarde.
@@ -38,6 +38,19 @@ Lancement ─► Choix du joueur ─► Accueil (jeux) ─► Choix du niveau �
 - Un emplacement vide propose « Nouveau joueur » ; un emplacement plein se touche pour jouer. Modifier / effacer : engrenage de l'accueil
   (effacer demande une confirmation à deux temps).
 - Le bouton retour du téléphone remonte d'un écran ; sur le choix du joueur il quitte l'appli.
+
+## Mise à jour de l'appli (sans rien connaître à un « APK »)
+
+- Au lancement, l'appli regarde discrètement s'il existe une version plus récente : une seule petite requête HTTPS vers `github.com` (le fichier `version.json` de la release
+  `android-latest`), sans identifiant ni envoi de données. Pas de réseau ? Elle ne dit rien.
+- S'il y en a une, un **gros bouton vert « Nouvelle version ! Mettre à jour »** apparaît sur l'accueil. Un seul geste : l'appli télécharge, **vérifie l'empreinte SHA-256**
+  du fichier (celle de `version.json`), puis ouvre la fenêtre « Installer » d'Android.
+- **La première fois seulement**, Android demande d'autoriser Petits Jeux à installer des mises à jour : un bouton orange « Autoriser » explique quoi faire, et l'installation
+  continue toute seule au retour dans l'appli.
+- Réglages > « Chercher une mise à jour » fait la même chose à la demande, et affiche le numéro de la version installée.
+- **Sécurité** : seules les adresses `https://github.com/kcharignon/mobile-game/releases/download/…` sont acceptées, et Android **refuse** toute mise à jour qui ne serait pas
+  signée de la même clé : personne d'autre ne peut pousser une mise à jour. Les joueurs et leurs étoiles sont conservés.
+- Code : `core/update/` (machine d'états testée sans téléphone, réseau testé contre un petit serveur local), interface dans `core/screens/UpdateUi.kt`.
 
 ## Parking Malin : règles
 

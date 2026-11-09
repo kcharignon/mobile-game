@@ -2,6 +2,7 @@ package com.kcharignon.petitsjeux.core
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -17,6 +18,7 @@ import com.kcharignon.petitsjeux.core.save.ProfileStore
 import com.kcharignon.petitsjeux.core.save.Settings
 import com.kcharignon.petitsjeux.core.screens.HubScreen
 import com.kcharignon.petitsjeux.core.screens.ProfilesScreen
+import com.kcharignon.petitsjeux.core.update.UpdateController
 
 /** Où est l'utilisateur dans l'appli. */
 sealed interface Screen {
@@ -63,6 +65,8 @@ fun PetitsJeuxApp(
     createFeedback: (settings: () -> Settings) -> Feedback = { NoFeedback },
     now: () -> Long = System::currentTimeMillis,
     initialScreen: Screen = Screen.Profiles,
+    /** La mise à jour de l'appli (`null` : aucune, par exemple dans les tests). */
+    update: UpdateController? = null,
 ) {
     var profiles by remember { mutableStateOf(store.loadAll()) }
     var screen by rememberSaveable(stateSaver = Screen.Saver) { mutableStateOf(initialScreen) }
@@ -78,6 +82,9 @@ fun PetitsJeuxApp(
         runCatching { store.save(profile) }
         profiles = profiles.toMutableList().also { it[profile.slot] = profile }
     }
+
+    // Au lancement, l'appli regarde discrètement (un seul petit fichier sur GitHub) s'il existe une nouvelle version ; rien ne s'installe sans le geste du joueur.
+    LaunchedEffect(update) { update?.check(silent = true) }
 
     val feedback = remember { createFeedback { slotOf(screen)?.let { profiles[it]?.settings } ?: Settings() } }
 
@@ -111,6 +118,7 @@ fun PetitsJeuxApp(
                 onPlay = { game -> screen = Screen.Game(current.slot, game.id) },
                 onSwitchPlayer = { screen = Screen.Profiles },
                 onSettingsChange = { save(profile.copy(settings = it)) },
+                update = update,
                 onDelete = {
                     store.delete(current.slot)
                     profiles = profiles.toMutableList().also { it[current.slot] = null }

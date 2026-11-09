@@ -1,6 +1,7 @@
 package com.kcharignon.petitsjeux.screenshots
 
 import androidx.activity.ComponentActivity
+import java.io.File
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.click
@@ -11,6 +12,10 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import com.kcharignon.petitsjeux.core.PetitsJeuxApp
+import com.kcharignon.petitsjeux.core.update.FakeInstaller
+import com.kcharignon.petitsjeux.core.update.FakeUpdateApi
+import com.kcharignon.petitsjeux.core.update.UpdateController
+import com.kcharignon.petitsjeux.core.update.release
 import com.kcharignon.petitsjeux.core.Screen
 import com.kcharignon.petitsjeux.core.save.Avatar
 import com.kcharignon.petitsjeux.core.save.InMemoryProfileStore
@@ -28,6 +33,8 @@ import com.kcharignon.petitsjeux.games.parking.ui.PlayScreen
 import com.kcharignon.petitsjeux.games.parking.ui.WIN_DELAY_MS
 import com.kcharignon.petitsjeux.games.parking.ui.WinCard
 import com.github.takahirom.roborazzi.captureRoboImage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -83,6 +90,80 @@ class ScreenshotsTest {
     @Test
     fun settings() = show("04-reglages") {
         HubScreen(three[0], onPlay = {}, onSwitchPlayer = {}, onSettingsChange = {}, onDelete = {}, initialSettingsOpen = true)
+    }
+
+    // ---- mise à jour de l'appli (réseau et installateur simulés)
+
+    private fun updateController(api: FakeUpdateApi = FakeUpdateApi(release(2)), installer: FakeInstaller = FakeInstaller()) =
+        UpdateController(api, installer, 1, File(System.getProperty("java.io.tmpdir"), "pj-maj-${System.nanoTime()}"), CoroutineScope(Dispatchers.Unconfined))
+
+    private fun hubWith(update: UpdateController, settings: Boolean = false): @Composable () -> Unit = {
+        HubScreen(three[0], onPlay = {}, onSwitchPlayer = {}, onSettingsChange = {}, onDelete = {}, update = update, initialSettingsOpen = settings)
+    }
+
+    @Test
+    fun aNewVersionShowsOneBigButtonOnTheHub() {
+        val c = updateController().also { it.check(silent = true) }
+        show("12-maj-disponible", content = hubWith(c))
+        rule.onNodeWithText("Nouvelle version ! Mettre à jour").assertExists()
+    }
+
+    @Test
+    fun noBannerWhenUpToDate() {
+        val c = updateController(FakeUpdateApi(release(1))).also { it.check(silent = true) }
+        show(null, content = hubWith(c))
+        rule.onNodeWithText("Nouvelle version ! Mettre à jour").assertDoesNotExist()
+    }
+
+    @Test
+    fun theDownloadShowsItsProgress() {
+        val c = updateController(FakeUpdateApi(release(2), holdDownload = true)).also { it.check(silent = true); it.update() }
+        show("13-maj-telechargement", content = hubWith(c))
+        rule.onNodeWithText("Je télécharge la nouvelle version… 45 %").assertExists()
+    }
+
+    @Test
+    fun oneTapDownloadsThenAsksAndroidToInstall() {
+        val installer = FakeInstaller(allowed = true)
+        val c = updateController(installer = installer).also { it.check(silent = true) }
+        show(null, content = hubWith(c))
+        rule.onNodeWithText("Nouvelle version ! Mettre à jour").performClick()
+        rule.mainClock.advanceTimeBy(200)
+        assertEquals(1, installer.installed.size)
+        rule.onNodeWithText("Touche « Installer » dans la fenêtre d'Android.").assertExists()
+        rule.onRoot().captureRoboImage("../../docs/screenshots/14-maj-installer.png")
+    }
+
+    @Test
+    fun androidsConsentIsAskedOnceAndExplained() {
+        val installer = FakeInstaller(allowed = false)
+        val c = updateController(installer = installer).also { it.check(silent = true) }
+        show(null, content = hubWith(c))
+        rule.onNodeWithText("Nouvelle version ! Mettre à jour").performClick()
+        rule.mainClock.advanceTimeBy(200)
+        assertTrue(installer.installed.isEmpty())
+        rule.onNodeWithText("Android demande ton accord, une seule fois. Active « Autoriser » puis reviens ici.").assertExists()
+        rule.onRoot().captureRoboImage("../../docs/screenshots/15-maj-autoriser.png")
+        rule.onNodeWithText("Autoriser").performClick()
+        assertEquals(1, installer.permissionRequests)
+    }
+
+    @Test
+    fun theSettingsCanLookForAnUpdateByHand() {
+        val c = updateController(FakeUpdateApi(release(1)))
+        show("16-reglages-maj", content = hubWith(c, settings = true))
+        rule.onNodeWithText("Chercher une mise à jour").performClick()
+        rule.mainClock.advanceTimeBy(100)
+        rule.onNodeWithText("C'est la dernière version, bravo !").assertExists()
+    }
+
+    @Test
+    fun withoutNetworkTheSettingsSayItKindly() {
+        val c = updateController(FakeUpdateApi(release(2), failFetch = true))
+        show(null, content = hubWith(c, settings = true))
+        rule.onNodeWithText("Chercher une mise à jour").performClick()
+        rule.mainClock.advanceTimeBy(100)
+        rule.onNodeWithText("Pas de connexion. Réessaie plus tard.").assertExists()
     }
 
     @Test
