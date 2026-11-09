@@ -88,14 +88,19 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.sin
 
-/** Ce qui s'anime pour un véhicule : sa position le long de sa voie (en cases, négative en marche arrière), sa rougeur de faute, son tremblement. */
+/** Ce qui s'anime pour un véhicule : son avancement le long de son trajet (en cases, 0 = à sa place), sa rougeur de faute, son tremblement. */
 class CarVisual {
-    val offset = Animatable(0f)
+    val progress = Animatable(0f)
     val flash = Animatable(0f)
     val shake = Animatable(0f)
     var gone by mutableStateOf(false)
+
+    /** Le trajet dessiné du mouvement en cours (avec les virages sur l'huile), `null` tant que le véhicule n'a pas bougé. */
+    var path: MotionPath? = null
+        private set
 
     /** Vrai pendant que le véhicule fonce, rebondit et rougit : un autre geste ne compte pas (un enfant impatient ne perd pas deux étoiles d'un coup). */
     var bumping = false
@@ -105,28 +110,31 @@ class CarVisual {
         bumping = true
     }
 
+    /** Un nouveau mouvement commence : on retient son trajet. */
+    fun begin(path: MotionPath) {
+        this.path = path
+    }
+
     /** Distance (en cases) à partir de laquelle le véhicule commence à s'effacer : son nez passe le bord du plateau. */
     var fadeFrom = Float.MAX_VALUE
 
-    /** Le véhicule accélère jusqu'au bord, passe le bord et disparaît. */
-    suspend fun exit(pathLength: Int, len: Int, move: Move) {
-        val sign = if (move == Move.FORWARD) 1f else -1f
-        val distance = pathLength + len + 1f
-        fadeFrom = pathLength.toFloat()
-        offset.animateTo(sign * distance, tween(durationMillis = (260 + 70 * distance).toInt(), easing = FastOutLinearInEasing))
+    /** Le véhicule accélère le long de son trajet jusqu'au bord, passe le bord et disparaît. */
+    suspend fun exit(routeLength: Int, len: Int) {
+        val distance = routeLength + len + 1f
+        fadeFrom = routeLength.toFloat()
+        progress.animateTo(distance, tween(durationMillis = (260 + 70 * distance).toInt(), easing = FastOutLinearInEasing))
         gone = true
     }
 
     /** Faute : il fonce jusqu'à toucher l'obstacle, rougit, rebondit en arrière. */
-    suspend fun bump(freeCells: Int, move: Move, onHit: () -> Unit) {
-        val sign = if (move == Move.FORWARD) 1f else -1f
+    suspend fun bump(freeCells: Int, onHit: () -> Unit) {
         try {
-            offset.animateTo(sign * (freeCells + 0.12f), tween(durationMillis = 90 + 80 * freeCells, easing = LinearEasing))
+            progress.animateTo(freeCells + 0.12f, tween(durationMillis = 90 + 80 * freeCells, easing = LinearEasing))
             onHit()
             flash.snapTo(1f)
             coroutineScope {
                 launch { flash.animateTo(0f, tween(500)) }
-                offset.animateTo(0f, spring(dampingRatio = 0.4f, stiffness = 380f))
+                progress.animateTo(0f, spring(dampingRatio = 0.4f, stiffness = 380f))
             }
         } finally {
             bumping = false
@@ -141,7 +149,7 @@ class CarVisual {
     }
 
     /** Alpha de la sortie : 1 sur le plateau, 0 une fois sorti. */
-    fun alpha(len: Int): Float = (1f - ((abs(offset.value) - fadeFrom) / (len + 1f)).coerceIn(0f, 1f))
+    fun alpha(len: Int): Float = (1f - ((progress.value - fadeFrom) / (len + 1f)).coerceIn(0f, 1f))
 }
 
 /** Une caisse qui vient de tomber : elle apparaît en rebondissant sur la case que la queue du camion occupait. */
@@ -165,10 +173,10 @@ fun levelCaption(index: Int): String? = when (index) {
     1 -> "Touche un véhicule : il avance tout droit !"
     2 -> "Glisse un véhicule vers l'arrière : il recule !"
     3 -> "Glisse-le dans le sens que tu veux : avant ou arrière."
-    31, 91, 151, 211 -> "Le parking s'agrandit !"
-    61 -> "Nouveau : les plots de chantier bloquent le passage !"
-    121 -> "Nouveau : des murs ferment certaines sorties du parking !"
-    181 -> "Nouveau : le pick-up laisse tomber une caisse derrière lui. Elle bloque la case !"
+    21 -> "Nouveau : un plus grand parking, et des plots de chantier qui bloquent le passage !"
+    41 -> "Nouveau : un plus grand parking, et des murs qui ferment certaines sorties !"
+    61 -> "Nouveau : un plus grand parking, et un pick-up qui laisse tomber une caisse derrière lui. Elle bloque la case !"
+    81 -> "Nouveau : un plus grand parking, et des taches d'huile : on y tourne à droite en avançant, à gauche en reculant !"
     else -> null
 }
 
@@ -206,7 +214,7 @@ private fun PlayBoard(
     val game = remember {
         ParkingGame(level).also { g ->
             // le moteur lit où sont dessinés les véhicules qui roulent : un véhicule envoyé sur l'un d'eux le percute toujours
-            g.motionSource = MotionSource { id -> visuals[id]?.offset?.value }
+            g.motionSource = MotionSource { id -> visuals[id]?.progress?.value }
         }
     }
     val crates = remember { mutableStateMapOf<Cell, CrateVisual>() }
@@ -256,8 +264,9 @@ private fun PlayBoard(
                     crates[cell] = crate
                     scope.launch { crate.appear.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 260f)) }
                 }
+                visuals.getValue(car.id).begin(MotionPath(car, move, result.route, result.finalDirection))
                 scope.launch {
-                    visuals.getValue(car.id).exit(result.pathLength, car.len, move)
+                    visuals.getValue(car.id).exit(result.route.size, car.len)
                     game.finishMotion(car.id)
                     if (game.isWon && !won) {
                         // un court instant pour savourer le plateau vide, puis la fenêtre de victoire
@@ -274,11 +283,13 @@ private fun PlayBoard(
             is TapResult.Bumped -> {
                 bumps = game.bumps
                 feedback.bump(car.len)
+                val path = MotionPath(car, move, result.route, result.direction)
+                visuals.getValue(car.id).begin(path)
                 visuals.getValue(car.id).startBump()
                 scope.launch {
-                    visuals.getValue(car.id).bump(result.freeCells, move) {
+                    visuals.getValue(car.id).bump(result.freeCells) {
                         geometry.value?.let { g ->
-                            honk = Honk(noseCenter(g, car, move, result.freeCells + 0.12f), ++honkToken)
+                            honk = Honk(noseCenter(g, path, result.freeCells + 0.12f), ++honkToken)
                         }
                     }
                     game.finishMotion(car.id)
@@ -368,21 +379,27 @@ private fun PlayBoard(
                         val tl = g.cellTopLeft(cone.col, cone.row)
                         drawCone(tl.x + g.s / 2, tl.y + g.s * 0.58f, g.s * 1.05f)
                     }
+                    // taches d'huile : au sol, les véhicules roulent dessus et y font un virage
+                    for (oil in level.oils) {
+                        val tl = g.cellTopLeft(oil.col, oil.row)
+                        drawOil(tl.x + g.s / 2, tl.y + g.s / 2, g.s)
+                    }
                     // caisses tombées : sous les véhicules (le camion qui part passe par-dessus)
                     for ((cell, crate) in crates) {
                         val tl = g.cellTopLeft(cell.col, cell.row)
                         drawCrate(tl.x + g.s / 2, tl.y + g.s / 2, g.s, crate.appear.value)
                     }
                     // les véhicules qui roulent passent par-dessus les autres
-                    val order = level.cars.filterNot { visuals.getValue(it.id).gone }.sortedBy { if (abs(visuals.getValue(it.id).offset.value) > 0.01f) 1 else 0 }
+                    val order = level.cars.filterNot { visuals.getValue(it.id).gone }.sortedBy { if (abs(visuals.getValue(it.id).progress.value) > 0.01f) 1 else 0 }
                     for (car in order) {
                         val v = visuals.getValue(car.id)
+                        val pose = carPose(g, car, v)
                         drawVehicle(
                             model = vehicleModelFor(car),
                             color = Pj.CarColors[car.color % Pj.CarColors.size],
                             s = g.s,
-                            center = carCenter(g, car, v),
-                            degrees = car.dir.degrees,
+                            center = pose.first,
+                            degrees = pose.second,
                             flash = v.flash.value,
                             alpha = v.alpha(car.len),
                         )
@@ -446,26 +463,33 @@ private fun PlayBoard(
     }
 }
 
-/** Le centre d'un véhicule à l'écran : sa case de départ, avancée (ou reculée) de `visual.offset` cases le long de sa voie, avec le tremblement. */
-private fun carCenter(g: BoardGeometry, car: Car, v: CarVisual): Offset {
+/**
+ * Où et comment est dessiné un véhicule : (centre en pixels, rotation en degrés). À l'arrêt : à sa place. En mouvement : sur son trajet (qui peut tourner sur l'huile),
+ * avec un petit tremblement en travers quand un autre véhicule le percute.
+ */
+private fun carPose(g: BoardGeometry, car: Car, v: CarVisual): Pair<Offset, Float> {
+    val path = v.path
     val horizontal = car.dir.horizontal
-    val tl = g.cellTopLeft(car.col, car.row)
     val w = (if (horizontal) car.len else 1) * g.s
     val h = (if (horizontal) 1 else car.len) * g.s
-    val along = v.offset.value * g.s
-    val wobble = sin(v.shake.value * 3f * 2f * PI.toFloat()) * (1f - v.shake.value) * 0.07f * g.s
-    // le tremblement se fait en travers de la voie
-    val dx = car.dir.dc * along + (if (horizontal) 0f else wobble)
-    val dy = car.dir.dr * along + (if (horizontal) wobble else 0f)
-    return Offset(tl.x + w / 2 + dx, tl.y + h / 2 + dy)
+    val rest = g.cellTopLeft(car.col, car.row).let { Offset(it.x + w / 2, it.y + h / 2) }
+    val shaking = sin(v.shake.value * 3f * 2f * PI.toFloat()) * (1f - v.shake.value) * 0.07f * g.s
+    if (path == null) {
+        // le tremblement se fait en travers de la voie
+        return Offset(rest.x + if (horizontal) 0f else shaking, rest.y + if (horizontal) shaking else 0f) to car.dir.degrees
+    }
+    val pose = path.at(v.progress.value.coerceAtLeast(-0.2f))
+    val heading = path.headingDegrees(pose.travelDegrees)
+    val rad = Math.toRadians(heading.toDouble())
+    // en travers du nez : (cos, sin) du cap
+    val lateral = Offset(cos(rad).toFloat() * shaking, sin(rad).toFloat() * shaking)
+    return Offset(g.origin.x + pose.col * g.s + lateral.x, g.origin.y + pose.row * g.s + lateral.y) to heading
 }
 
-/** Le bout du véhicule dans le sens du mouvement, après [cells] cases parcourues : là où la bulle « Pouet ! » se pose. */
-private fun noseCenter(g: BoardGeometry, car: Car, move: Move, cells: Float): Offset {
-    val lead = car.lead(move)
-    val d = car.directionOf(move)
-    val c = g.cellTopLeft(lead.col, lead.row)
-    return Offset(c.x + g.s / 2 + d.dc * (cells + 0.4f) * g.s, c.y + g.s / 2 + d.dr * (cells + 0.4f) * g.s)
+/** Le bout du nez après avoir parcouru [cells] cases de son trajet : là où la bulle « Pouet ! » se pose. */
+private fun noseCenter(g: BoardGeometry, path: MotionPath, cells: Float): Offset {
+    val pose = path.noseAt(cells)
+    return Offset(g.origin.x + pose.col * g.s, g.origin.y + pose.row * g.s)
 }
 
 /** Plus aucun coup possible (une caisse mal placée a fermé le dernier passage) : on propose de recommencer, sans punition. */

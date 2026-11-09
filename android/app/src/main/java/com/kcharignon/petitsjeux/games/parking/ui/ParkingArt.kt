@@ -141,7 +141,10 @@ class BoardTheme(val top: Color, val side: Color, val tileA: Color, val tileB: C
             BoardTheme(Color(0xFFA39A86), Color(0xFF7B735F), Color(0xFFB4AC99), Color(0xFFAAA28E)), // sable de chantier
         )
 
-        fun of(world: Int) = worlds[world.coerceAtLeast(0) % worlds.size]
+        // un décor par monde : asphalte, sable de chantier (les travaux), vert (le château fort), sombre (le port)
+        private val order = intArrayOf(0, 5, 2, 4)
+
+        fun of(world: Int) = worlds[order[world.coerceIn(0, order.lastIndex)]]
     }
 }
 
@@ -258,4 +261,18 @@ fun DrawScope.drawWall(g: BoardGeometry, wall: Wall) {
         }
         drawRoundRect(Color.White.copy(alpha = 0.28f), Offset(x + w * 0.06f, y + h * 0.06f), Size(w * 0.88f, h * 0.13f), CornerRadius(h * 0.06f))
     }
+}
+
+/** Une tache d'huile au sol, centrée en ([cx], [cy]) : une flaque sombre aux reflets irisés. On roule dessus, mais le véhicule y tourne à 90°. */
+fun DrawScope.drawOil(cx: Float, cy: Float, s: Float) {
+    val dark = Color(0xFF1E2133)
+    drawOval(Color.Black.copy(alpha = 0.25f), Offset(cx - 0.46f * s, cy - 0.24f * s), Size(0.92f * s, 0.62f * s))
+    drawOval(dark, Offset(cx - 0.44f * s, cy - 0.30f * s), Size(0.88f * s, 0.60f * s))
+    drawOval(dark, Offset(cx - 0.30f * s, cy - 0.42f * s), Size(0.62f * s, 0.70f * s))
+    drawOval(dark, Offset(cx - 0.36f * s, cy - 0.12f * s), Size(0.70f * s, 0.52f * s))
+    // reflets irisés, comme l'huile sur l'eau
+    drawOval(Color(0xFF6FD3F0).copy(alpha = 0.40f), Offset(cx - 0.28f * s, cy - 0.22f * s), Size(0.30f * s, 0.14f * s))
+    drawOval(Color(0xFFC08CFF).copy(alpha = 0.34f), Offset(cx - 0.05f * s, cy - 0.02f * s), Size(0.28f * s, 0.12f * s))
+    drawOval(Color(0xFFFF9ED8).copy(alpha = 0.30f), Offset(cx - 0.20f * s, cy + 0.08f * s), Size(0.22f * s, 0.09f * s))
+    drawOval(Color.White.copy(alpha = 0.55f), Offset(cx - 0.22f * s, cy - 0.31f * s), Size(0.18f * s, 0.07f * s))
 }

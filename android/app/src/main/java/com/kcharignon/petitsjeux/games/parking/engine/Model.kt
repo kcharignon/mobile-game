@@ -17,6 +17,18 @@ enum class Dir(val dc: Int, val dr: Int) {
             RIGHT -> LEFT
         }
 
+    /** Un quart de tour vers la droite (sens des aiguilles d'une montre) : haut -> droite -> bas -> gauche. */
+    val clockwise: Dir
+        get() = when (this) {
+            UP -> RIGHT
+            RIGHT -> DOWN
+            DOWN -> LEFT
+            LEFT -> UP
+        }
+
+    /** Un quart de tour vers la gauche. */
+    val counterClockwise: Dir get() = clockwise.opposite
+
     /** Rotation à appliquer à un dessin dont le nez regarde vers le haut. */
     val degrees: Float
         get() = when (this) {
@@ -26,6 +38,13 @@ enum class Dir(val dc: Int, val dr: Int) {
             LEFT -> 270f
         }
 }
+
+/**
+ * Le trajet d'un véhicule jusqu'à la sortie : les [cells] qu'il va traverser (la case du nez ne compte pas), dans l'ordre, en tournant sur les taches d'huile ;
+ * [finalDirection] = le sens où il roule à la fin ; [exit] = le bord par où il sortirait (un mur peut le fermer), ou `null` si [loops] (il tourne en rond sur
+ * des taches d'huile, ou s'il reviendrait sur sa propre place, et ne sortira jamais).
+ */
+class Route(val cells: List<Cell>, val directions: List<Dir>, val finalDirection: Dir, val exit: Wall?, val loops: Boolean)
 
 /** Un véhicule peut rouler dans le sens de son nez (marche avant) ou à l'opposé (marche arrière), selon le sens où on le glisse. */
 enum class Move {
@@ -75,22 +94,42 @@ data class Car(
     val head: Cell get() = lead(Move.FORWARD)
 
     /** L'endroit par où ce véhicule sortirait du parking dans ce sens : le bout de sa file. S'il y a un mur, il ne peut pas sortir par là. */
-    fun exitEdge(cols: Int, rows: Int, move: Move = Move.FORWARD): Wall = Wall(path(cols, rows, move).lastOrNull() ?: lead(move), directionOf(move))
+    fun exitEdge(cols: Int, rows: Int, move: Move = Move.FORWARD, oils: Collection<Cell> = emptyList()): Wall? = route(cols, rows, move, oils).exit
 
-    /** Cases devant le véhicule dans le sens du mouvement, de la plus proche au bord du plateau. Elles doivent être libres pour qu'il sorte. */
-    fun path(cols: Int, rows: Int, move: Move = Move.FORWARD): List<Cell> {
-        val d = directionOf(move)
-        val start = lead(move)
-        val out = ArrayList<Cell>()
-        var c = start.col + d.dc
-        var r = start.row + d.dr
-        while (c in 0 until cols && r in 0 until rows) {
-            out += Cell(c, r)
-            c += d.dc
-            r += d.dr
+    /**
+     * Le trajet de ce véhicule dans ce sens. Il roule tout droit ; **sur une tache d'huile il fait un virage à 90° : à droite s'il avance, à gauche s'il recule**
+     * (un quart de tour de son sens de marche), puis repart tout droit dans ce nouveau sens, jusqu'au bord. Toutes les cases du trajet doivent être libres.
+     */
+    fun route(cols: Int, rows: Int, move: Move = Move.FORWARD, oils: Collection<Cell> = emptyList()): Route {
+        var d = directionOf(move)
+        var cell = lead(move)
+        val cells = ArrayList<Cell>()
+        val directions = ArrayList<Dir>() // le sens où il repart de chaque case (après un éventuel virage)
+        val turns = HashSet<Pair<Cell, Dir>>()
+        while (true) {
+            val next = Cell(cell.col + d.dc, cell.row + d.dr)
+            if (next.col !in 0 until cols || next.row !in 0 until rows) return Route(cells, directions, d, Wall(cell, d), false)
+            // un virage qui ramène le véhicule sur sa propre place : il se rentrerait dedans, il ne peut pas partir par là
+            if (next in this.cells) return Route(cells, directions, d, null, true)
+            cells += next
+            cell = next
+            if (next in oils) {
+                d = if (move == Move.FORWARD) d.clockwise else d.counterClockwise
+                // revenu au même endroit dans le même sens : il tournerait en rond pour toujours
+                if (!turns.add(cell to d)) {
+                    directions += d
+                    return Route(cells, directions, d, null, true)
+                }
+            }
+            directions += d
         }
-        return out
     }
+
+    /** Cases devant le véhicule dans le sens du mouvement (sans tache d'huile : en ligne droite), de la plus proche au bord du plateau. */
+    fun path(cols: Int, rows: Int, move: Move = Move.FORWARD): List<Cell> = route(cols, rows, move).cells
+
+    /** Les cases du véhicule de sa queue à son nez, dans le sens du mouvement. */
+    fun cellsTrailToLead(move: Move): List<Cell> = directionOf(move).let { d -> if (d.dc + d.dr > 0) cells else cells.reversed() }
 }
 
 /**
@@ -99,7 +138,10 @@ data class Car(
  */
 data class Wall(val cell: Cell, val side: Dir)
 
-/** Un parking à vider. [index] commence à 1. [cones] : les plots de chantier (jamais déplacés, on ne passe pas dessus) ; [walls] : les sorties murées. */
+/**
+ * Un parking à vider. [index] commence à 1. [cones] : les plots de chantier (jamais déplacés, on ne passe pas dessus) ; [walls] : les sorties murées ;
+ * [oils] : les taches d'huile (on roule dessus, mais le véhicule y fait un virage à 90°).
+ */
 data class Level(
     val index: Int,
     val cols: Int,
@@ -107,6 +149,7 @@ data class Level(
     val cars: List<Car>,
     val cones: List<Cell> = emptyList(),
     val walls: List<Wall> = emptyList(),
+    val oils: List<Cell> = emptyList(),
 ) {
     val world: Int get() = Worlds.of(index)
 
@@ -119,6 +162,10 @@ data class Level(
         for (cone in cones) {
             require(inGrid(cone)) { "un plot sort de la grille en $cone" }
             require(seen.add(cone)) { "deux choses sur la case $cone" }
+        }
+        for (oil in oils) {
+            require(inGrid(oil)) { "une tache d'huile sort de la grille en $oil" }
+            require(seen.add(oil)) { "deux choses sur la case $oil" }
         }
         val edges = HashSet<Wall>()
         for (wall in walls) {
@@ -138,26 +185,20 @@ data class Level(
     private fun inGrid(cell: Cell) = cell.col in 0 until cols && cell.row in 0 until rows
 }
 
-/** Les mondes de 20 niveaux, regroupés par 60 : à chaque groupe, une nouvelle mécanique qui s'ajoute aux précédentes. */
+/**
+ * Les mondes : **tous les 20 niveaux, le parking s'agrandit ET une nouvelle mécanique arrive** (les anciennes restent, elles se cumulent).
+ * Pour ajouter une mécanique : ajouter un monde ici (nom), sa taille dans [LevelGenerator.sizes] et ses réglages dans [LevelGenerator.paramsFor].
+ */
 object Worlds {
     const val LEVELS_PER_WORLD = 20
-    const val LEVELS_PER_GROUP = 60
-    const val GROUPS = 4
-    const val COUNT = GROUPS * LEVELS_PER_GROUP / LEVELS_PER_WORLD
-    const val LEVEL_COUNT = GROUPS * LEVELS_PER_GROUP
+    const val COUNT = 5
+    const val LEVEL_COUNT = COUNT * LEVELS_PER_WORLD
 
-    val names = listOf(
-        "Le petit parking", "Le centre-ville", "Le centre commercial", // 1-60 : avancer et reculer
-        "Les travaux", "Le chantier", "Le tunnel", // 61-120 : plots de chantier
-        "Les murs", "Le château fort", "La citadelle", // 121-180 : murs sur le bord du parking
-        "Le port", "L'entrepôt", "Le grand garage", // 181-240 : caisses qui tombent
-    )
+    /** Un monde par mécanique : 1 avant et arrière, 2 plots de chantier, 3 murs sur le bord, 4 pick-up qui laissent tomber une caisse, 5 taches d'huile. */
+    val names = listOf("Le petit parking", "Les travaux", "Le château fort", "Le port", "La station-service")
 
-    /** Monde (0 à 11) d'un niveau (1 à 240) ; au-delà, le dernier monde. */
+    /** Monde (0 à 4) d'un niveau (1 à 100) ; au-delà, le dernier monde. */
     fun of(levelIndex: Int): Int = ((levelIndex - 1) / LEVELS_PER_WORLD).coerceIn(0, COUNT - 1)
-
-    /** Groupe de 60 niveaux (0 à 3) : 0 = avancer et reculer, 1 = plots de chantier, 2 = murs sur le bord, 3 = caisses qui tombent. */
-    fun groupOf(levelIndex: Int): Int = ((levelIndex - 1) / LEVELS_PER_GROUP).coerceIn(0, GROUPS - 1)
 
     /** Premier niveau du monde. */
     fun firstLevel(world: Int): Int = world * LEVELS_PER_WORLD + 1

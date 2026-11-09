@@ -27,6 +27,7 @@ import com.kcharignon.petitsjeux.core.screens.SettingsCard
 import com.kcharignon.petitsjeux.core.ui.Backdrop
 import com.kcharignon.petitsjeux.games.parking.ParkingProgress
 import com.kcharignon.petitsjeux.games.parking.engine.Car
+import com.kcharignon.petitsjeux.games.parking.engine.Cell
 import com.kcharignon.petitsjeux.games.parking.engine.Dir
 import com.kcharignon.petitsjeux.games.parking.engine.Level
 import com.kcharignon.petitsjeux.games.parking.engine.LevelGenerator
@@ -185,7 +186,7 @@ class ScreenshotsTest {
 
     @Test
     fun play() = show("07-jeu") {
-        PlayScreen(LevelGenerator.level(61), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
+        PlayScreen(LevelGenerator.level(24), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
     }
 
     @Test
@@ -195,7 +196,7 @@ class ScreenshotsTest {
 
     @Test
     fun win() = show("10-victoire", advanceMs = 1500) {
-        Backdrop(overlay = { WinCard(LevelGenerator.level(27), stars = 3, cars = 13, bumps = 0, hasNext = true, onNext = {}, onReplay = {}, onLevels = {}) }) { }
+        Backdrop(overlay = { WinCard(LevelGenerator.level(27), stars = 3, cars = 7, bumps = 0, hasNext = true, onNext = {}, onReplay = {}, onLevels = {}) }) { }
     }
 
     // ---- vrais parcours : on touche et on glisse des véhicules
@@ -228,7 +229,7 @@ class ScreenshotsTest {
 
     @Test
     fun aFreeCarDrivesOut() {
-        val level = LevelGenerator.level(61)
+        val level = LevelGenerator.level(24)
         show(null) { PlayScreen(level, hasNext = true, onFinished = {}, onNext = {}, onLevels = {}) }
         val game = ParkingGame(level)
         val free = level.cars.first { game.canMove(it, Move.FORWARD) }
@@ -239,7 +240,7 @@ class ScreenshotsTest {
 
     @Test
     fun aBlockedCarHonks() {
-        val level = LevelGenerator.level(61)
+        val level = LevelGenerator.level(24)
         show(null) { PlayScreen(level, hasNext = true, onFinished = {}, onNext = {}, onLevels = {}) }
         val game = ParkingGame(level)
         val blocked = level.cars.first { !game.canMove(it, Move.FORWARD) }
@@ -326,28 +327,54 @@ class ScreenshotsTest {
 
     @Test
     fun aLevelWithConesCanBePlayedToTheEnd() {
-        val store = InMemoryProfileStore(listOf(profile(0, "Léa", Avatar.CAT, levels = 61)))
-        playLevelFromTheMenu(store, 62)
+        val store = InMemoryProfileStore(listOf(profile(0, "Léa", Avatar.CAT, levels = 22)))
+        playLevelFromTheMenu(store, 23)
         val saved = ParkingProgress.fromJson(store.load(0)!!.gameSave(ParkingProgress.GAME_ID))
-        assertEquals(3, saved.starsOf(62))
+        assertEquals(3, saved.starsOf(23))
     }
 
     @Test
     fun theConesAndTheBigCarParkAreDrawn() {
-        show("17-jeu-plots") { PlayScreen(LevelGenerator.level(64), hasNext = true, onFinished = {}, onNext = {}, onLevels = {}) }
+        show("17-jeu-plots") { PlayScreen(LevelGenerator.level(36), hasNext = true, onFinished = {}, onNext = {}, onLevels = {}) }
     }
 
     @Test
     fun theWallsOnTheBorderAreDrawn() = show("18-jeu-murs") {
-        PlayScreen(LevelGenerator.level(139), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
+        PlayScreen(LevelGenerator.level(55), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
     }
 
     @Test
     fun aLevelWithWallsCanBePlayedToTheEnd() {
-        val store = InMemoryProfileStore(listOf(profile(0, "Léa", Avatar.CAT, levels = 121)))
-        playLevelFromTheMenu(store, 122)
+        val store = InMemoryProfileStore(listOf(profile(0, "Léa", Avatar.CAT, levels = 42)))
+        playLevelFromTheMenu(store, 43)
         val saved = ParkingProgress.fromJson(store.load(0)!!.gameSave(ParkingProgress.GAME_ID))
-        assertEquals(3, saved.starsOf(122))
+        assertEquals(3, saved.starsOf(43))
+    }
+
+    @Test
+    fun theOilSlicksAreDrawn() = show("23-jeu-huile") {
+        PlayScreen(LevelGenerator.level(90), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
+    }
+
+    @Test
+    fun aLevelWithOilCanBePlayedToTheEnd() {
+        val store = InMemoryProfileStore(listOf(profile(0, "Léa", Avatar.CAT, levels = 82)))
+        playLevelFromTheMenu(store, 83)
+        val saved = ParkingProgress.fromJson(store.load(0)!!.gameSave(ParkingProgress.GAME_ID))
+        assertEquals(3, saved.starsOf(83))
+    }
+
+    @Test
+    fun aVehicleTurnsOnOilAndLeavesBySide() {
+        // la voiture avance tout droit, glisse sur la tache (3,2), tourne à droite et sort par le bas
+        val level = Level(1, 6, 5, listOf(Car(0, 0, 2, 2, Dir.RIGHT, 0)), oils = listOf(Cell(3, 2)))
+        var finished = -1
+        show(null) { PlayScreen(level, hasNext = false, onFinished = { finished = it }, onNext = {}, onLevels = {}) }
+        perform(level, level.cars[0], Move.FORWARD)
+        rule.mainClock.advanceTimeBy(430)
+        rule.onRoot().captureRoboImage("../../docs/screenshots/24-jeu-virage.png")
+        rule.mainClock.advanceTimeBy(3000)
+        assertEquals(0, finished)
     }
 
     @Test
@@ -374,7 +401,7 @@ class ScreenshotsTest {
         // un niveau où un pick-up peut partir tout de suite, sans mener à une impasse
         fun safeMove(level: Level, pickup: Car) =
             Move.entries.firstOrNull { m -> ParkingGame(level).canMove(pickup, m) && !ParkingGame(level).also { it.tap(pickup.id, m) }.isStuck }
-        val level = (181..240).map { LevelGenerator.level(it) }.first { l -> l.cars.any { it.carrier && safeMove(l, it) != null } }
+        val level = (61..100).map { LevelGenerator.level(it) }.first { l -> l.cars.any { it.carrier && safeMove(l, it) != null } }
         val pickup = level.cars.first { it.carrier && safeMove(level, it) != null }
         val move = safeMove(level, pickup)!!
         show(null) { PlayScreen(level, hasNext = true, onFinished = {}, onNext = {}, onLevels = {}) }
@@ -386,7 +413,7 @@ class ScreenshotsTest {
     @Test
     fun walkingIntoACrateTrapOffersToStartAgain() {
         // un niveau piégé : un pick-up qui part du mauvais côté laisse sa caisse là où elle ferme le dernier passage
-        val level = (181..240).map { LevelGenerator.level(it) }.first { Solver.analyse(it).traps >= 1 }
+        val level = (61..100).map { LevelGenerator.level(it) }.first { Solver.analyse(it).traps >= 1 }
         val pickup = level.cars.first { it.carrier && Move.entries.any { m -> ParkingGame(level).canMove(it, m) && ParkingGame(level).also { g -> g.tap(it.id, m) }.isStuck } }
         val bad = Move.entries.first { m -> ParkingGame(level).canMove(pickup, m) && ParkingGame(level).also { g -> g.tap(pickup.id, m) }.isStuck }
         show(null) { PlayScreen(level, hasNext = true, onFinished = {}, onNext = {}, onLevels = {}) }
@@ -401,7 +428,7 @@ class ScreenshotsTest {
 
     @Test
     fun theHintShowsWhichWayToSlide() {
-        val level = LevelGenerator.level(165)
+        val level = LevelGenerator.level(70)
         show(null) { PlayScreen(level, hasNext = true, onFinished = {}, onNext = {}, onLevels = {}) }
         rule.onNodeWithText("Indice").performClick()
         rule.mainClock.advanceTimeBy(350)
