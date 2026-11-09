@@ -41,8 +41,9 @@ Lancement ─► Choix du joueur ─► Accueil (jeux) ─► Choix du niveau �
 
 ## Parking Malin : règles
 
-- Un parking = une grille (de 4×5 à 7×9 cases) ; des **voitures** (2 cases) et des **minibus** (3 cases), larges d'une case,
-  garés dans les 4 directions. Le **nez** (pare-brise, phares) montre où elles roulent.
+- Un parking = une grille (de 4×5 à 7×9 cases) ; des **voitures** (2 cases : berline, citadine, sportive), des **camions** (3 cases : pick-up, camion de livraison, fourgon)
+  et, à partir du monde 3, des **bus et poids lourds** (4 cases : autobus, camion-citerne), larges d'une case, garés dans les 4 directions.
+  Le **nez** (phares blancs, grand pare-brise ; l'arrière a une petite lunette teintée) montre où ils roulent.
 - **Toucher une voiture la fait rouler tout droit, dans la direction de son nez.**
   - Si la voie est libre jusqu'au bord du plateau, elle **sort** et disparaît : bravo.
   - Sinon elle avance jusqu'à toucher l'autre voiture, **klaxonne (« Pouet ! »)**, devient rouge un instant et recule : c'est une **faute**.
@@ -59,9 +60,9 @@ Lancement ─► Choix du joueur ─► Accueil (jeux) ─► Choix du niveau �
 
 | Monde | Nom | Grille | Voitures | Décor |
 |---|---|---|---|---|
-| 1 | Le petit parking | 4×5 → 5×6 | 3 → 8 | asphalte bleu-gris |
+| 1 | Le petit parking | 4×5 → 5×6 | 3 → 8 (voitures, puis camions dès le niveau 4) | asphalte bleu-gris |
 | 2 | Le centre-ville | 5×6 → 6×7 | 8 → 12 | asphalte chaud |
-| 3 | Le centre commercial | 6×7 → 6×8 | 12 → 16 | asphalte vert |
+| 3 | Le centre commercial | 6×7 → 6×8 | 12 → 16 (+ bus et poids lourds) | asphalte vert |
 | 4 | L'aéroport | 6×8 → 7×9 | 15 → 20 | asphalte violet |
 | 5 | Le grand garage | 7×9 | 18 → 24 | asphalte sombre |
 
@@ -127,8 +128,10 @@ Le niveau suivant se débloque quand le précédent est réussi.
 - **Voitures** vues de dessus, **toit, pare-brise, phares, feux, roues** ; une **tranche sombre** est toujours dessinée vers le bas de l'écran
   (même quand la voiture tourne) pour donner du volume sans 3D. 9 couleurs (vert, orange, cyan, bleu, rose, jaune, violet, beige, rouge).
 - **Plateau** d'asphalte à damier discret, petits traits de parking, **plots** orange et panneau **P** autour.
-- **Animations** : sortie en accélérant puis fondu ; faute = avance, rebond, rougeur + bulle « Pouet ! » ; victoire = confettis et étoiles qui s'allument.
-- **Sons** (synthétisés, coupables) : vroum de sortie, klaxon de faute, jingle de victoire. **Vibration** légère sur faute et victoire.
+- **Animations** : sortie en accélérant puis fondu ; faute = avance, rebond, rougeur + bulle « Pouet ! » ; victoire : une pause de 800 ms sur le plateau vide, puis confettis et étoiles qui s'allument une à une.
+- **Sons** (synthétisés, aucun fichier ; coupables) : un « vroum » de moteur qui monte en régime avec le souffle de passage (3 variantes à tour de rôle), un choc puis un klaxon « pouet » à la faute,
+  une fanfare en cloches avec réverbération à la victoire, un « ding » plus aigu à chaque étoile (do, mi, sol), un « tin-tin » pour l'indice, un petit « pop » sur les boutons.
+  Toutes les notes sont en do majeur : elles s'accordent entre elles. **Vibration** légère sur faute et victoire.
 
 ## Architecture de l'appli
 

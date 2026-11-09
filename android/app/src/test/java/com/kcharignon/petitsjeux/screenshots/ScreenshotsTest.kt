@@ -7,6 +7,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import com.kcharignon.petitsjeux.core.PetitsJeuxApp
@@ -24,6 +25,7 @@ import com.kcharignon.petitsjeux.games.parking.engine.ParkingGame
 import com.kcharignon.petitsjeux.games.parking.ui.BoardGeometry
 import com.kcharignon.petitsjeux.games.parking.ui.LevelSelectScreen
 import com.kcharignon.petitsjeux.games.parking.ui.PlayScreen
+import com.kcharignon.petitsjeux.games.parking.ui.WIN_DELAY_MS
 import com.kcharignon.petitsjeux.games.parking.ui.WinCard
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Assert.assertEquals
@@ -172,7 +174,8 @@ class ScreenshotsTest {
             // (le toucher de la dernière voiture est suivi d'une seule image : la voiture roule encore)
             rule.mainClock.advanceTimeBy(if (game.isWon && !settleAtEnd) 16 else 1500)
         }
-        if (settleAtEnd) rule.mainClock.advanceTimeBy(1500)
+        // animation de sortie de la dernière voiture, puis la pause avant la fenêtre de victoire
+        if (settleAtEnd) rule.mainClock.advanceTimeBy(1500 + WIN_DELAY_MS + 800)
     }
 
     @Test
@@ -195,6 +198,17 @@ class ScreenshotsTest {
         val saved = ParkingProgress.fromJson(store.load(0)!!.gameSave(ParkingProgress.GAME_ID))
         assertEquals(3, saved.starsOf(1))
         assertEquals(1, saved.played)
+    }
+
+    @Test
+    fun theWinCardWaitsABeatAfterTheLastCarLeaves() {
+        val store = InMemoryProfileStore(listOf(profile(0, "Léa", Avatar.CAT)))
+        playFirstLevelFromTheMenu(store, mistakes = 0, settleAtEnd = false)
+        rule.mainClock.advanceTimeBy(1000)
+        // la dernière voiture a roulé (au moins 470 ms) mais la pause de 800 ms n'est pas finie : pas encore d'écran de fin
+        rule.onNodeWithText("Bravo !").assertDoesNotExist()
+        rule.mainClock.advanceTimeBy(1500)
+        rule.onNodeWithText("Bravo !").assertExists()
     }
 
     @Test

@@ -21,7 +21,7 @@ const LEVEL = [
   { id: 'F', c: 5, r: 2, len: 2, dir: 'D', color: CAR_COLORS.orange },
   { id: 'G', c: 3, r: 3, len: 2, dir: 'R', color: CAR_COLORS.bleu },
   { id: 'H', c: 1, r: 4, len: 2, dir: 'U', color: CAR_COLORS.rouge },
-  { id: 'I', c: 2, r: 5, len: 2, dir: 'L', color: CAR_COLORS.beige },
+  { id: 'I', c: 2, r: 5, len: 2, dir: 'L', color: CAR_COLORS.turquoise },
   { id: 'J', c: 4, r: 4, len: 3, dir: 'D', color: CAR_COLORS.vert },
   { id: 'K', c: 0, r: 7, len: 2, dir: 'R', color: CAR_COLORS.orange },
   { id: 'L', c: 2, r: 6, len: 2, dir: 'R', color: CAR_COLORS.cyan },

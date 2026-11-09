@@ -19,7 +19,8 @@ import com.kcharignon.petitsjeux.games.parking.engine.Worlds
 import com.kcharignon.petitsjeux.games.parking.ui.BoardTheme
 import com.kcharignon.petitsjeux.games.parking.ui.LevelSelectScreen
 import com.kcharignon.petitsjeux.games.parking.ui.PlayScreen
-import com.kcharignon.petitsjeux.games.parking.ui.drawCar
+import com.kcharignon.petitsjeux.games.parking.ui.VehicleModel
+import com.kcharignon.petitsjeux.games.parking.ui.drawVehicle
 import com.kcharignon.petitsjeux.games.parking.ui.drawCone
 import org.json.JSONObject
 
@@ -44,14 +45,15 @@ object ParkingMiniGame : MiniGame {
             val s = minOf(size.width / 8.6f, size.height / 4.4f)
             val ox = (size.width - 7 * s) / 2
             val oy = (size.height - 4 * s) / 2
+            // une petite scène : 7 colonnes sur 4 lignes ; (col, row) = case de départ, [vertical] = le véhicule occupe des lignes
             fun at(col: Int, row: Int, len: Int, vertical: Boolean) =
                 Offset(ox + col * s + (if (vertical) s else len * s) / 2, oy + row * s + (if (vertical) len * s else s) / 2)
-            drawCar(2, Pj.CarColors[4], s, at(0, 0, 2, false), 90f)
-            drawCar(2, Pj.CarColors[2], s, at(3, 0, 2, true), 180f)
-            drawCar(3, Pj.CarColors[5], s, at(5, 0, 3, true), 180f)
-            drawCar(2, Pj.CarColors[0], s, at(6, 1, 2, true), 0f)
-            drawCar(2, Pj.CarColors[6], s, at(1, 2, 2, false), 270f)
-            drawCar(2, Pj.CarColors[3], s, at(3, 3, 2, false), 90f)
+            drawVehicle(VehicleModel.SEDAN, Pj.CarColors[4], s, at(0, 0, 2, false), 90f)
+            drawVehicle(VehicleModel.HATCH, Pj.CarColors[2], s, at(3, 0, 2, true), 180f)
+            drawVehicle(VehicleModel.BOX, Pj.CarColors[5], s, at(5, 0, 3, true), 180f)
+            drawVehicle(VehicleModel.SPORT, Pj.CarColors[0], s, at(6, 1, 2, true), 0f)
+            drawVehicle(VehicleModel.PICKUP, Pj.CarColors[6], s, at(0, 2, 3, false), 270f)
+            drawVehicle(VehicleModel.BUS, Pj.CarColors[1], s, at(2, 3, 4, false), 90f)
             drawCone(ox - 0.7f * s, oy + 3.7f * s, s * 0.6f)
             drawCone(ox + 7.7f * s, oy + 3.7f * s, s * 0.6f)
         }

@@ -30,15 +30,15 @@ const T = {
 };
 
 const CAR_COLORS = {
-  vert: '#4DD35A',
-  orange: '#FF7A3D',
-  cyan: '#35C6F2',
-  bleu: '#4A7DF0',
-  rose: '#F0409A',
-  jaune: '#FFD93B',
-  violet: '#A55BE8',
-  beige: '#EBCB9C',
-  rouge: '#F2453D',
+  vert: '#6BD23C',
+  orange: '#FF8A1F',
+  cyan: '#2BC4EE',
+  bleu: '#2D5FE0',
+  rose: '#F0468A',
+  jaune: '#FFD41F',
+  violet: '#9A4DE3',
+  turquoise: '#14B8A6',
+  rouge: '#E8362F',
 };
 
 const fx = (n) => Math.round(n * 100) / 100;
@@ -185,17 +185,23 @@ function carLayers(len, color, s, { flash = false } = {}) {
 
 const DIR_ANGLE = { U: 0, R: 90, D: 180, L: 270 };
 
-// Pose une voiture sur la grille. (c, r) = case en haut à gauche de son emprise ; ox, oy = coin haut gauche du plateau.
+// Pose un véhicule sur la grille (modèles : tools/design/vehicles.js). (c, r) = case en haut à gauche de son emprise ;
+// ox, oy = coin haut gauche du plateau. Le modèle est choisi parmi ceux de sa longueur, comme dans l'appli.
 function car({ c, r, len, dir, color, s, ox, oy, flash = false, shadow = true }) {
+  const V = require('./vehicles.js');
+  const names = V.byLen[len];
+  const model = names[(c + 3 * r) % names.length];
   const horizontal = dir === 'L' || dir === 'R';
   const w = (horizontal ? len : 1) * s;
   const h = (horizontal ? 1 : len) * s;
   const cx = ox + c * s + w / 2;
   const cy = oy + r * s + h / 2;
-  const sh = shadow ? `<ellipse cx="${fx(cx)}" cy="${fx(cy + s * 0.2)}" rx="${fx(w / 2 - s * 0.02)}" ry="${fx(h / 2 - s * 0.02)}" fill="#000" opacity="0.18"/>` : '';
-  const { lower, upper, depth } = carLayers(len, color, s, { flash });
+  const { lower, upper, depth } = V.layers(model, flash ? mix(color, '#FF3B30', 0.5) : color, s);
   const a = DIR_ANGLE[dir];
-  // la tranche sombre est décalée vers le bas de l'ÉCRAN (hors de la rotation) : la lumière vient toujours d'en haut
+  const wide = len >= 3 ? V.WIDE : 1;
+  const L = (len - 0.2) * s;
+  // ombre plate (la silhouette, plus bas que la tranche), puis la tranche (décalée vers le bas de l'ÉCRAN, hors rotation), puis le dessus
+  const sh = shadow ? `<g transform="translate(${fx(cx)} ${fx(cy + (V.DEPTH + 0.07) * s)}) rotate(${a})"><rect x="${fx(-0.4 * s * wide)}" y="${fx(-L / 2)}" width="${fx(0.8 * s * wide)}" height="${fx(L)}" rx="${fx(0.3 * s)}" fill="#000" opacity="0.22"/></g>` : '';
   return `${sh}<g transform="translate(${fx(cx)} ${fx(cy)})"><g transform="translate(0 ${fx(depth)})"><g transform="rotate(${a})">${lower}</g></g><g transform="rotate(${a})">${upper}</g></g>`;
 }
 

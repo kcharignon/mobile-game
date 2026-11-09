@@ -11,113 +11,79 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import com.kcharignon.petitsjeux.core.ui.Pj
+import com.kcharignon.petitsjeux.games.parking.engine.Car
 
 /**
- * Les dessins de Parking Malin : voitures, plateau, plots, panneau P. Mêmes proportions que les maquettes (tools/design/ds.js,
- * docs/design/00-planche-style.png). Taille de référence : [s] = côté d'une case, en pixels.
+ * Les dessins de Parking Malin : plateau, plots, panneau P, et le tracé d'un véhicule. Les véhicules eux-mêmes (voitures, camions, bus) sont dans
+ * VehicleArt.kt, GÉNÉRÉ par tools/design/make-vehicles.js depuis la même description que l'aperçu docs/design/vehicules.png.
+ * Taille de référence : [s] = côté d'une case, en pixels.
  */
 
-private val Glass = Pj.Glass
-private val Tire = Color(0xFF262938)
-private val Headlight = Color(0xFFFFF6B8)
-private val Taillight = Color(0xFFE8352B)
-
-private fun darken(c: Color, t: Float) = lerp(c, Color.Black, t)
-private fun lighten(c: Color, t: Float) = lerp(c, Color.White, t)
+/** Éclaircit ([l]), assombrit ([d]) ou rend transparente ([a]) une couleur : le vocabulaire de VehicleArt.kt (généré). */
+internal fun tone(base: Color, l: Float = 0f, d: Float = 0f, a: Float = 1f): Color {
+    var c = base
+    if (l != 0f) c = lerp(c, Color.White, l)
+    if (d != 0f) c = lerp(c, Color.Black, d)
+    return if (a < 1f) c.copy(alpha = c.alpha * a) else c
+}
 
 /**
- * Dessine une voiture de [len] cases (2 ou 3) centrée en [center], le nez tourné de [degrees] (0 = vers le haut).
+ * Le modèle de véhicule d'une voiture du niveau : un des modèles de sa longueur (voitures 2 cases, camions 3, bus et poids lourds 4),
+ * toujours le même pour une voiture donnée d'un niveau donné.
+ */
+fun vehicleModelFor(car: Car): VehicleModel {
+    val options = VehicleModel.ofLength(car.len)
+    return options[(car.id * 5 + car.color * 3) % options.size]
+}
+
+/**
+ * Dessine un véhicule centré en [center], le nez tourné de [degrees] (0 = vers le haut). [s] = côté d'une case en pixels.
  * [flash] (0 à 1) rougit la carrosserie (faute) ; [alpha] la fait disparaître (sortie).
  * La « tranche » sombre est décalée vers le bas de l'ÉCRAN, jamais avec la rotation : la lumière vient toujours d'en haut.
  */
-fun DrawScope.drawCar(len: Int, color: Color, s: Float, center: Offset, degrees: Float, flash: Float = 0f, alpha: Float = 1f, shadow: Boolean = true) {
+fun DrawScope.drawVehicle(
+    model: VehicleModel,
+    color: Color,
+    s: Float,
+    center: Offset,
+    degrees: Float,
+    flash: Float = 0f,
+    alpha: Float = 1f,
+    shadow: Boolean = true,
+) {
     if (alpha <= 0.01f) return
     val faded = alpha < 0.99f
     if (faded) {
-        val half = s * (len + 1)
+        val half = s * (model.len + 1)
         drawIntoCanvas { it.saveLayer(Rect(center.x - half, center.y - half, center.x + half, center.y + half), Paint().apply { this.alpha = alpha }) }
     }
-    val horizontal = degrees == 90f || degrees == 270f
-    val w = if (horizontal) len * s else s
-    val h = if (horizontal) s else len * s
-    if (shadow) {
-        drawOval(Color.Black.copy(alpha = 0.18f), Offset(center.x - (w / 2 - s * 0.02f), center.y + s * 0.2f - (h / 2 - s * 0.02f)), Size(w - s * 0.04f, h - s * 0.04f))
-    }
-    val body = lerp(color, Color(0xFFFF2D1F), 0.55f * flash)
-    val width = s * 0.8f
-    val length = s * len - s * 0.2f
-    val depth = s * 0.11f
+    val body = color
+    val sx = model.widthScale
+    val length = (model.len - 0.2f) * s
     translate(center.x, center.y) {
-        translate(0f, depth) { rotate(degrees, Offset.Zero) { drawLowerLayer(body, width, length, s) } }
-        rotate(degrees, Offset.Zero) { drawUpperLayer(len, body, width, length, s) }
+        if (shadow) {
+            // ombre portée plate : la silhouette, plus bas que la tranche, sombre et douce
+            translate(0f, (VEHICLE_DEPTH + 0.07f) * s) {
+                rotate(degrees, Offset.Zero) {
+                    drawRoundRect(Color.Black.copy(alpha = 0.22f), Offset(-0.4f * s * sx, -length / 2), Size(0.8f * s * sx, length), CornerRadius(0.3f * s))
+                }
+            }
+        }
+        translate(0f, VEHICLE_DEPTH * s) { rotate(degrees, Offset.Zero) { scale(sx, 1f, Offset.Zero) { drawVehicleLower(model, body, s) } } }
+        rotate(degrees, Offset.Zero) {
+            scale(sx, 1f, Offset.Zero) {
+                drawVehicleUpper(model, body, s)
+                // faute : le véhicule entier rougit (superposition : sa couleur d'origine reste reconnaissable)
+                if (flash > 0.01f) drawVehicleSilhouette(model, Color(0xFFFF3B30).copy(alpha = 0.5f * flash), s)
+            }
+        }
     }
     if (faded) drawIntoCanvas { it.restore() }
-}
-
-private fun DrawScope.wheels(width: Float, length: Float, s: Float, dy: Float) {
-    val wy = length / 2 - s * 0.34f
-    for (x in floatArrayOf(-width / 2, width / 2)) for (y in floatArrayOf(-wy, wy)) {
-        drawRoundRect(Tire, Offset(x - s * 0.07f, y + dy - s * 0.15f), Size(s * 0.14f, s * 0.3f), CornerRadius(s * 0.06f))
-    }
-}
-
-private fun DrawScope.drawLowerLayer(body: Color, width: Float, length: Float, s: Float) {
-    wheels(width, length, s, 0f)
-    drawRoundRect(darken(body, 0.38f), Offset(-width / 2, -length / 2), Size(width, length), CornerRadius(s * 0.27f))
-}
-
-private fun DrawScope.drawUpperLayer(len: Int, body: Color, width: Float, length: Float, s: Float) {
-    val depth = s * 0.11f
-    wheels(width, length, s, -depth * 0.2f)
-    drawRoundRect(
-        Brush.linearGradient(
-            0f to lighten(body, 0.28f), 0.55f to body, 1f to darken(body, 0.1f),
-            start = Offset(-width / 2, -length / 2), end = Offset(-width / 2 + width * 0.35f, length / 2),
-        ),
-        Offset(-width / 2, -length / 2), Size(width, length), CornerRadius(s * 0.27f),
-    )
-    // capot brillant
-    drawOval(Color.White.copy(alpha = 0.4f), Offset(-width * 0.38f, -length / 2 + s * 0.13f), Size(width * 0.4f, s * 0.14f))
-
-    // toit
-    val cabinLen = if (len == 2) length * 0.46f else length * 0.66f
-    val cabinW = width * 0.74f
-    val cabinY = if (len == 2) length * 0.06f else length * 0.04f
-    val top = cabinY - cabinLen / 2
-    drawRoundRect(lighten(body, 0.12f), Offset(-cabinW / 2, top), Size(cabinW, cabinLen), CornerRadius(s * 0.17f))
-    drawRoundRect(darken(body, 0.14f), Offset(-cabinW / 2, top), Size(cabinW, cabinLen), CornerRadius(s * 0.17f), style = Stroke(s * 0.03f))
-    // pare-brise
-    drawPath(
-        Path().apply {
-            moveTo(-cabinW / 2 + s * 0.06f, top + s * 0.2f)
-            quadraticTo(0f, top - s * 0.02f, cabinW / 2 - s * 0.06f, top + s * 0.2f)
-            lineTo(cabinW / 2 - s * 0.1f, top + s * 0.42f)
-            lineTo(-cabinW / 2 + s * 0.1f, top + s * 0.42f)
-            close()
-        },
-        Glass,
-    )
-    // reflets sur le toit : une bande (voiture) ou deux (minibus)
-    val y0 = top + s * 0.42f
-    val y1 = cabinY + cabinLen / 2 - s * 0.26f
-    val shine = lighten(body, 0.3f).copy(alpha = 0.5f)
-    if (len == 3) {
-        drawRoundRect(shine, Offset(-cabinW / 2 + s * 0.11f, y0 + (y1 - y0) * 0.12f), Size(cabinW - s * 0.22f, (y1 - y0) * 0.34f), CornerRadius(s * 0.05f))
-        drawRoundRect(shine, Offset(-cabinW / 2 + s * 0.11f, y0 + (y1 - y0) * 0.54f), Size(cabinW - s * 0.22f, (y1 - y0) * 0.34f), CornerRadius(s * 0.05f))
-    } else {
-        drawRoundRect(shine, Offset(-cabinW / 2 + s * 0.14f, top + s * 0.52f), Size(cabinW - s * 0.28f, cabinLen - s * 0.52f - s * 0.32f), CornerRadius(s * 0.06f))
-    }
-    // lunette arrière
-    drawRoundRect(Glass, Offset(-cabinW / 2 + s * 0.09f, cabinY + cabinLen / 2 - s * 0.26f), Size(cabinW - s * 0.18f, s * 0.14f), CornerRadius(s * 0.05f))
-    // phares et feux arrière
-    drawCircle(Headlight, s * 0.075f, Offset(-width * 0.3f, -length / 2 + s * 0.1f))
-    drawCircle(Headlight, s * 0.075f, Offset(width * 0.3f, -length / 2 + s * 0.1f))
-    drawRoundRect(Taillight, Offset(-width * 0.4f, length / 2 - s * 0.13f), Size(s * 0.17f, s * 0.07f), CornerRadius(s * 0.03f))
-    drawRoundRect(Taillight, Offset(width * 0.4f - s * 0.17f, length / 2 - s * 0.13f), Size(s * 0.17f, s * 0.07f), CornerRadius(s * 0.03f))
 }
 
 /** Un plot orange et blanc dont le pied est centré en ([cx], [cy]). */
@@ -154,7 +120,7 @@ fun DrawScope.drawParkingSign(cx: Float, cy: Float, s: Float) {
     val x0 = cx - s * 0.13f
     val y0 = cy - s * 0.4f
     drawRoundRect(Color.White, Offset(x0, y0), Size(stem, s * 0.5f), CornerRadius(stem / 2))
-    val bowl = s * 0.4f
+    val bowl = s * 0.31f
     drawArc(Color.White, -90f, 180f, false, Offset(x0 + stem / 2 - bowl / 2, y0 + stem / 2), Size(bowl, bowl), style = Stroke(stem))
 }
 

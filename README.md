@@ -28,11 +28,12 @@ Sur le téléphone : ouvrir le fichier téléchargé, autoriser l'installation d
 
 ## Le jeu
 
-- **Toucher une voiture la fait rouler tout droit, dans la direction de son nez** (pare-brise et phares).
-  Voie libre : elle sort. Sinon elle klaxonne (« Pouet ! »), rougit et recule : c'est une **faute**.
+- **Toucher un véhicule le fait rouler tout droit, dans la direction de son nez** (phares blancs et grand pare-brise).
+  Voie libre : il sort. Sinon il klaxonne (« Pouet ! »), rougit et recule : c'est une **faute**.
+- Des **voitures** (3 modèles), des **camions** (pick-up, camion de livraison, fourgon) et, plus loin, des **bus** et des **camions-citernes** : 8 véhicules dessinés par le code ([aperçu](docs/design/vehicules.png)).
 - On gagne quand **toutes** les voitures sont sorties. Pas de chronomètre, jamais de « perdu ».
 - **Étoiles** : 0 faute = 3 ★, 1 ou 2 fautes = 2 ★, plus = 1 ★. Un bouton **Indice** gratuit entoure une voiture qui peut sortir.
-- **100 niveaux** en 5 mondes, générés de façon déterministe et **toujours solubles** ; la difficulté monte doucement (de 3 voitures à 24).
+- **100 niveaux** en 5 mondes, générés de façon déterministe et **toujours solubles** ; la difficulté monte doucement (de 3 véhicules à 24).
 - **L'évolution du joueur** : ses étoiles font monter son **rang** (Petite voiture, …, Légende du parking), affiché partout où il apparaît.
 
 Règles complètes, sauvegarde et architecture : [`docs/DESIGN.md`](docs/DESIGN.md) ; maquettes : [`docs/design/`](docs/design/).
@@ -70,7 +71,7 @@ android/app/src/main/java/com/kcharignon/petitsjeux/
   games/parking  Parking Malin : engine/ (règles pures), ui/ (plateau, voitures, animations), progression
 android/app/src/test/    tests Kotlin ; screenshots/ = interface rendue par Robolectric (sans téléphone)
 docs/                    DESIGN.md, maquettes (design/), captures du README (screenshots/)
-tools/design/            générateur des maquettes et de l'icône (Node, sans dépendance)
+tools/design/            générateurs (Node, sans dépendance) : maquettes, icône, et les véhicules (vehicles.js -> VehicleArt.kt généré + aperçu)
 .github/                 workflows : tests et APK de débogage, publication signée
 ```
 
@@ -89,4 +90,4 @@ publie la release et met à jour `android-latest`. Les pré-versions `android-de
 
 ## Mentions
 
-Projet personnel. Les voitures, avatars et décors sont des dessins originaux faits par le code (aucune image dans l'appli). Police : [Fredoka](third_party/fredoka/OFL.txt) (licence SIL OFL).
+Projet personnel. Les véhicules, avatars, décors et sons sont des créations originales faites par le code (aucune image ni fichier son dans l'appli). Police : [Fredoka](third_party/fredoka/OFL.txt) (licence SIL OFL).
