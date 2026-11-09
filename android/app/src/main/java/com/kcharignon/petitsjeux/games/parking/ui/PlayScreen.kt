@@ -14,7 +14,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -34,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -70,9 +72,12 @@ import com.kcharignon.petitsjeux.core.ui.PjText
 import com.kcharignon.petitsjeux.core.ui.RoundIconButton
 import com.kcharignon.petitsjeux.core.ui.Stars
 import com.kcharignon.petitsjeux.core.ui.drawStar
+import com.kcharignon.petitsjeux.games.parking.engine.Blocker
 import com.kcharignon.petitsjeux.games.parking.engine.Car
 import com.kcharignon.petitsjeux.games.parking.engine.Cell
+import com.kcharignon.petitsjeux.games.parking.engine.Hint
 import com.kcharignon.petitsjeux.games.parking.engine.Level
+import com.kcharignon.petitsjeux.games.parking.engine.Move
 import com.kcharignon.petitsjeux.games.parking.engine.ParkingGame
 import com.kcharignon.petitsjeux.games.parking.engine.TapResult
 import com.kcharignon.petitsjeux.games.parking.engine.Worlds
@@ -81,38 +86,41 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.sin
 
-/** Ce qui s'anime pour une voiture : sa position le long de sa voie (en cases), sa rougeur de faute, son tremblement. */
+/** Ce qui s'anime pour un véhicule : sa position le long de sa voie (en cases, négative en marche arrière), sa rougeur de faute, son tremblement. */
 class CarVisual {
     val offset = Animatable(0f)
     val flash = Animatable(0f)
     val shake = Animatable(0f)
     var gone by mutableStateOf(false)
 
-    /** Vrai pendant que la voiture fonce, rebondit et rougit : un autre toucher ne compte pas (un enfant impatient ne perd pas deux étoiles d'un coup). */
+    /** Vrai pendant que le véhicule fonce, rebondit et rougit : un autre geste ne compte pas (un enfant impatient ne perd pas deux étoiles d'un coup). */
     var bumping = false
 
-    /** Appelé dès le toucher (pas quand l'animation démarre) : deux touchers dans la même image ne comptent qu'une faute. */
+    /** Appelé dès le geste (pas quand l'animation démarre) : deux gestes dans la même image ne comptent qu'une faute. */
     fun startBump() {
         bumping = true
     }
 
-    /** Distance (en cases) à partir de laquelle la voiture commence à s'effacer : son nez passe le bord du plateau. */
+    /** Distance (en cases) à partir de laquelle le véhicule commence à s'effacer : son nez passe le bord du plateau. */
     var fadeFrom = Float.MAX_VALUE
 
-    /** La voiture accélère jusqu'au bord, passe le bord et disparaît. */
-    suspend fun exit(pathLength: Int, len: Int) {
+    /** Le véhicule accélère jusqu'au bord, passe le bord et disparaît. */
+    suspend fun exit(pathLength: Int, len: Int, move: Move) {
+        val sign = if (move == Move.FORWARD) 1f else -1f
         val distance = pathLength + len + 1f
         fadeFrom = pathLength.toFloat()
-        offset.animateTo(distance, tween(durationMillis = (260 + 70 * distance).toInt(), easing = FastOutLinearInEasing))
+        offset.animateTo(sign * distance, tween(durationMillis = (260 + 70 * distance).toInt(), easing = FastOutLinearInEasing))
         gone = true
     }
 
-    /** Faute : elle fonce jusqu'à toucher l'autre voiture, rougit, rebondit en arrière. */
-    suspend fun bump(freeCells: Int, onHit: () -> Unit) {
+    /** Faute : il fonce jusqu'à toucher l'obstacle, rougit, rebondit en arrière. */
+    suspend fun bump(freeCells: Int, move: Move, onHit: () -> Unit) {
+        val sign = if (move == Move.FORWARD) 1f else -1f
         try {
-            offset.animateTo(freeCells + 0.12f, tween(durationMillis = 90 + 80 * freeCells, easing = LinearEasing))
+            offset.animateTo(sign * (freeCells + 0.12f), tween(durationMillis = 90 + 80 * freeCells, easing = LinearEasing))
             onHit()
             flash.snapTo(1f)
             coroutineScope {
@@ -124,26 +132,42 @@ class CarVisual {
         }
     }
 
-    /** La voiture qui bloque tremble un peu. */
+    /** Le véhicule qui bloque tremble un peu. */
     suspend fun wobble() {
         shake.snapTo(0f)
         shake.animateTo(1f, tween(500, easing = LinearEasing))
         shake.snapTo(0f)
     }
 
-    /** Alpha de la sortie : 1 sur le plateau, 0 une fois sortie. */
-    fun alpha(len: Int): Float = (1f - ((offset.value - fadeFrom) / (len + 1f)).coerceIn(0f, 1f))
+    /** Alpha de la sortie : 1 sur le plateau, 0 une fois sorti. */
+    fun alpha(len: Int): Float = (1f - ((abs(offset.value) - fadeFrom) / (len + 1f)).coerceIn(0f, 1f))
 }
 
-/** Pause entre la sortie de la dernière voiture et la fenêtre de victoire. */
+/** Une caisse qui vient de tomber : elle apparaît en rebondissant sur la case que la queue du camion occupait. */
+class CrateVisual {
+    val appear = Animatable(0f)
+}
+
+/** Pause entre la sortie du dernier véhicule et la fenêtre de victoire. */
 const val WIN_DELAY_MS = 800L
 
 /** La bulle « Pouet ! » : où (en pixels, dans la zone du plateau) et quand. */
 private class Honk(val at: Offset, val token: Int)
 
-/** Retient où est le plateau, sans provoquer de nouveau dessin (lu seulement quand on touche une voiture). */
+/** Retient où est le plateau, sans provoquer de nouveau dessin (lu seulement quand on touche un véhicule). */
 private class GeometryHolder {
     var value: BoardGeometry? = null
+}
+
+/** Le petit mot du haut de l'écran : ce que le niveau enseigne (seulement tant qu'on n'a rien bougé). */
+fun levelCaption(index: Int): String? = when (index) {
+    1 -> "Touche un véhicule : il avance tout droit !"
+    2 -> "Glisse un véhicule vers l'arrière : il recule !"
+    3 -> "Glisse-le dans le sens que tu veux : avant ou arrière."
+    61 -> "Nouveau : les plots de chantier bloquent le passage !"
+    121 -> "Nouveau : le parking est plus grand !"
+    181 -> "Nouveau : le pick-up laisse tomber une caisse derrière lui. Elle bloque la case !"
+    else -> null
 }
 
 /**
@@ -178,22 +202,25 @@ private fun PlayBoard(
 ) {
     val game = remember { ParkingGame(level) }
     val visuals = remember { level.cars.associate { it.id to CarVisual() } }
+    val crates = remember { mutableStateMapOf<Cell, CrateVisual>() }
     var carsLeft by remember { mutableIntStateOf(game.carsLeft) }
     var bumps by remember { mutableIntStateOf(0) }
     var won by remember { mutableStateOf(false) }
+    var stuck by remember { mutableStateOf(false) }
     var finished by remember { mutableStateOf(false) }
-    var hintId by remember { mutableStateOf<Int?>(null) }
+    var hint by remember { mutableStateOf<Hint?>(null) }
     var honk by remember { mutableStateOf<Honk?>(null) }
     var honkToken by remember { mutableIntStateOf(0) }
+    var touched by remember { mutableStateOf(false) }
     val geometry = remember { GeometryHolder() }
     val scope = rememberCoroutineScope()
     val feedback = LocalFeedback.current
     val theme = remember(level.index) { BoardTheme.of(level.world) }
 
-    LaunchedEffect(hintId) {
-        if (hintId != null) {
+    LaunchedEffect(hint) {
+        if (hint != null) {
             delay(4000)
-            hintId = null
+            hint = null
         }
     }
     LaunchedEffect(honk) {
@@ -202,49 +229,65 @@ private fun PlayBoard(
         if (honk?.token == shown.token) honk = null
     }
 
-    fun tapCar(car: Car) {
-        if (won || visuals.getValue(car.id).bumping) return
-        hintId = null
-        when (val result = game.tap(car.id)) {
+    fun act(car: Car, move: Move) {
+        if (won || stuck || visuals.getValue(car.id).bumping) return
+        hint = null
+        touched = true
+        when (val result = game.tap(car.id, move)) {
             TapResult.Ignored -> Unit
             is TapResult.Exited -> {
                 carsLeft = game.carsLeft
                 feedback.exit()
-                // Le niveau est réussi (et sauvegardé) dès que la dernière voiture est partie : quitter pendant son animation ne perd rien.
+                // Le niveau est réussi (et sauvegardé) dès que le dernier véhicule est parti : quitter pendant son animation ne perd rien.
                 if (game.isWon && !finished) {
                     finished = true
                     onFinished(game.bumps)
                 }
+                result.dropped?.let { cell ->
+                    // la caisse tombe sur la case que la queue du camion occupait, et la bloque pour de bon
+                    val crate = CrateVisual()
+                    crates[cell] = crate
+                    scope.launch { crate.appear.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 260f)) }
+                }
                 scope.launch {
-                    visuals.getValue(car.id).exit(result.pathLength, car.len)
-                    // la fenêtre de victoire attend la fin de l'animation, puis un court instant pour savourer le plateau vide
+                    visuals.getValue(car.id).exit(result.pathLength, car.len, move)
                     if (game.isWon && !won) {
+                        // un court instant pour savourer le plateau vide, puis la fenêtre de victoire
                         delay(WIN_DELAY_MS)
                         won = true
                         feedback.win()
+                    } else if (!game.isWon && result.dropped != null && game.isStuck) {
+                        // la caisse a fermé le dernier passage : plus aucun coup ne permet de tout faire sortir
+                        delay(500)
+                        stuck = true
                     }
                 }
             }
             is TapResult.Bumped -> {
                 bumps = game.bumps
-                feedback.bump()
+                feedback.bump(car.len)
                 visuals.getValue(car.id).startBump()
                 scope.launch {
-                    visuals.getValue(car.id).bump(result.freeCells) {
+                    visuals.getValue(car.id).bump(result.freeCells, move) {
                         geometry.value?.let { g ->
-                            val nose = noseCenter(g, car, result.freeCells + 0.12f)
-                            honk = Honk(nose, ++honkToken)
+                            honk = Honk(noseCenter(g, car, move, result.freeCells + 0.12f), ++honkToken)
                         }
                     }
                 }
-                scope.launch { visuals.getValue(result.blocker.id).wobble() }
+                (result.blocker as? Blocker.Vehicle)?.let { scope.launch { visuals.getValue(it.car.id).wobble() } }
             }
         }
     }
 
     Backdrop(
         modifier,
-        overlay = { if (won) WinCard(level, game.stars, level.cars.size, game.bumps, hasNext, onNext, onReplay = onRestart, onLevels) },
+        overlay = {
+            if (won) {
+                WinCard(level, game.stars, level.cars.size, game.bumps, hasNext, onNext, onReplay = onRestart, onLevels)
+            } else if (stuck) {
+                StuckCard(onRestart, onLevels)
+            }
+        },
     ) {
         Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -260,9 +303,10 @@ private fun PlayBoard(
             Box(Modifier.fillMaxWidth().padding(top = 6.dp), contentAlignment = Alignment.Center) {
                 Stars(filled = starsForBumps(bumps), star = 28.dp, gap = 4.dp, raiseMiddle = true)
             }
-            if (level.index <= 2 && carsLeft == level.cars.size) {
+            val caption = levelCaption(level.index)
+            if (caption != null && !touched) {
                 PjText(
-                    "Touche une voiture libre : elle roule tout droit !",
+                    caption,
                     Modifier.fillMaxWidth().padding(top = 2.dp),
                     size = 15.sp, weight = FontWeight.Medium, color = Pj.Ink, align = TextAlign.Center,
                 )
@@ -280,16 +324,46 @@ private fun PlayBoard(
 
                 Canvas(
                     Modifier.fillMaxSize().testTag("board").pointerInput(level, g) {
-                        detectTapGestures { p ->
-                            val cell = g.cellAt(p) ?: return@detectTapGestures
-                            game.cars.firstOrNull { Cell(cell.first, cell.second) in it.cells }?.let(::tapCar)
+                        // Un simple toucher fait avancer ; un glissement le long du véhicule le fait avancer ou reculer selon son sens.
+                        val threshold = 14.dp.toPx()
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val cell = g.cellAt(down.position)
+                            val car = cell?.let { (c, r) -> game.cars.firstOrNull { Cell(c, r) in it.cells } } ?: return@awaitEachGesture
+                            var decided = false
+                            while (true) {
+                                val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                                val delta = change.position - down.position
+                                val along = delta.x * car.dir.dc + delta.y * car.dir.dr
+                                val across = abs(delta.x * car.dir.dr) + abs(delta.y * car.dir.dc)
+                                if (!decided && maxOf(abs(along), across) > threshold) {
+                                    decided = true
+                                    // un glissement en travers du véhicule ne fait rien
+                                    if (abs(along) >= across) act(car, if (along > 0) Move.FORWARD else Move.BACKWARD)
+                                    change.consume()
+                                }
+                                if (!change.pressed) {
+                                    if (!decided) act(car, Move.FORWARD)
+                                    break
+                                }
+                            }
                         }
                     },
                 ) {
                     drawBoard(g, theme)
                     drawBoardDecor(g)
-                    // les voitures qui roulent passent par-dessus les autres
-                    val order = level.cars.filterNot { visuals.getValue(it.id).gone }.sortedBy { if (visuals.getValue(it.id).offset.value > 0.01f) 1 else 0 }
+                    // plots de chantier : fixes
+                    for (cone in level.cones) {
+                        val tl = g.cellTopLeft(cone.col, cone.row)
+                        drawCone(tl.x + g.s / 2, tl.y + g.s * 0.58f, g.s * 1.05f)
+                    }
+                    // caisses tombées : sous les véhicules (le camion qui part passe par-dessus)
+                    for ((cell, crate) in crates) {
+                        val tl = g.cellTopLeft(cell.col, cell.row)
+                        drawCrate(tl.x + g.s / 2, tl.y + g.s / 2, g.s, crate.appear.value)
+                    }
+                    // les véhicules qui roulent passent par-dessus les autres
+                    val order = level.cars.filterNot { visuals.getValue(it.id).gone }.sortedBy { if (abs(visuals.getValue(it.id).offset.value) > 0.01f) 1 else 0 }
                     for (car in order) {
                         val v = visuals.getValue(car.id)
                         drawVehicle(
@@ -302,18 +376,30 @@ private fun PlayBoard(
                             alpha = v.alpha(car.len),
                         )
                     }
-                    hintId?.let { id ->
-                        val car = level.cars.firstOrNull { it.id == id }
-                        if (car != null && !visuals.getValue(id).gone) {
+                    hint?.let { h ->
+                        val car = h.car
+                        if (!visuals.getValue(car.id).gone) {
                             val horizontal = car.dir.horizontal
                             val tl = g.cellTopLeft(car.col, car.row)
                             val w = (if (horizontal) car.len else 1) * g.s
-                            val h = (if (horizontal) 1 else car.len) * g.s
+                            val hh = (if (horizontal) 1 else car.len) * g.s
                             val dash = 10.dp.toPx()
                             drawRoundRect(
-                                Color.White, Offset(tl.x - 3.dp.toPx(), tl.y - 3.dp.toPx()), Size(w + 6.dp.toPx(), h + 6.dp.toPx()), CornerRadius(g.s * 0.45f),
+                                Color.White, Offset(tl.x - 3.dp.toPx(), tl.y - 3.dp.toPx()), Size(w + 6.dp.toPx(), hh + 6.dp.toPx()), CornerRadius(g.s * 0.45f),
                                 style = Stroke(5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(dash, dash * 0.7f), hintPhase * dash * 1.7f)),
                             )
+                            // deux chevrons qui filent dans le bon sens : c'est de ce côté-là qu'il faut le glisser
+                            val d = car.directionOf(h.move)
+                            val lead = car.lead(h.move)
+                            val base = g.cellTopLeft(lead.col, lead.row)
+                            for (k in 0..1) {
+                                val travel = (hintPhase + k * 0.5f) % 1f
+                                val centre = Offset(
+                                    base.x + g.s / 2 + d.dc * (0.9f + travel * 0.9f) * g.s,
+                                    base.y + g.s / 2 + d.dr * (0.9f + travel * 0.9f) * g.s,
+                                )
+                                drawChevron(centre, d.degrees, g.s * 0.28f, 1f - travel)
+                            }
                         }
                     }
                 }
@@ -340,17 +426,16 @@ private fun PlayBoard(
                     PjText("$carsLeft", size = 28.sp, weight = FontWeight.Bold)
                 }
                 ChunkyButton(
-                    "Indice", onClick = { if (!won) { hintId = game.hint()?.id; if (hintId != null) feedback.hint() } },
+                    "Indice", onClick = { if (!won && !stuck) { hint = game.hint(); if (hint != null) feedback.hint() } },
                     Modifier.weight(1f), color = Pj.Orange, dark = Pj.OrangeDark, height = 58.dp, fontSize = 24.sp,
                     leading = { PjIcon(IconKind.BULB, size = 24.dp) },
                 )
             }
         }
-
     }
 }
 
-/** Le centre d'une voiture à l'écran : sa case de départ, avancée de `visual.offset` cases le long de sa voie, avec le tremblement. */
+/** Le centre d'un véhicule à l'écran : sa case de départ, avancée (ou reculée) de `visual.offset` cases le long de sa voie, avec le tremblement. */
 private fun carCenter(g: BoardGeometry, car: Car, v: CarVisual): Offset {
     val horizontal = car.dir.horizontal
     val tl = g.cellTopLeft(car.col, car.row)
@@ -364,11 +449,34 @@ private fun carCenter(g: BoardGeometry, car: Car, v: CarVisual): Offset {
     return Offset(tl.x + w / 2 + dx, tl.y + h / 2 + dy)
 }
 
-/** Le nez d'une voiture après avoir avancé de [cells] cases : là où la bulle « Pouet ! » se pose. */
-private fun noseCenter(g: BoardGeometry, car: Car, cells: Float): Offset {
-    val head = car.head
-    val c = g.cellTopLeft(head.col, head.row)
-    return Offset(c.x + g.s / 2 + car.dir.dc * (cells + 0.4f) * g.s, c.y + g.s / 2 + car.dir.dr * (cells + 0.4f) * g.s)
+/** Le bout du véhicule dans le sens du mouvement, après [cells] cases parcourues : là où la bulle « Pouet ! » se pose. */
+private fun noseCenter(g: BoardGeometry, car: Car, move: Move, cells: Float): Offset {
+    val lead = car.lead(move)
+    val d = car.directionOf(move)
+    val c = g.cellTopLeft(lead.col, lead.row)
+    return Offset(c.x + g.s / 2 + d.dc * (cells + 0.4f) * g.s, c.y + g.s / 2 + d.dr * (cells + 0.4f) * g.s)
+}
+
+/** Plus aucun coup possible (une caisse mal placée a fermé le dernier passage) : on propose de recommencer, sans punition. */
+@Composable
+fun StuckCard(onRestart: () -> Unit, onLevels: () -> Unit) {
+    Modal(onDismiss = null) {
+        Panel(
+            Modifier.padding(horizontal = 36.dp).fillMaxWidth().consumeTaps(),
+            corner = 38.dp, ledge = 8.dp,
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 28.dp, vertical = 24.dp),
+        ) {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                PjText("Oups, bloqué !", size = 36.sp, weight = FontWeight.Bold, color = Pj.RedDark)
+                PjText(
+                    "La caisse est tombée au mauvais endroit : plus personne ne peut sortir. Essaie dans un autre ordre !",
+                    Modifier.padding(top = 10.dp), size = 18.sp, weight = FontWeight.Medium, align = TextAlign.Center,
+                )
+                ChunkyButton("Recommencer", onRestart, Modifier.padding(top = 18.dp).fillMaxWidth(), height = 62.dp, fontSize = 26.sp)
+                ChunkyButton("Niveaux", onLevels, Modifier.padding(top = 12.dp).fillMaxWidth(), color = Pj.Slate, dark = Pj.SlateDark, height = 46.dp, fontSize = 18.sp)
+            }
+        }
+    }
 }
 
 /** La fenêtre de victoire : confettis, étoiles qui s'allument une à une, puis les trois boutons. */
@@ -417,7 +525,7 @@ fun WinCard(
                 }
                 PjText("Niveau ${level.index} réussi", Modifier.padding(top = 4.dp), size = 22.sp)
                 PjText(
-                    "$cars voitures · " + if (bumps == 0) "0 faute" else if (bumps == 1) "1 faute" else "$bumps fautes",
+                    "$cars véhicules · " + if (bumps == 0) "0 faute" else if (bumps == 1) "1 faute" else "$bumps fautes",
                     Modifier.padding(top = 2.dp), size = 16.sp, weight = FontWeight.Medium, color = Pj.InkSoft,
                 )
                 if (hasNext) {

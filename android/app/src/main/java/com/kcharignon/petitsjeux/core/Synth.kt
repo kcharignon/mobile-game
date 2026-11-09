@@ -11,6 +11,8 @@ import kotlin.math.tanh
  * Les sons du jeu, **synthétisés** (aucun fichier son dans l'appli), calculés une fois au démarrage hors du fil principal.
  * Échantillons 16 bits, mono, [RATE] Hz. Du pur Kotlin : testé sur la JVM (niveau, durée, silence final).
  *
+ * (Les klaxons ne sont plus synthétisés : ce sont de vrais enregistrements, voir Feedback.kt.)
+ *
  * Techniques : oscillateurs à bande limitée (pas de repliement), filtres à variable d'état qui s'ouvrent ou se déplacent (le souffle du moteur),
  * cloches à partiels décroissants, petite réverbération à peignes. Les notes sont toutes en do majeur : elles s'accordent entre elles
  * (la fanfare de victoire et les « ding » des étoiles se superposent sans fausse note).
@@ -156,44 +158,6 @@ object Synth {
             out[i] = (engine * pulse + sub + whoosh) * envelope(t, 0.015, dur - 0.24, 0.24)
         }
         return pcm(out, 0.62)
-    }
-
-    /**
-     * Pouet : le choc sourd de la tôle, puis le klaxon d'un jouet : une note nasale qui monte vite à sa hauteur
-     * (scie filtrée + une quinte plus faible, un tout petit désaccord pour le « buzz »), puis retombe un peu.
-     */
-    fun honk(): ShortArray {
-        val out = samples(0.5)
-        // choc : un grave qui plonge + un claquement de bruit filtré
-        val noise = Noise(11)
-        val thudLow = LowPass()
-        var thudPhase = 0.0
-        val thud = samples(0.16)
-        for (i in thud.indices) {
-            val t = i / RATE.toDouble()
-            val f = 52.0 + 95.0 * exp(-t / 0.035)
-            thudPhase += f / RATE
-            thud[i] = (sin(TWO_PI * thudPhase) * exp(-t / 0.07) + thudLow.process(noise.next(), 650.0) * exp(-t / 0.018) * 0.8)
-        }
-        out.mix(thud, 0.0, 1.1)
-        // klaxon
-        val horn = samples(0.36)
-        val tone = LowPass()
-        var p1 = 0.0
-        var p2 = 0.0
-        var p3 = 0.0
-        for (i in horn.indices) {
-            val t = i / RATE.toDouble()
-            val bend = 1.0 - 0.17 * exp(-t / 0.022) - 0.05 * ((t - 0.2).coerceAtLeast(0.0) / 0.16)
-            val f = 392.0 * bend
-            p1 += f / RATE
-            p2 += f * 1.0107 / RATE
-            p3 += f * 1.4983 / RATE
-            val raw = saw(p1, f, 14) * 0.55 + saw(p2, f * 1.0107, 14) * 0.4 + saw(p3, f * 1.4983, 10) * 0.22
-            horn[i] = tone.process(raw, 2300.0) * envelope(t, 0.006, 0.23, 0.13)
-        }
-        out.mix(horn, 0.045, 0.85)
-        return pcm(out, 0.82)
     }
 
     /** Fanfare de victoire : « ta-da-da-daaa » en cloches (sol, do, mi puis l'accord do-mi-sol-do), un souffle qui monte, des étincelles aiguës. */

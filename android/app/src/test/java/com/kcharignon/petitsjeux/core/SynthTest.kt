@@ -14,7 +14,6 @@ class SynthTest {
             "vroum" to Synth.vroum(),
             "vroum-grave" to Synth.vroum(0.9),
             "vroum-aigu" to Synth.vroum(1.13),
-            "pouet" to Synth.honk(),
             "fanfare" to Synth.fanfare(),
             "etoile-1" to Synth.star(0),
             "etoile-2" to Synth.star(1),
@@ -53,7 +52,6 @@ class SynthTest {
     @Test
     fun durationsAreAsDesigned() {
         assertTrue(seconds(sounds.getValue("vroum")) in 0.55..0.7)
-        assertTrue(seconds(sounds.getValue("pouet")) in 0.4..0.55)
         assertTrue(seconds(sounds.getValue("fanfare")) in 1.6..1.8)
         assertTrue(seconds(sounds.getValue("pop")) < 0.15)
         assertTrue(seconds(sounds.getValue("indice")) < 0.8)
@@ -81,7 +79,30 @@ class SynthTest {
     fun soundsAreTheSameEveryTime() {
         assertArrayEquals(Synth.vroum(), Synth.vroum())
         assertArrayEquals(Synth.fanfare(), Synth.fanfare())
-        assertArrayEquals(Synth.honk(), Synth.honk())
+    }
+
+    private fun horn(name: String): Sound = Wav.parse(File("src/main/res/raw/$name.wav").readBytes())
+
+    @Test
+    fun theRealHornsAreReadableAndAudible() {
+        for (name in listOf("horn_small", "horn_car", "horn_classic", "horn_double")) {
+            val s = horn(name)
+            assertEquals("$name : fréquence", 44_100, s.rate)
+            assertTrue("$name : durée ${s.seconds}", s.seconds in 0.25..0.9)
+            val peak = s.pcm.maxOf { abs(it.toInt()) }
+            assertTrue("$name : trop faible ($peak)", peak > 0.6 * Short.MAX_VALUE)
+            assertTrue("$name : écrêté ($peak)", peak < 0.95 * Short.MAX_VALUE)
+            assertTrue("$name : finit par un clic", s.pcm.takeLast(20).maxOf { abs(it.toInt()) } < 300)
+        }
+    }
+
+    @Test
+    fun theWavReaderRefusesWhatItCannotPlay() {
+        assertTrue(runCatching { Wav.parse(ByteArray(10)) }.isFailure)
+        val stereo = wav(ShortArray(100)).also { it[22] = 2 }
+        assertTrue(runCatching { Wav.parse(stereo) }.isFailure)
+        val round = Wav.parse(wav(shortArrayOf(1, -2, 300, -300)))
+        assertEquals(listOf<Short>(1, -2, 300, -300), round.pcm.toList())
     }
 
     /** Écrit les sons en .wav dans app/build/sounds/ pour pouvoir les écouter sur l'ordinateur (non versionné). */

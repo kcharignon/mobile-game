@@ -54,35 +54,51 @@ Lancement ─► Choix du joueur ─► Accueil (jeux) ─► Choix du niveau �
 
 ## Parking Malin : règles
 
-- Un parking = une grille (de 4×5 à 7×9 cases) ; des **voitures** (2 cases : berline, citadine, sportive), des **camions** (3 cases : pick-up, camion de livraison, fourgon)
+- Un parking = une grille (de 4×5 à 8×10 cases) ; des **voitures** (2 cases : berline, citadine, sportive), des **camions** (3 cases : pick-up, camion de livraison, fourgon)
   et, à partir du monde 3, des **bus et poids lourds** (4 cases : autobus, camion-citerne), larges d'une case, garés dans les 4 directions.
-  Le **nez** (phares blancs, grand pare-brise ; l'arrière a une petite lunette teintée) montre où ils roulent.
-- **Toucher une voiture la fait rouler tout droit, dans la direction de son nez.**
-  - Si la voie est libre jusqu'au bord du plateau, elle **sort** et disparaît : bravo.
-  - Sinon elle avance jusqu'à toucher l'autre voiture, **klaxonne (« Pouet ! »)**, devient rouge un instant et recule : c'est une **faute**.
-- On gagne quand **toutes** les voitures sont sorties. Pas de chronomètre, pas de limite de coups.
-- Les **plots** et le panneau **P** ne sont que du décor (jamais dans la voie d'une voiture).
+  Le **nez** (phares blancs, grand pare-brise ; l'arrière a une petite lunette teintée) montre le sens de la **marche avant**.
+- **Chaque véhicule peut rouler en marche avant ou en marche arrière, selon le sens où on le glisse.**
+  - **Glisser** un véhicule le long de sa longueur, dans un sens ou dans l'autre : il roule tout droit dans ce sens.
+  - Un simple **toucher** le fait avancer (marche avant) ; un glissement en travers ne fait rien.
+  - Si la voie est libre jusqu'au bord du plateau **dans ce sens**, il **sort** et disparaît : bravo.
+  - Sinon il avance jusqu'à toucher l'obstacle, **klaxonne** (« Pouet ! » : un vrai klaxon, de voiture, de camion ou de bus selon le véhicule), devient rouge un instant et revient : c'est une **faute**.
+- On gagne quand **tous** les véhicules sont sortis. Pas de chronomètre, pas de limite de coups.
 - **Étoiles** d'un niveau : 0 faute = 3 ★ ; 1 ou 2 fautes = 2 ★ ; 3 fautes ou plus = 1 ★. L'indice ne coûte rien.
   Un niveau déjà réussi garde sa meilleure note.
-- **Indice** : entoure une voiture qui peut sortir tout de suite (la première de l'ordre qui mène à la solution).
+- **Indice** : entoure un véhicule qui peut sortir et fait filer deux **chevrons** dans le sens où il faut le glisser. Il ne conseille jamais un coup qui mène à une impasse.
 - **Recommencer** : remet le niveau à zéro (fautes comprises).
+
+### Une mécanique de plus tous les 60 niveaux
+
+| Niveaux | Mécanique | Ce qui change |
+|---|---|---|
+| 1 à 60 | **Marche avant et arrière** | Le sens du glissement choisit le sens du véhicule. Les premiers niveaux obligent à reculer (le niveau 2 le montre). |
+| 61 à 120 | **Plots de chantier** | Un plot occupe une case pour de bon : on ne passe pas dessus, ni devant, ni derrière. De 1 à 5 plots. |
+| 121 à 180 | **Parking agrandi** | La grille grandit jusqu'à 8×10 cases, avec plus de véhicules (et encore des plots). |
+| 181 à 240 | **Le pick-up laisse tomber une caisse** | En partant, un pick-up (celui qui a une caisse dans sa benne) laisse tomber sa caisse **derrière lui**, toujours sur la **même case : celle que sa queue occupait**. Elle bloque cette case pour de bon. De 1 à 3 pick-up. |
+
+Le premier niveau de chaque groupe (1 à 3, 61, 121, 181) affiche un petit mot qui explique la nouveauté.
+
+**La caisse** : le pick-up peut partir dans les deux sens, mais la caisse ne tombe pas au même endroit : si le pick-up part vers l'avant, elle tombe sur la case de sa queue ;
+s'il recule, elle tombe sur la case de son nez (le bout qui reste « derrière » dans ce sens). Choisir le bon sens, et le bon moment, est le casse-tête. Si une caisse ferme le dernier
+passage, l'écran **« Oups, bloqué ! »** propose de **recommencer** (sans punition).
 
 ### Niveaux
 
-100 niveaux en 5 mondes de 20, **générés de façon déterministe** (le niveau *n* est toujours le même) et **toujours solubles**.
+**240 niveaux** en 12 mondes de 20 (4 groupes de 3 mondes), **générés de façon déterministe** (le niveau *n* est toujours le même) et **toujours solubles**.
 
-| Monde | Nom | Grille | Voitures | Décor |
-|---|---|---|---|---|
-| 1 | Le petit parking | 4×5 → 5×6 | 3 → 8 (voitures, puis camions dès le niveau 4) | asphalte bleu-gris |
-| 2 | Le centre-ville | 5×6 → 6×7 | 8 → 12 | asphalte chaud |
-| 3 | Le centre commercial | 6×7 → 6×8 | 12 → 16 (+ bus et poids lourds) | asphalte vert |
-| 4 | L'aéroport | 6×8 → 7×9 | 15 → 20 | asphalte violet |
-| 5 | Le grand garage | 7×9 | 18 → 24 | asphalte sombre |
+| Groupe | Mondes | Grille | Véhicules | Plots | Pick-up à caisse |
+|---|---|---|---|---|---|
+| 1 (1-60) | Le petit parking, Le centre-ville, Le centre commercial | 4×5 → 6×8 | 3 → 16 (camions dès le niveau 4, bus dès le niveau 41) | 0 | 0 |
+| 2 (61-120) | Les travaux, Le chantier, Le tunnel | 6×7 → 7×9 | 12 → 20 | 1 → 5 | 0 |
+| 3 (121-180) | Le grand parking, L'aéroport, La gare | 7×9 → 8×10 | 18 → 24 | 3 → 7 | 0 |
+| 4 (181-240) | Le port, L'entrepôt, Le grand garage | 8×10 | 20 → 25 | 4 → 8 | 1 → 3 |
 
-**Pourquoi c'est toujours soluble** : une voiture ne fait que rouler droit vers le bord et, une fois sortie, ne revient plus. Elle peut donc sortir
-si et seulement si **aucune voiture restante** n'est dans sa voie. Le graphe « A attend que B sorte » doit être **sans cycle** : le générateur
-n'ajoute une voiture que si le graphe reste sans cycle, et un test vérifie les 100 niveaux (et que le niveau *n* ne change jamais).
-La **difficulté** vient de la longueur de la plus longue chaîne d'attente et du peu de voitures libres au départ.
+**Pourquoi c'est toujours soluble** : faire sortir un véhicule libère toujours de la place. Sans caisse, le niveau est donc soluble si et seulement si on peut tout vider en retirant à chaque fois un véhicule qui a **une voie libre dans un sens ou dans l'autre**
+(vers le bord, sans véhicule ni plot ni caisse). Les pick-up qui laissent tomber une caisse **ajoutent** un obstacle : seuls eux demandent de chercher le bon ordre, et ils sont peu nombreux, donc la recherche du solveur
+(`Solver`) est minuscule. Le générateur ne garde qu'un niveau que le solveur résout, un test vérifie les 240 niveaux en suivant les indices, et un autre que le niveau *n* ne change jamais (empreinte).
+La **difficulté** vient du nombre de « vagues » de sorties (la longueur de la plus longue suite de dépendances) et du peu de véhicules libres au départ ; dans le dernier groupe, on cherche aussi des **pièges**
+(un coup qui paraît bon mais mène à l'impasse).
 
 Le niveau suivant se débloque quand le précédent est réussi.
 
@@ -99,6 +115,8 @@ Le niveau suivant se débloque quand le précédent est réussi.
 | 120 | Super turbo |
 | 200 | Génie du parking |
 | 300 | Légende du parking |
+| 450 | Étoile du bitume |
+| 620 | Légende absolue |
 
 - Statistiques gardées : voitures sorties, fautes, niveaux réussis, plus haut niveau atteint.
 - Le choix du **joueur** : un prénom (12 caractères) et un **animal** parmi 8 (chat, chien, ours, panda, lapin, grenouille, renard, lion), dessinés par le code.
@@ -142,8 +160,8 @@ Le niveau suivant se débloque quand le précédent est réussi.
   (même quand la voiture tourne) pour donner du volume sans 3D. 9 couleurs (vert, orange, cyan, bleu, rose, jaune, violet, beige, rouge).
 - **Plateau** d'asphalte à damier discret, petits traits de parking, **plots** orange et panneau **P** autour.
 - **Animations** : sortie en accélérant puis fondu ; faute = avance, rebond, rougeur + bulle « Pouet ! » ; victoire : une pause de 800 ms sur le plateau vide, puis confettis et étoiles qui s'allument une à une.
-- **Sons** (synthétisés, aucun fichier ; coupables) : un « vroum » de moteur qui monte en régime avec le souffle de passage (3 variantes à tour de rôle), un choc puis un klaxon « pouet » à la faute,
-  une fanfare en cloches avec réverbération à la victoire, un « ding » plus aigu à chaque étoile (do, mi, sol), un « tin-tin » pour l'indice, un petit « pop » sur les boutons.
+- **Sons** (coupables) : de **vrais klaxons** enregistrés à la faute (petit klaxon ou klaxon de voiture pour une voiture, klaxon classique pour un camion, double klaxon pour un bus ; `res/raw`, voir `third_party/mixkit`),
+  et le reste synthétisé, sans fichier : un « vroum » de moteur qui monte en régime avec le souffle de passage (3 variantes à tour de rôle), une fanfare en cloches avec réverbération à la victoire, un « ding » plus aigu à chaque étoile (do, mi, sol), un « tin-tin » pour l'indice, un petit « pop » sur les boutons.
   Toutes les notes sont en do majeur : elles s'accordent entre elles. **Vibration** légère sur faute et victoire.
 
 ## Architecture de l'appli
@@ -157,7 +175,7 @@ games/parking/engine   règles pures (aucune dépendance Android) : grille, voit
 games/parking/ui       plateau, voitures, animations, écrans de niveaux et de jeu
 ```
 
-Le moteur de Parking Malin est du Kotlin pur, testé sur la JVM : règles de sortie et de faute, solveur, **les 100 niveaux solubles et stables**.
+Le moteur de Parking Malin est du Kotlin pur, testé sur la JVM : règles de sortie et de faute, solveur, **les 240 niveaux solubles et stables**.
 L'écriture de la sauvegarde est testée sur un dossier temporaire. L'interface est jouée sans téléphone (Robolectric) : `make android-screenshots` crée un joueur, finit un niveau, vérifie la sauvegarde et rend les captures de `docs/screenshots/`.
 
 ## Hors périmètre (pour l'instant)

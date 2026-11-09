@@ -11,6 +11,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.compose.runtime.compositionLocalOf
+import com.kcharignon.petitsjeux.R
 import java.util.concurrent.atomic.AtomicReferenceArray
 
 /** Les retours sonores et tactiles des jeux. Les jeux ne connaissent que cette interface (sans son ni vibration en test et en capture). */
@@ -18,8 +19,8 @@ interface Feedback {
     /** Une voiture sort : vroum. */
     fun exit()
 
-    /** Une faute : klaxon. */
-    fun bump()
+    /** Une faute : le véhicule de [vehicleLength] cases klaxonne (petit klaxon pour une voiture, klaxon de camion, double klaxon de bus). */
+    fun bump(vehicleLength: Int)
 
     /** Niveau réussi : petite fanfare. */
     fun win()
@@ -36,7 +37,7 @@ interface Feedback {
 
 object NoFeedback : Feedback {
     override fun exit() = Unit
-    override fun bump() = Unit
+    override fun bump(vehicleLength: Int) = Unit
     override fun win() = Unit
     override fun tap() = Unit
     override fun star(index: Int) = Unit
@@ -46,10 +47,10 @@ object NoFeedback : Feedback {
 val LocalFeedback = compositionLocalOf<Feedback> { NoFeedback }
 
 /**
- * Sons **synthétisés** (aucun fichier son dans l'appli) et vibrations légères, selon les réglages du joueur courant.
- * Les sons se calculent une fois, au premier besoin, hors du fil principal.
+ * Les sons de l'appli et les vibrations légères, selon les réglages du joueur courant : les klaxons sont de vrais enregistrements
+ * (res/raw, voir third_party/mixkit), le reste est synthétisé (Synth.kt). Tout est préparé dès le démarrage, sur un fil à part.
  */
-class AndroidFeedback(context: Context, private val soundOn: () -> Boolean, private val vibrationOn: () -> Boolean) : Feedback {
+class AndroidFeedback(private val context: Context, private val soundOn: () -> Boolean, private val vibrationOn: () -> Boolean) : Feedback {
     private val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= 31) {
         (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
     } else {
@@ -58,70 +59,79 @@ class AndroidFeedback(context: Context, private val soundOn: () -> Boolean, priv
     }
     private val handler = Handler(Looper.getMainLooper())
 
-    // Tous les sons sont calculés dès le démarrage, sur un fil à part : le premier « vroum » n'attend donc rien.
-    private val exits = AtomicReferenceArray<ShortArray>(3)
-    private val starPcm = AtomicReferenceArray<ShortArray>(3)
-    @Volatile private var bumpPcm: ShortArray? = null
-    @Volatile private var winPcm: ShortArray? = null
-    @Volatile private var tapPcm: ShortArray? = null
-    @Volatile private var hintPcm: ShortArray? = null
+    private val exits = AtomicReferenceArray<Sound>(3)
+    private val stars = AtomicReferenceArray<Sound>(3)
+    private val horns = AtomicReferenceArray<Sound>(4) // petit, voiture, camion, bus
+    @Volatile private var win: Sound? = null
+    @Volatile private var tap: Sound? = null
+    @Volatile private var hint: Sound? = null
     private var nextExit = 0
+    private var nextSmallHorn = 0
 
     init {
         Thread {
             runCatching {
-                tapPcm = Synth.pop()
-                for ((k, pitch) in doubleArrayOf(1.0, 0.9, 1.13).withIndex()) exits.set(k, Synth.vroum(pitch))
-                bumpPcm = Synth.honk()
-                for (k in 0 until 3) starPcm.set(k, Synth.star(k))
-                hintPcm = Synth.hint()
-                winPcm = Synth.fanfare()
+                tap = Sound(Synth.pop(), Synth.RATE)
+                for ((k, pitch) in doubleArrayOf(1.0, 0.9, 1.13).withIndex()) exits.set(k, Sound(Synth.vroum(pitch), Synth.RATE))
+                for (k in 0 until 3) stars.set(k, Sound(Synth.star(k), Synth.RATE))
+                hint = Sound(Synth.hint(), Synth.RATE)
+                win = Sound(Synth.fanfare(), Synth.RATE)
+            }
+            runCatching {
+                val raws = intArrayOf(R.raw.horn_small, R.raw.horn_car, R.raw.horn_classic, R.raw.horn_double)
+                for ((k, id) in raws.withIndex()) horns.set(k, Wav.parse(context.resources.openRawResource(id).use { it.readBytes() }))
             }
         }.start()
     }
 
     override fun exit() {
-        // trois « vroum » un peu différents, à tour de rôle : pas de répétition lassante quand on enchaîne les voitures
+        // trois « vroum » un peu différents, à tour de rôle : pas de répétition lassante quand on enchaîne les véhicules
         val k = nextExit++ % exits.length()
         play { exits.get(k) }
         buzz(18)
     }
 
-    override fun bump() {
-        play { bumpPcm }
+    override fun bump(vehicleLength: Int) {
+        // une voiture : l'un des deux petits klaxons à tour de rôle ; un camion : le klaxon classique ; un bus : le double klaxon
+        val k = when (vehicleLength) {
+            3 -> 2
+            4 -> 3
+            else -> nextSmallHorn++ % 2
+        }
+        play { horns.get(k) }
         buzz(70)
     }
 
     override fun win() {
-        play { winPcm }
+        play { win }
         buzz(120)
     }
 
-    override fun tap() = play { tapPcm }
+    override fun tap() = play { tap }
 
-    override fun star(index: Int) = play { if (index in 0 until starPcm.length()) starPcm.get(index) else null }
+    override fun star(index: Int) = play { if (index in 0 until stars.length()) stars.get(index) else null }
 
-    override fun hint() = play { hintPcm }
+    override fun hint() = play { hint }
 
     private fun buzz(ms: Long) {
         if (!vibrationOn()) return
         runCatching { vibrator?.takeIf { it.hasVibrator() }?.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE)) }
     }
 
-    private fun play(pcm: () -> ShortArray?) {
+    private fun play(sound: () -> Sound?) {
         if (!soundOn()) return
         Thread {
             runCatching {
-                val data = pcm() ?: return@runCatching // pas encore calculé (les tout premiers instants) : on se tait
+                val s = sound() ?: return@runCatching // pas encore prêt (les tout premiers instants) : on se tait
                 val track = AudioTrack.Builder()
                     .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
-                    .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(Synth.RATE).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
+                    .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(s.rate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
                     .setTransferMode(AudioTrack.MODE_STATIC)
-                    .setBufferSizeInBytes(data.size * 2)
+                    .setBufferSizeInBytes(s.pcm.size * 2)
                     .build()
-                track.write(data, 0, data.size)
+                track.write(s.pcm, 0, s.pcm.size)
                 track.play()
-                handler.postDelayed({ runCatching { track.release() } }, data.size * 1000L / Synth.RATE + 200)
+                handler.postDelayed({ runCatching { track.release() } }, (s.seconds * 1000).toLong() + 200)
             }
         }.start()
     }
