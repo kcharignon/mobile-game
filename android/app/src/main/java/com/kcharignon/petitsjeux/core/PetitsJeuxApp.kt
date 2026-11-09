@@ -10,6 +10,7 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import com.kcharignon.petitsjeux.core.save.Avatar
@@ -19,6 +20,7 @@ import com.kcharignon.petitsjeux.core.save.Settings
 import com.kcharignon.petitsjeux.core.screens.HubScreen
 import com.kcharignon.petitsjeux.core.screens.ProfilesScreen
 import com.kcharignon.petitsjeux.core.update.UpdateController
+import com.kcharignon.petitsjeux.core.update.installedVersion
 
 /** Où est l'utilisateur dans l'appli. */
 sealed interface Screen {
@@ -103,6 +105,8 @@ fun PetitsJeuxApp(
         }
         when (current) {
             Screen.Profiles -> ProfilesScreen(
+                update = update,
+                versionName = if (update != null) installedVersion(LocalContext.current).first else null,
                 profiles = profiles,
                 onPlay = { slot -> screen = Screen.Hub(slot) },
                 onCreate = { slot, name, avatar ->

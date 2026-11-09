@@ -86,6 +86,8 @@ class UpdateController(
     private val installedVersionCode: Long,
     private val workDir: File,
     private val scope: CoroutineScope,
+    /** L'heure (ms), pour ne pas chercher trop souvent : remplaçable dans les tests. */
+    private val now: () -> Long = System::currentTimeMillis,
 ) {
     var state: UpdateState by mutableStateOf(UpdateState.Idle)
         private set
@@ -102,6 +104,9 @@ class UpdateController(
 
     private val busy: Boolean get() = state is UpdateState.Checking || state is UpdateState.Downloading
 
+    /** Quand une recherche a réussi pour la dernière fois (pour ne pas chercher à chaque retour dans l'appli). */
+    private var lastSuccessAt: Long? = null
+
     /**
      * Cherche une version plus récente. [silent] : au lancement de l'appli, un échec ne dit rien (pas de réseau, ce n'est pas grave).
      */
@@ -111,6 +116,7 @@ class UpdateController(
         scope.launch {
             state = try {
                 val info = api.fetchLatest()
+                lastSuccessAt = now()
                 if (info.versionCode > installedVersionCode) UpdateState.Available(info) else UpdateState.UpToDate(info.versionName)
             } catch (e: CancellationException) {
                 throw e
@@ -118,6 +124,20 @@ class UpdateController(
                 if (silent) UpdateState.Idle else UpdateState.Failed(UpdateState.Reason.NETWORK)
             }
         }
+    }
+
+    /**
+     * À appeler chaque fois que l'appli revient au premier plan : cherche discrètement une nouvelle version si la dernière recherche a échoué (ou n'a pas eu lieu),
+     * ou si elle date de plus de [RECHECK_AFTER_MS]. Ne dérange jamais une mise à jour en cours (version proposée, téléchargement, installation).
+     */
+    fun recheck() {
+        when (val s = state) {
+            UpdateState.Idle -> Unit
+            is UpdateState.UpToDate -> if (lastSuccessAt?.let { now() - it < RECHECK_AFTER_MS } == true) return
+            is UpdateState.Failed -> if (s.info != null) return
+            else -> return
+        }
+        check(silent = true)
     }
 
     /** Télécharge la nouvelle version, puis lance l'installation (ou demande d'abord l'accord d'Android). */
@@ -155,6 +175,11 @@ class UpdateController(
         } else {
             state = UpdateState.NeedsPermission(info, apk)
         }
+    }
+
+    companion object {
+        /** Une version « à jour » est revérifiée au retour dans l'appli au bout de 10 minutes. */
+        const val RECHECK_AFTER_MS = 10 * 60 * 1000L
     }
 
     /** Le joueur a annulé la fenêtre d'installation d'Android : on la rouvre, sans retélécharger. */

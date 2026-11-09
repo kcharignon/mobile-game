@@ -13,6 +13,9 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import com.github.takahirom.roborazzi.captureRoboImage
+import androidx.compose.runtime.CompositionLocalProvider
+import com.kcharignon.petitsjeux.core.Feedback
+import com.kcharignon.petitsjeux.core.LocalFeedback
 import com.kcharignon.petitsjeux.core.PetitsJeuxApp
 import com.kcharignon.petitsjeux.core.Screen
 import com.kcharignon.petitsjeux.core.save.Avatar
@@ -166,6 +169,55 @@ class MushroomsScreenshotsTest {
         assertEquals("$finalScore", rule.onNodeWithTag("final-score", useUnmergedTree = true).fetchSemanticsNode().config.getOrNull(SemanticsProperties.Text)?.joinToString(""))
         assertEquals(3, Difficulty.EASY.stars(finalScore)) // très rapide : trois étoiles
         shot("47-champis-fin")
+    }
+
+    /** Un « retour sonore » qui note ce qui est joué. */
+    private class RecordingFeedback : Feedback {
+        val picks = mutableListOf<Int>()
+        var finals = 0
+        var bonks = 0
+        var puffs = 0
+        override fun exit() = Unit
+        override fun bump(vehicleLength: Int) = Unit
+        override fun win() = Unit
+        override fun tap() = Unit
+        override fun star(index: Int) = Unit
+        override fun hint() = Unit
+        override fun pick(index: Int) { picks += index }
+        override fun finalPick() { finals++ }
+        override fun puff() { puffs++ }
+        override fun bonk() { bonks++ }
+    }
+
+    @Test
+    fun everyTouchedMushroomPlaysTheNextNoteOfTheMelodyAndTheLastOneAChord() {
+        val feedback = RecordingFeedback()
+        show(null) { CompositionLocalProvider(LocalFeedback provides feedback) { ShroomPlayScreen(Difficulty.EASY, empty, { _, _, _ -> }, {}, {}, seed = 3L) } }
+        rule.onNodeWithText("C'est parti !").performClick()
+        playToTheEnd(Difficulty.EASY, delayMs = 120)
+        // 15 champignons : les 14 premiers jouent les notes 1 à 14 de la mélodie, dans l'ordre ; le dernier, l'accord de do
+        assertEquals((0 until Difficulty.EASY.targets - 1).toList(), feedback.picks)
+        assertEquals(1, feedback.finals)
+        assertEquals(0, feedback.bonks)
+    }
+
+    @Test
+    fun aForbiddenMushroomOrAMissedOneDoesNotAdvanceTheMelody() {
+        val feedback = RecordingFeedback()
+        show(null) { CompositionLocalProvider(LocalFeedback provides feedback) { ShroomPlayScreen(Difficulty.EXPERT, empty, { _, _, _ -> }, {}, {}, seed = 8L) } }
+        rule.onNodeWithText("C'est parti !").performClick()
+        var guard = 0
+        while (litIds(Difficulty.EXPERT, "interdit").isEmpty() && guard++ < 400) rule.mainClock.advanceTimeBy(40)
+        tapShroom(litIds(Difficulty.EXPERT, "interdit").first())
+        rule.mainClock.advanceTimeBy(100)
+        assertEquals(1, feedback.bonks)
+        assertTrue("le champignon interdit ne joue aucune note de la mélodie", feedback.picks.isEmpty())
+        // on touche ensuite un vrai champignon allumé : c'est bien la première note
+        guard = 0
+        while (litIds(Difficulty.EXPERT).isEmpty() && guard++ < 400) rule.mainClock.advanceTimeBy(40)
+        tapShroom(litIds(Difficulty.EXPERT).first())
+        rule.mainClock.advanceTimeBy(100)
+        assertEquals(listOf(0), feedback.picks)
     }
 
     @Test

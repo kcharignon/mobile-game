@@ -20,8 +20,10 @@ class SynthTest {
             "etoile-3" to Synth.star(2),
             "indice" to Synth.hint(),
             "pop" to Synth.pop(),
-            "champi-1" to Synth.pick(0),
-            "champi-6" to Synth.pick(5),
+            "champi-note-1" to Synth.note(Melody.hz(Melody.noteAt(0))),
+            "champi-note-grave" to Synth.note(Melody.hz("do5")),
+            "champi-note-aigue" to Synth.note(Melody.hz("sol6")),
+            "champi-accord" to Synth.chord(),
             "souffle" to Synth.puff(),
             "toc" to Synth.bonk(),
         )
@@ -54,9 +56,24 @@ class SynthTest {
     }
 
     @Test
-    fun theMushroomBellsRiseInPitchWithTheStreak() {
-        val pitches = (0 until Synth.PICK_NOTES).map { zeroCrossings(Synth.pick(it), 0.0, 0.2) }
-        assertTrue("de plus en plus aigu : $pitches", pitches.zipWithNext().all { (a, b) -> b > a })
+    fun everyMelodyNoteHasItsOwnPitchAndTheSameLevel() {
+        val peaks = HashMap<String, Int>()
+        val pitches = HashMap<String, Double>()
+        for (name in Melody.distinct) {
+            val pcm = Synth.note(Melody.hz(name))
+            peaks[name] = pcm.maxOf { abs(it.toInt()) }
+            pitches[name] = zeroCrossings(pcm, 0.0, 0.15) / 2
+        }
+        // la hauteur mesurée suit la hauteur voulue (à 12 % près : mesure grossière par passages à zéro)
+        for (name in Melody.distinct) assertEquals("$name", Melody.hz(name), pitches.getValue(name), Melody.hz(name) * 0.12)
+        // toutes les notes ont le même niveau : la mélodie ne « saute » pas en volume
+        assertTrue("niveaux : $peaks", peaks.values.max() - peaks.values.min() < 0.05 * Short.MAX_VALUE)
+    }
+
+    @Test
+    fun theFinalChordRingsLongerThanANote() {
+        assertTrue(seconds(Synth.chord()) > 1.2)
+        assertTrue(seconds(Synth.note(Melody.hz("do5"))) < 0.6)
     }
 
     @Test
@@ -64,7 +81,8 @@ class SynthTest {
         assertTrue(seconds(sounds.getValue("vroum")) in 0.55..0.7)
         assertTrue(seconds(sounds.getValue("fanfare")) in 1.6..1.8)
         assertTrue(seconds(sounds.getValue("pop")) < 0.15)
-        assertTrue(seconds(sounds.getValue("champi-1")) < 0.6)
+        assertTrue(seconds(sounds.getValue("champi-note-1")) < 0.6)
+        assertTrue(seconds(sounds.getValue("champi-accord")) in 1.4..1.8)
         assertTrue(seconds(sounds.getValue("souffle")) < 0.3)
         assertTrue(seconds(sounds.getValue("toc")) < 0.25)
         assertTrue(seconds(sounds.getValue("indice")) < 0.8)

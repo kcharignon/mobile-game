@@ -120,6 +120,25 @@ class ScreenshotsTest {
     }
 
     @Test
+    fun aNewVersionIsOfferedRightOnTheFirstScreen() {
+        // l'écran « Qui joue ? » est le premier qu'on voit : la mise à jour doit s'y proposer, sans choisir de joueur
+        val c = updateController().also { it.check(silent = true) }
+        show("49-maj-premier-ecran") {
+            ProfilesScreen(profiles = three + listOf(null, null), onPlay = {}, onCreate = { _, _, _ -> }, update = c, versionName = "0.7.0")
+        }
+        rule.onNodeWithText("Nouvelle version ! Mettre à jour").assertExists()
+        rule.onNodeWithText("Version 0.7.0").assertExists()
+    }
+
+    @Test
+    fun theFirstScreenShowsNothingWhenThereIsNothingToUpdate() {
+        val c = updateController(FakeUpdateApi(release(1))).also { it.check(silent = true) }
+        show(null) { ProfilesScreen(profiles = three + listOf(null, null), onPlay = {}, onCreate = { _, _, _ -> }, update = c, versionName = "0.7.0") }
+        rule.onNodeWithText("Nouvelle version ! Mettre à jour").assertDoesNotExist()
+        rule.onNodeWithText("Version 0.7.0").assertExists()
+    }
+
+    @Test
     fun noBannerWhenUpToDate() {
         val c = updateController(FakeUpdateApi(release(1))).also { it.check(silent = true) }
         show(null, content = hubWith(c))

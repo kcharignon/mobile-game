@@ -81,6 +81,69 @@ class UpdateControllerTest {
         assertEquals(UpdateState.Failed(UpdateState.Reason.NETWORK), c.state)
     }
 
+    // ---- chercher à nouveau quand l'appli revient au premier plan
+
+    private fun controllerWithClock(api: FakeUpdateApi, clock: LongArray, installed: Long = 1) =
+        UpdateController(api, FakeInstaller(), installed, work, CoroutineScope(Dispatchers.Unconfined)) { clock[0] }
+
+    @Test
+    fun aSilentFailureAtLaunchIsRetriedWhenTheAppComesBack() {
+        val api = FakeUpdateApi(latest = release(2), failFetch = true)
+        val c = controller(api)
+        c.check(silent = true) // pas de réseau au lancement
+        assertEquals(UpdateState.Idle, c.state)
+        api.failFetch = false // le réseau est revenu
+        c.recheck()
+        assertTrue(c.state is UpdateState.Available)
+        assertEquals(2, api.fetches)
+    }
+
+    @Test
+    fun comingBackNeverDisturbsAnUpdateInProgress() {
+        val api = FakeUpdateApi(latest = release(2))
+        val c = controller(api)
+        c.check(silent = true)
+        val offered = c.state
+        c.recheck()
+        assertEquals(offered, c.state)
+        assertEquals(1, api.fetches)
+        c.update() // téléchargé, Android demande d'installer
+        val ready = c.state
+        assertTrue(ready is UpdateState.ReadyToInstall)
+        c.recheck()
+        assertEquals(ready, c.state)
+        assertEquals(1, api.fetches)
+    }
+
+    @Test
+    fun anUpToDateAppIsOnlyCheckedAgainAfterAWhile() {
+        val clock = longArrayOf(1_000L)
+        val api = FakeUpdateApi(latest = release(2, "0.2.0"))
+        val c = controllerWithClock(api, clock, installed = 2)
+        c.check(silent = true)
+        assertEquals(UpdateState.UpToDate("0.2.0"), c.state)
+        clock[0] += 60_000L
+        c.recheck() // une minute plus tard : inutile de chercher encore
+        assertEquals(1, api.fetches)
+        // une nouvelle version est publiée, 11 minutes plus tard on la voit
+        api.latest = release(3, "0.3.0")
+        clock[0] += UpdateController.RECHECK_AFTER_MS
+        c.recheck()
+        assertEquals(2, api.fetches)
+        assertEquals(3L, (c.state as UpdateState.Available).info.versionCode)
+    }
+
+    @Test
+    fun aFailedManualCheckIsRetriedQuietlyWhenTheAppComesBack() {
+        val api = FakeUpdateApi(latest = release(2), failFetch = true)
+        val c = controller(api)
+        c.check(silent = false)
+        assertEquals(UpdateState.Failed(UpdateState.Reason.NETWORK), c.state)
+        api.failFetch = false
+        c.recheck()
+        assertTrue(c.state is UpdateState.Available)
+    }
+
     @Test
     fun updatingDownloadsThenOpensTheInstaller() {
         val installer = FakeInstaller(allowed = true)
