@@ -199,28 +199,30 @@ object Synth {
         return pcm(out, 0.55)
     }
 
-    /** Les notes de la gamme pentatonique de do (do, ré, mi, sol, la, do aigu) : un champignon touché joue la suivante quand on enchaîne. */
-    private val PENTATONIC = doubleArrayOf(C5, 587.33, E5, G5, 880.0, C6)
-
-    /** Nombre de notes de [pick]. */
-    const val PICK_NOTES = 6
-
-    /** Un champignon touché : une petite cloche claire, de plus en plus aiguë ([step] de 0 à 5) quand on en touche plusieurs de suite. */
-    fun pick(step: Int): ShortArray {
-        val f = PENTATONIC[step.coerceIn(0, PICK_NOTES - 1)]
-        val out = samples(0.5)
-        out.mix(bell(f, 0.3, 0.9, brightness = 1.3), 0.0)
-        out.mix(bell(f * 2, 0.14, 0.22), 0.0)
-        // le petit « plop » du chapeau
-        var phase = 0.0
-        val plop = samples(0.05)
-        for (i in plop.indices) {
+    /**
+     * Une note de « boîte à musique » de fréquence [hz] : un son pur, un harmonique 2 et un petit harmonique 4 qui s'éteignent plus vite, une attaque douce (6 ms,
+     * pas de clic), une résonance d'environ [ring] secondes, sans tenue. Toutes les notes ont le même niveau : elles se suivent comme une mélodie.
+     */
+    private fun musicBox(hz: Double, ring: Double, gain: Double = 1.0): DoubleArray {
+        val out = samples(ring * 1.7)
+        for (i in out.indices) {
             val t = i / RATE.toDouble()
-            phase += (300.0 + 500.0 * t / 0.05) / RATE
-            plop[i] = sin(TWO_PI * phase) * exp(-t / 0.012)
+            val v = sin(TWO_PI * hz * t) * exp(-t / (ring * 0.45)) +
+                0.34 * sin(TWO_PI * hz * 2 * t) * exp(-t / (ring * 0.22)) +
+                0.1 * sin(TWO_PI * hz * 4 * t).let { if (hz * 4 < RATE * 0.45) it else 0.0 } * exp(-t / (ring * 0.1))
+            out[i] = v * minOf(1.0, t / 0.006) * gain
         }
-        out.mix(plop, 0.0, 0.5)
-        return pcm(reverb(out, 0.15), 0.6)
+        return out
+    }
+
+    /** La note [hz] d'un champignon touché : courte et claire (voir [Melody]). */
+    fun note(hz: Double): ShortArray = pcm(reverb(musicBox(hz, 0.3), 0.12), 0.6)
+
+    /** L'accord de do qui conclut une partie (do, mi, sol, do aigu en arpège rapide), qui résonne plus longtemps. */
+    fun chord(): ShortArray {
+        val out = samples(1.6)
+        for ((k, name) in Melody.finalChord.withIndex()) out.mix(musicBox(Melody.hz(name), 0.6, 0.8), k * 0.035)
+        return pcm(reverb(out, 0.2), 0.7)
     }
 
     /** Un champignon qui s'éteint tout seul : un petit souffle qui retombe, tout doux. */

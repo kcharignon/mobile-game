@@ -63,6 +63,7 @@ import com.kcharignon.petitsjeux.core.ui.PjText
 import com.kcharignon.petitsjeux.core.ui.consumeTaps
 import com.kcharignon.petitsjeux.core.ui.withTapSound
 import com.kcharignon.petitsjeux.core.ui.drawStar
+import com.kcharignon.petitsjeux.core.update.UpdateController
 import com.kcharignon.petitsjeux.games.parking.ui.VehicleModel
 import com.kcharignon.petitsjeux.games.parking.ui.drawVehicle
 
@@ -78,6 +79,10 @@ fun ProfilesScreen(
     modifier: Modifier = Modifier,
     /** Pour les captures d'écran : ouvre tout de suite la fenêtre « Nouveau joueur » de cet emplacement. */
     initialCreating: Int? = null,
+    /** La mise à jour de l'appli : sa bannière s'affiche dès ce premier écran (`null` : aucune, par exemple dans les captures). */
+    update: UpdateController? = null,
+    /** Le numéro de la version installée, en bas de l'écran (`null` : on ne l'affiche pas). */
+    versionName: String? = null,
 ) {
     var creating by rememberSaveable { mutableStateOf(initialCreating) }
     Backdrop(
@@ -104,6 +109,7 @@ fun ProfilesScreen(
                 PjText("Petits Jeux", size = 40.sp, weight = FontWeight.Bold, color = Color.White, outline = Pj.Ink, outlineWidth = 9.dp)
             }
             PjText("Qui joue ?", Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 10.dp), size = 24.sp, align = TextAlign.Center)
+            UpdateBanner(update, Modifier.padding(horizontal = 24.dp).padding(bottom = 12.dp))
             Column(
                 Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -114,9 +120,12 @@ fun ProfilesScreen(
                 }
                 PjText(
                     "Chaque joueur garde sa progression sur ce téléphone.\nAucune pub, aucun suivi.",
-                    Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 16.dp),
+                    Modifier.fillMaxWidth().padding(top = 6.dp, bottom = if (versionName != null) 4.dp else 16.dp),
                     size = 14.sp, weight = FontWeight.Medium, color = Pj.Ink.copy(alpha = 0.6f), align = TextAlign.Center,
                 )
+                if (versionName != null) {
+                    PjText("Version $versionName", Modifier.fillMaxWidth().padding(bottom = 16.dp), size = 12.sp, weight = FontWeight.Medium, color = Pj.Ink.copy(alpha = 0.5f), align = TextAlign.Center)
+                }
             }
         }
     }

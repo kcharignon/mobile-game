@@ -143,7 +143,8 @@ private fun Round(
                 f.pickedColor = litColors.remove(event.id) ?: 0
                 f.floatText = "+${event.points}"
                 f.floatAt = now
-                feedback.pick(event.streak)
+                // chaque champignon touché joue la note suivante de la mélodie ; le dernier de la partie joue un accord de do
+                if (round.remaining == 0) feedback.finalPick() else feedback.pick(round.picked - 1)
             }
             is RoundEvent.Missed -> {
                 litColors.remove(event.id)

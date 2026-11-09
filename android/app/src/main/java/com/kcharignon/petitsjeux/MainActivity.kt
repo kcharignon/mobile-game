@@ -46,5 +46,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // le joueur revient de la page « Autoriser » d'Android : l'installation continue toute seule
         update?.resume()
+        // …et on cherche discrètement s'il y a une nouvelle version (le téléphone n'avait peut-être pas de réseau au lancement)
+        update?.recheck()
     }
 }
