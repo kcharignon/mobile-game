@@ -21,8 +21,8 @@ DIST="${ANDROID_DIST:-../dist}"
 GRADLE=(./gradlew --no-daemon --console=plain)
 BUILD_TOOLS="${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}"
 TAG_RE='^android-v(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})$'
-# Les seules permissions que l'application a le droit de déclarer : elle fonctionne hors ligne (pas d'Internet).
-ALLOWED_PERMISSIONS=("android.permission.VIBRATE" "${PACKAGE}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
+# Les seules permissions que l'application a le droit de déclarer : la vibration, et Internet + installation pour SA mise à jour (android/PUBLICATION.md).
+ALLOWED_PERMISSIONS=("android.permission.VIBRATE" "android.permission.INTERNET" "android.permission.REQUEST_INSTALL_PACKAGES" "${PACKAGE}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
 
 fail() { echo "❌ $*" >&2; exit 1; }
 

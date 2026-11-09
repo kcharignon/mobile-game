@@ -1,14 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Aucune permission réseau : l'appli fonctionne hors ligne, sans pub. Seul le retour tactile (désactivable dans les réglages) vibre. -->
+    <!-- Vibration légère (désactivable dans les réglages). -->
     <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Internet : UNIQUEMENT pour la mise à jour de l'appli (un petit fichier version.json puis l'APK, sur github.com, en HTTPS). Ni pub, ni suivi.
+         REQUEST_INSTALL_PACKAGES : pour que le bouton « Mettre à jour » puisse lancer l'installation (Android demande l'accord une fois). -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="false"
+        android:usesCleartextTraffic="false"
         android:theme="@style/Theme.PetitsJeux">
         <activity
             android:name=".MainActivity"
@@ -20,6 +26,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Partage l'APK téléchargé avec l'installateur d'Android, le temps de l'installation. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_paths" />
+        </provider>
     </application>
 
 </manifest>

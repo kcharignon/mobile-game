@@ -113,7 +113,7 @@ fun ProfilesScreen(
                     if (profile != null) PlayerCard(profile, onClick = { onPlay(slot) }) else EmptySlotCard(onClick = { creating = slot })
                 }
                 PjText(
-                    "Chaque joueur garde sa progression sur ce téléphone.\nAucune pub, aucun réseau.",
+                    "Chaque joueur garde sa progression sur ce téléphone.\nAucune pub, aucun suivi.",
                     Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 16.dp),
                     size = 14.sp, weight = FontWeight.Medium, color = Pj.Ink.copy(alpha = 0.6f), align = TextAlign.Center,
                 )
