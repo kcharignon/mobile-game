@@ -397,6 +397,23 @@ class ScreenshotsTest {
     }
 
     @Test
+    fun twoVehiclesOnTheSameLaneCanBeSentOneRightAfterTheOther() {
+        // B est juste derrière A, dans le même sens : A s'éloigne, B part derrière lui sans le heurter
+        val level = Level(1, 6, 3, listOf(Car(0, 2, 1, 2, Dir.RIGHT, 0), Car(1, 0, 1, 2, Dir.RIGHT, 1)))
+        var finishedBumps = -1
+        show(null) { PlayScreen(level, hasNext = false, onFinished = { finishedBumps = it }, onNext = {}, onLevels = {}) }
+        perform(level, level.cars[0], Move.FORWARD)
+        rule.mainClock.advanceTimeBy(40)
+        perform(level, level.cars[1], Move.FORWARD)
+        rule.mainClock.advanceTimeBy(250)
+        rule.onNodeWithText("Pouet !").assertDoesNotExist()
+        rule.onRoot().captureRoboImage("../../docs/screenshots/25-jeu-file-indienne.png")
+        rule.mainClock.advanceTimeBy(3000)
+        rule.onNodeWithText("Pouet !").assertDoesNotExist()
+        assertEquals(0, finishedBumps)
+    }
+
+    @Test
     fun aPickupDropsItsCrateAndItShowsOnTheBoard() {
         // un niveau où un pick-up peut partir tout de suite, sans mener à une impasse
         fun safeMove(level: Level, pickup: Car) =

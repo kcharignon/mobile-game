@@ -257,6 +257,73 @@ class ParkingGameTest {
         assertTrue(game.tap(1, Move.FORWARD) is TapResult.Bumped)
     }
 
+    // ---- deux véhicules l'un derrière l'autre sur la même file
+
+    @Test
+    fun aVehicleFollowingAnExitingOneOnTheSameLaneDoesNotCollideWithIt() {
+        val level = Level(1, 8, 1, listOf(car(0, 2, 0, 2, Dir.RIGHT), car(1, 0, 0, 2, Dir.RIGHT)))
+        for (traveled in listOf(0f, 0.3f, 1f, 2.5f, 4f)) {
+            val offsets = mutableMapOf<Int, Float>()
+            val game = ParkingGame(level).also { it.motionSource = MotionSource { id -> offsets[id] } }
+            assertTrue(game.tap(0) is TapResult.Exited)
+            offsets[0] = traveled
+            // B part juste derrière A, dans le même sens : pas de collision, A s'éloigne
+            assertNull("A a parcouru $traveled : B n'est pas gêné", game.blockerOf(level.cars[1], Move.FORWARD))
+            assertTrue(game.tap(1) is TapResult.Exited)
+            assertEquals(0, game.bumps)
+        }
+    }
+
+    @Test
+    fun threeVehiclesInARowCanAllBeSentOneAfterTheOther() {
+        val level = Level(1, 9, 1, listOf(car(0, 6, 0, 2, Dir.RIGHT), car(1, 3, 0, 3, Dir.RIGHT), car(2, 0, 0, 3, Dir.RIGHT)))
+        val offsets = mutableMapOf<Int, Float>()
+        val game = ParkingGame(level).also { it.motionSource = MotionSource { id -> offsets[id] } }
+        assertTrue(game.tap(0) is TapResult.Exited)
+        assertTrue(game.tap(1) is TapResult.Exited)
+        assertTrue(game.tap(2) is TapResult.Exited)
+        assertEquals(0, game.bumps)
+        assertTrue(game.isWon)
+    }
+
+    @Test
+    fun followingWorksInReverseAndOnColumnsToo() {
+        // en marche arrière, vers la gauche
+        val row = Level(1, 8, 1, listOf(car(0, 0, 0, 2, Dir.RIGHT), car(1, 3, 0, 2, Dir.RIGHT)))
+        val game = ParkingGame(row)
+        assertTrue(game.tap(0, Move.BACKWARD) is TapResult.Exited)
+        assertTrue(game.tap(1, Move.BACKWARD) is TapResult.Exited)
+        assertEquals(0, game.bumps)
+        // sur une colonne, vers le bas
+        val column = Level(1, 1, 8, listOf(car(0, 0, 5, 2, Dir.DOWN), car(1, 0, 2, 2, Dir.DOWN)))
+        val down = ParkingGame(column)
+        assertTrue(down.tap(0) is TapResult.Exited)
+        assertTrue(down.tap(1) is TapResult.Exited)
+        assertEquals(0, down.bumps)
+    }
+
+    @Test
+    fun aBouncingVehicleStillBlocksTheOneBehindIt() {
+        // celui qui fonce sur un plot puis revient : il ne s'éloigne pas, il revient vers celui qui le suit
+        val level = Level(1, 8, 1, listOf(car(0, 2, 0, 2, Dir.RIGHT), car(1, 0, 0, 2, Dir.RIGHT)), cones = listOf(Cell(6, 0)))
+        val game = ParkingGame(level)
+        assertTrue(game.tap(0) is TapResult.Bumped)
+        val behind = game.tap(1) as TapResult.Bumped
+        assertEquals(0, (behind.blocker as Blocker.Vehicle).car.id)
+        assertEquals(2, game.bumps)
+    }
+
+    @Test
+    fun anExitedVehicleNoLongerCollidesWithAnythingOnceItIsGone() {
+        val level = Level(1, 8, 1, listOf(car(0, 2, 0, 2, Dir.RIGHT), car(1, 0, 0, 2, Dir.RIGHT)))
+        val offsets = mutableMapOf<Int, Float>()
+        val game = ParkingGame(level).also { it.motionSource = MotionSource { id -> offsets[id] } }
+        game.tap(0)
+        offsets[0] = 20f // il a quitté le plateau (même si son animation n'est pas finie)
+        assertTrue(game.tap(1) is TapResult.Exited)
+        assertEquals(0, game.bumps)
+    }
+
     @Test
     fun aBumpingVehicleCanNotBeTappedAgainUntilItIsDone() {
         val level = Level(1, 5, 1, listOf(car(0, 0, 0, 2, Dir.RIGHT), car(1, 3, 0, 2, Dir.RIGHT)))

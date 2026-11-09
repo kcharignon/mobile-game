@@ -58,8 +58,11 @@ class ParkingGame(val level: Level) {
     private val onBoard = LinkedHashMap<Int, Car>().apply { level.cars.forEach { put(it.id, it) } }
     private val fallenCrates = LinkedHashSet<Cell>()
 
-    /** Un véhicule en mouvement (il sort, ou il fonce sur un obstacle puis revient) : il barre son couloir tant que [finishMotion] n'a pas été appelé. */
-    private class Motion(val car: Car, val move: Move, val cells: List<Cell>)
+    /**
+     * Un véhicule en mouvement (il sort, ou il fonce sur un obstacle puis revient) : il barre son couloir tant que [finishMotion] n'a pas été appelé.
+     * [arrival] : le sens où il arrive sur chacune des [cells]. [exiting] : il sort pour de bon (il ne reviendra pas) ; sinon il rebondit.
+     */
+    private class Motion(val car: Car, val move: Move, val cells: List<Cell>, val arrival: List<Dir>, val exiting: Boolean)
 
     private val motions = LinkedHashMap<Int, Motion>()
 
@@ -105,26 +108,41 @@ class ParkingGame(val level: Level) {
      * Les cases barrées par un véhicule en mouvement : de la case où sa queue se trouve **maintenant** jusqu'au bout de sa course (le bord du plateau
      * s'il sort ; le point de choc s'il rebondit), en suivant son trajet (virages compris). Dès que sa queue a dépassé une case, elle est libre.
      */
-    private fun corridor(m: Motion): List<Cell> {
+    private fun corridor(m: Motion): List<Pair<Cell, Dir>> {
         val traveled = (motionSource.traveled(m.car.id) ?: 0f).coerceAtLeast(0f)
         val from = floor(traveled + 0.1f).toInt()
-        return (m.car.cellsTrailToLead(m.move) + m.cells).drop(from).filter(::inGrid)
+        val start = m.car.directionOf(m.move)
+        return (m.car.cellsTrailToLead(m.move).map { it to start } + m.cells.zip(m.arrival)).drop(from).filter { inGrid(it.first) }
     }
 
-    private fun owners(except: Int?): Map<Cell, Blocker> {
+    /**
+     * Qui occupe quoi. [following] : le sens où le véhicule qui demande arrive sur chacune de ses cases. Un véhicule qui **sort** ne gêne pas celui qui le **suit**
+     * dans le même sens (même accélération pour tous : celui qui part après ne le rattrape jamais) ; il gêne celui qui le croise ou vient en face.
+     * Dès qu'il a quitté le plateau, son couloir est vide : il n'est plus un obstacle du tout. Un véhicule qui rebondit, lui, barre tout son couloir.
+     */
+    private fun owners(except: Int?, following: Map<Cell, Dir> = emptyMap()): Map<Cell, Blocker> {
         val owners = HashMap<Cell, Blocker>()
         for (cone in level.cones) owners[cone] = Blocker.Obstacle(cone, ObstacleKind.CONE)
         for (crate in fallenCrates) owners[crate] = Blocker.Obstacle(crate, ObstacleKind.CRATE)
         // un véhicule immobile occupe ses cases ; un véhicule en mouvement barre son couloir
         for (car in onBoard.values) if (car.id !in motions) for (cell in car.cells) owners[cell] = Blocker.Vehicle(car)
-        for (m in motions.values) if (m.car.id != except) for (cell in corridor(m)) owners[cell] = Blocker.Vehicle(m.car)
+        for (m in motions.values) if (m.car.id != except) for ((cell, dir) in corridor(m)) {
+            if (m.exiting && following[cell] == dir) continue
+            owners[cell] = Blocker.Vehicle(m.car)
+        }
         return owners
     }
 
+    /** Le sens où [car] arrive sur chaque case de son trajet. */
+    private fun arrivalOf(car: Car, move: Move, route: Route): List<Dir> =
+        List(route.cells.size) { j -> if (j == 0) car.directionOf(move) else route.directions[j - 1] }
+
+    private fun followingMap(car: Car, move: Move, route: Route): Map<Cell, Dir> = route.cells.zip(arrivalOf(car, move, route)).toMap()
+
     /** Ce qui est le plus proche sur le trajet de [car] dans ce sens (ou le mur à la sortie), ou `null` si la voie est libre. */
     fun blockerOf(car: Car, move: Move = Move.FORWARD): Blocker? {
-        val owners = owners(except = car.id)
         val route = routeOf(car, move)
+        val owners = owners(except = car.id, following = followingMap(car, move, route))
         route.cells.firstNotNullOfOrNull { owners[it] }?.let { return it }
         if (route.loops) return Blocker.Obstacle(route.cells.last(), ObstacleKind.OIL)
         return route.exit?.takeIf { it in level.walls }?.let { Blocker.Barrier(it) }
@@ -133,8 +151,9 @@ class ParkingGame(val level: Level) {
     fun canMove(car: Car, move: Move): Boolean = blockerOf(car, move) == null
 
     private fun freeCellsAhead(car: Car, move: Move): Int {
-        val owners = owners(except = car.id)
-        val cells = routeOf(car, move).cells
+        val route = routeOf(car, move)
+        val owners = owners(except = car.id, following = followingMap(car, move, route))
+        val cells = route.cells
         val index = cells.indexOfFirst { it in owners }
         return if (index < 0) cells.size else index
     }
@@ -149,13 +168,13 @@ class ParkingGame(val level: Level) {
             bumps++
             val free = freeCellsAhead(car, move)
             val cells = route.cells.take(free)
-            motions[id] = Motion(car, move, cells)
+            motions[id] = Motion(car, move, cells, arrivalOf(car, move, route).take(free), exiting = false)
             val direction = if (free == 0) car.directionOf(move) else route.directions[free - 1]
             return TapResult.Bumped(car, move, blocker, free, cells, direction)
         }
         onBoard.remove(id)
         exited++
-        motions[id] = Motion(car, move, route.cells)
+        motions[id] = Motion(car, move, route.cells, arrivalOf(car, move, route), exiting = true)
         val dropped = if (car.carrier) car.trail(move).also { fallenCrates += it } else null
         return TapResult.Exited(car, move, route.cells, route.finalDirection, dropped)
     }

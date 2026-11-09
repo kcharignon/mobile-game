@@ -2,7 +2,6 @@ package com.kcharignon.petitsjeux.games.parking.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -90,8 +89,12 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 /** Ce qui s'anime pour un véhicule : son avancement le long de son trajet (en cases, 0 = à sa place), sa rougeur de faute, son tremblement. */
+/** Accélération (en cases par seconde au carré) d'un véhicule qui sort : la distance parcourue après t secondes est EXIT_ACCELERATION × t². */
+const val EXIT_ACCELERATION = 14f
+
 class CarVisual {
     val progress = Animatable(0f)
     val flash = Animatable(0f)
@@ -122,7 +125,8 @@ class CarVisual {
     suspend fun exit(routeLength: Int, len: Int) {
         val distance = routeLength + len + 1f
         fadeFrom = routeLength.toFloat()
-        progress.animateTo(distance, tween(durationMillis = (260 + 70 * distance).toInt(), easing = FastOutLinearInEasing))
+        // Même accélération pour tous (la distance parcourue ne dépend que du temps écoulé) : un véhicule parti après un autre, sur la même file, ne le rattrape jamais.
+        progress.animateTo(distance, tween(durationMillis = (1000 * sqrt(distance / EXIT_ACCELERATION)).toInt().coerceAtLeast(200), easing = { it * it }))
         gone = true
     }
 
