@@ -38,7 +38,7 @@ Sur le téléphone : ouvrir le fichier téléchargé, autoriser l'installation d
 - On gagne quand **toutes** les voitures sont sorties. Pas de chronomètre, jamais de « perdu ».
 - **Étoiles** : 0 faute = 3 ★, 1 ou 2 fautes = 2 ★, plus = 1 ★. Un bouton **Indice** gratuit entoure une voiture qui peut sortir.
 - **100 niveaux**, générés de façon déterministe et **toujours solubles**. **Tous les 20 niveaux, le parking s'agrandit ET une nouvelle mécanique arrive** (elles se cumulent) : marche avant et arrière (1-20), **plots de chantier** (21-40), **murs sur le bord** qui ferment des sorties (41-60), **pick-up qui laissent tomber une caisse** derrière eux, toujours sur la même case (61-80), **taches d'huile** où l'on tourne à droite en avançant et à gauche en reculant (81-100). Les premiers niveaux de chaque mécanique sont plus simples.
-- **Un véhicule qui roule est toujours un obstacle** : si tu en envoies un autre sur son passage, ils se percutent.
+- **Un véhicule qui roule est un obstacle** : si tu en envoies un autre en travers de son passage, ils se percutent. Deux véhicules l'un derrière l'autre sur la même file peuvent partir à la suite.
 - **L'évolution du joueur** : ses étoiles font monter son **rang** (Petite voiture, …, Légende du parking), affiché partout où il apparaît.
 
 Règles complètes, sauvegarde et architecture : [`docs/DESIGN.md`](docs/DESIGN.md) ; maquettes : [`docs/design/`](docs/design/).

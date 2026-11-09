@@ -68,11 +68,17 @@ Lancement ─► Choix du joueur ─► Accueil (jeux) ─► Choix du niveau �
 - **Indice** : entoure un véhicule qui peut sortir et fait filer deux **chevrons** dans le sens où il faut le glisser. Il ne conseille jamais un coup qui mène à une impasse.
 - **Recommencer** : remet le niveau à zéro (fautes comprises).
 
-### Collisions : un véhicule qui roule est toujours un obstacle
+### Collisions : un véhicule qui roule est un obstacle (sauf pour celui qui le suit)
 
 Un véhicule qui roule (il sort, ou il fonce sur un obstacle puis revient) **barre son couloir** tant qu'il n'a pas fini : de la case où se trouve sa queue
-**en ce moment** jusqu'au bord (ou jusqu'au point de choc). Si on envoie un autre véhicule sur ce couloir, ils **se percutent** : « Pouet ! », faute, rebond.
-Dès que la queue du véhicule a dépassé une case, elle est libre. Un véhicule qui rebondit encore ne peut pas être touché une deuxième fois (un enfant impatient ne perd pas deux étoiles d'un coup).
+**en ce moment** jusqu'au bord (ou jusqu'au point de choc). Si on envoie un autre véhicule en **travers** de ce couloir, ils **se percutent** : « Pouet ! », faute, rebond.
+Dès que la queue du véhicule a dépassé une case, elle est libre, et **dès qu'il a quitté le plateau son couloir est vide** : il ne gêne plus rien.
+
+- **Deux véhicules l'un derrière l'autre sur la même file** : celui qui part derrière un véhicule qui **sort** dans le **même sens** ne le heurte jamais.
+  Tous les véhicules qui sortent ont la **même accélération** (la distance parcourue ne dépend que du temps écoulé) : celui qui part après ne rattrape donc jamais celui qui est parti avant.
+- Un véhicule qui **rebondit** (il a foncé sur un obstacle) barre tout son couloir, même pour celui qui le suit : il revient vers lui.
+- Un véhicule qui rebondit encore ne peut pas être touché une deuxième fois (un enfant impatient ne perd pas deux étoiles d'un coup).
+
 Le moteur lit la position **dessinée** du véhicule (c'est l'animation qui fait foi) : ce qu'on voit est ce qui compte.
 
 ### Comment les niveaux évoluent
