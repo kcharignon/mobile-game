@@ -145,7 +145,7 @@ class ScreenshotsTest {
         rule.onRoot().captureRoboImage("../../docs/screenshots/09-jeu-pouet.png")
     }
 
-    private fun playFirstLevelFromTheMenu(store: InMemoryProfileStore, mistakes: Int) {
+    private fun playFirstLevelFromTheMenu(store: InMemoryProfileStore, mistakes: Int, impatient: Boolean = false) {
         rule.mainClock.autoAdvance = false
         rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, ParkingProgress.GAME_ID)) }
         rule.mainClock.advanceTimeBy(300)
@@ -158,6 +158,11 @@ class ScreenshotsTest {
             val blocked = game.cars.first { game.blockerOf(it) != null }
             tapCar(level, blocked)
             game.tap(blocked.id)
+            if (impatient) {
+                // un deuxième toucher alors que la voiture rebondit encore : il ne compte pas
+                rule.mainClock.advanceTimeBy(60)
+                tapCar(level, blocked)
+            }
             rule.mainClock.advanceTimeBy(1200)
         }
         while (!game.isWon) {
@@ -179,6 +184,15 @@ class ScreenshotsTest {
         assertEquals(2, saved.currentLevel)
         assertEquals(LevelGenerator.level(1).cars.size, saved.carsFreed)
         assertEquals(1, saved.played)
+    }
+
+    @Test
+    fun tappingABouncingCarAgainDoesNotCostASecondFault() {
+        val store = InMemoryProfileStore(listOf(profile(0, "Léa", Avatar.CAT)))
+        playFirstLevelFromTheMenu(store, mistakes = 1, impatient = true)
+        val saved = ParkingProgress.fromJson(store.load(0)!!.gameSave(ParkingProgress.GAME_ID))
+        assertEquals(1, saved.bumps)
+        assertEquals(2, saved.starsOf(1))
     }
 
     @Test

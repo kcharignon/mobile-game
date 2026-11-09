@@ -133,15 +133,16 @@ Le niveau suivant se débloque quand le précédent est réussi.
 ## Architecture de l'appli
 
 ```
-core/save    Profile, ProfileStore (JSON, 5 emplacements, écriture atomique), rangs
-core/ui      thème, boutons, étoiles, avatars, fond : le « kit » commun à tous les jeux
-core/        MiniGame (contrat d'un jeu), registre des jeux, navigation
-games/parking/engine   règles pures (aucune dépendance Android) : grille, voitures, tap, solveur, générateur, étoiles
+core/save      Profile, ProfileStore (JSON, 5 emplacements, écriture atomique), rangs
+core/ui        thème (Fredoka), boutons, étoiles, avatars, fond, fenêtres : le « kit » commun à tous les jeux
+core/screens   « Qui joue ? », accueil des jeux, réglages
+core/          MiniGame (contrat d'un jeu), registre des jeux, navigation (PetitsJeuxApp), sons et vibrations (Feedback)
+games/parking/engine   règles pures (aucune dépendance Android) : grille, voitures, tap, attentes, générateur, étoiles
 games/parking/ui       plateau, voitures, animations, écrans de niveaux et de jeu
 ```
 
 Le moteur de Parking Malin est du Kotlin pur, testé sur la JVM : règles de sortie et de faute, solveur, **les 100 niveaux solubles et stables**.
-L'écriture de la sauvegarde est testée sur un dossier temporaire.
+L'écriture de la sauvegarde est testée sur un dossier temporaire. L'interface est jouée sans téléphone (Robolectric) : `make android-screenshots` crée un joueur, finit un niveau, vérifie la sauvegarde et rend les captures de `docs/screenshots/`.
 
 ## Hors périmètre (pour l'instant)
 

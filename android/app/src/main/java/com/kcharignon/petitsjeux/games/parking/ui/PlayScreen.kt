@@ -90,6 +90,10 @@ class CarVisual {
     val shake = Animatable(0f)
     var gone by mutableStateOf(false)
 
+    /** Vrai pendant que la voiture fonce, rebondit et rougit : un autre toucher ne compte pas (un enfant impatient ne perd pas deux étoiles d'un coup). */
+    var bumping = false
+        private set
+
     /** Distance (en cases) à partir de laquelle la voiture commence à s'effacer : son nez passe le bord du plateau. */
     var fadeFrom = Float.MAX_VALUE
 
@@ -103,12 +107,17 @@ class CarVisual {
 
     /** Faute : elle fonce jusqu'à toucher l'autre voiture, rougit, rebondit en arrière. */
     suspend fun bump(freeCells: Int, onHit: () -> Unit) {
-        offset.animateTo(freeCells + 0.12f, tween(durationMillis = 90 + 80 * freeCells, easing = LinearEasing))
-        onHit()
-        flash.snapTo(1f)
-        coroutineScope {
-            launch { flash.animateTo(0f, tween(500)) }
-            offset.animateTo(0f, spring(dampingRatio = 0.4f, stiffness = 380f))
+        bumping = true
+        try {
+            offset.animateTo(freeCells + 0.12f, tween(durationMillis = 90 + 80 * freeCells, easing = LinearEasing))
+            onHit()
+            flash.snapTo(1f)
+            coroutineScope {
+                launch { flash.animateTo(0f, tween(500)) }
+                offset.animateTo(0f, spring(dampingRatio = 0.4f, stiffness = 380f))
+            }
+        } finally {
+            bumping = false
         }
     }
 
@@ -187,7 +196,7 @@ private fun PlayBoard(
     }
 
     fun tapCar(car: Car) {
-        if (won) return
+        if (won || visuals.getValue(car.id).bumping) return
         hintId = null
         when (val result = game.tap(car.id)) {
             TapResult.Ignored -> Unit
