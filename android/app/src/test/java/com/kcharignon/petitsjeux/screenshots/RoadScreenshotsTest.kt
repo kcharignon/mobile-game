@@ -18,6 +18,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
+import androidx.compose.ui.geometry.Offset
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.kcharignon.petitsjeux.core.Feedback
 import com.kcharignon.petitsjeux.core.LocalFeedback
@@ -92,7 +94,20 @@ class RoadScreenshotsTest {
     }
 
     private fun tapWorld() = rule.onNodeWithTag("world").performTouchInput { click(center) }
-    private fun tapPad(tag: String) = rule.onNodeWithTag(tag).performTouchInput { click(center) }
+    /** Glisse le doigt de 120 px dans le sens [dir] à partir du milieu de l'écran. */
+    private fun glide(dir: HopDir, from: Offset? = null) = rule.onNodeWithTag("world").performTouchInput {
+        val start = from ?: center
+        val end = when (dir) {
+            HopDir.FORWARD -> Offset(start.x, start.y - 120f)
+            HopDir.BACK -> Offset(start.x, start.y + 120f)
+            HopDir.LEFT -> Offset(start.x - 120f, start.y)
+            HopDir.RIGHT -> Offset(start.x + 120f, start.y)
+        }
+        swipe(start, end, durationMillis = 80)
+    }
+
+    /** Le geste du joueur pour sauter dans le sens [dir] : toucher pour avancer, glisser pour le reste. */
+    private fun move(dir: HopDir) = if (dir == HopDir.FORWARD) tapWorld() else glide(dir)
 
     private fun text(tag: String, unmerged: Boolean = false): String =
         rule.onNodeWithTag(tag, useUnmergedTree = unmerged).fetchSemanticsNode().config.getOrNull(SemanticsProperties.Text)?.joinToString("") ?: ""
@@ -147,9 +162,6 @@ class RoadScreenshotsTest {
         play(900)
         shot("54-route-jeu")
         assertEquals("ligne 0 colonne ${Road.START_COL} en route", chick())
-        rule.onNodeWithTag("pad-left").assertExists()
-        rule.onNodeWithTag("pad-right").assertExists()
-        rule.onNodeWithTag("pad-back").assertExists()
     }
 
     @Test
@@ -171,26 +183,60 @@ class RoadScreenshotsTest {
     // ------------------------------------------------------------------ les règles, jouées à l'écran
 
     @Test
-    fun touchingAnywhereHopsForwardAndTheCrossIsSideways() {
+    fun touchingHopsForwardAndSwipingGoesTheWayTheFingerGoes() {
         show(null, content = noop(custom(Row(RowKind.REFUGE), emptyRoad(), Row(RowKind.REFUGE))))
         start()
         tapWorld()
         play(300)
         assertEquals("ligne 1 colonne ${Road.START_COL} en route", chick())
         assertEquals("10", text("score"))
-        tapPad("pad-left")
+        glide(HopDir.LEFT)
         play(300)
         assertEquals("ligne 1 colonne ${Road.START_COL - 1} en route", chick())
-        tapPad("pad-right")
+        glide(HopDir.RIGHT)
         play(300)
-        tapPad("pad-right")
+        glide(HopDir.RIGHT)
         play(300)
         assertEquals("ligne 1 colonne ${Road.START_COL + 1} en route", chick())
-        tapPad("pad-back")
+        glide(HopDir.BACK)
         play(300)
         assertEquals("ligne 0 colonne ${Road.START_COL + 1} en route", chick())
         // revenir en arrière ne rapporte rien
         assertEquals("10", text("score"))
+    }
+
+    @Test
+    fun theRoadAndTheGesturesReachBothEdgesOfTheScreen() {
+        show(null, content = noop(custom(Row(RowKind.REFUGE), Row(RowKind.REFUGE))))
+        start()
+        val root = rule.onRoot().fetchSemanticsNode().boundsInRoot
+        val road = rule.onNodeWithTag("road").fetchSemanticsNode().boundsInRoot
+        val world = rule.onNodeWithTag("world").fetchSemanticsNode().boundsInRoot
+        assertEquals("la route va jusqu'au bord gauche et au bord droit", root.left, road.left, 0.5f)
+        assertEquals(root.right, road.right, 0.5f)
+        assertEquals("les gestes aussi", root.left, world.left, 0.5f)
+        assertEquals(root.right, world.right, 0.5f)
+        // un glissé qui part tout au bord gauche de l'écran saute à droite ; un toucher tout au bord droit avance
+        rule.onNodeWithTag("world").performTouchInput { swipe(Offset(1f, centerY), Offset(121f, centerY), durationMillis = 80) }
+        play(300)
+        assertEquals("ligne 0 colonne ${Road.START_COL + 1} en route", chick())
+        rule.onNodeWithTag("world").performTouchInput { click(Offset(width - 1f, centerY)) }
+        play(300)
+        assertTrue(chick(), chick().startsWith("ligne 1 "))
+    }
+
+    @Test
+    fun aFingerThatBarelyMovesIsStillATapAndASwipeIsOneHopOnly() {
+        show(null, content = noop(custom(Row(RowKind.REFUGE), Row(RowKind.REFUGE), Row(RowKind.REFUGE))))
+        start()
+        // un doigt qui tremble un peu (8 px, bien moins que le seuil) : c'est un toucher, donc on avance
+        rule.onNodeWithTag("world").performTouchInput { swipe(center, center + Offset(8f, 0f), durationMillis = 60) }
+        play(300)
+        assertEquals("ligne 1 colonne ${Road.START_COL} en route", chick())
+        // un long glissé vers la gauche : un seul saut de côté, pas dix
+        rule.onNodeWithTag("world").performTouchInput { swipe(Offset(width - 10f, centerY), Offset(20f, centerY), durationMillis = 400) }
+        play(800)
+        assertEquals("ligne 1 colonne ${Road.START_COL - 1} en route", chick())
     }
 
     @Test
@@ -255,12 +301,7 @@ class RoadScreenshotsTest {
         val moves = Planner(level).route(level.grains)!!
         for (m in moves) {
             playUntil(m.tick.toLong() * Planner.TICK_MS)
-            when (m.dir) {
-                HopDir.FORWARD -> tapWorld()
-                HopDir.LEFT -> tapPad("pad-left")
-                HopDir.RIGHT -> tapPad("pad-right")
-                HopDir.BACK -> tapPad("pad-back")
-            }
+            move(m.dir)
         }
         play(3000)
         assertTrue("la fenêtre de fin", finished())
@@ -344,12 +385,7 @@ class RoadScreenshotsTest {
         val level = RoadLevels.level(1)
         for (m in Planner(level).route(level.grains)!!) {
             playUntil(m.tick.toLong() * Planner.TICK_MS)
-            when (m.dir) {
-                HopDir.FORWARD -> tapWorld()
-                HopDir.LEFT -> tapPad("pad-left")
-                HopDir.RIGHT -> tapPad("pad-right")
-                HopDir.BACK -> tapPad("pad-back")
-            }
+            move(m.dir)
         }
         play(3000)
         assertTrue(finished())
