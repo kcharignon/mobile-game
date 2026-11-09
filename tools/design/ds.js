@@ -146,7 +146,7 @@ const icons = {
 // ---------------------------------------------------------------- voiture
 // Repère local : centre de la voiture en (0,0), vue de dessus, nez vers le haut (y négatif). Taille d'une case = s.
 // `len` = nombre de cases (2 = voiture, 3 = minibus). L'épaisseur (la « tranche » sombre) est TOUJOURS dessinée vers le bas de l'écran.
-function carLocal(len, color, s, { flash = false } = {}) {
+function carLayers(len, color, s, { flash = false } = {}) {
   const W = s * 0.8;
   const L = s * len - s * 0.2;
   const r = s * 0.27;
@@ -170,21 +170,17 @@ function carLocal(len, color, s, { flash = false } = {}) {
   } else {
     roofLines = `<rect x="${fx(-cabinW / 2 + s * 0.14)}" y="${fx(cabinY - cabinLen / 2 + s * 0.52)}" width="${fx(cabinW - s * 0.28)}" height="${fx(cabinLen - s * 0.52 - s * 0.32)}" rx="${fx(s * 0.06)}" fill="${lighten(color, 0.3)}" opacity="0.5"/>`;
   }
-  return (
+  const lower = wheelsAt(0) + `<rect x="${fx(-W / 2)}" y="${fx(-L / 2)}" width="${fx(W)}" height="${fx(L)}" rx="${fx(r)}" fill="${darken(body, 0.38)}"/>`;
+  const upper =
     `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="${lighten(body, 0.28)}"/><stop offset="0.55" stop-color="${body}"/><stop offset="1" stop-color="${darken(body, 0.1)}"/></linearGradient></defs>` +
-    // tranche sombre + roues, décalées vers le bas de l'écran
-    `<g transform="translate(0 ${fx(depth)})">${wheelsAt(0)}<rect x="${fx(-W / 2)}" y="${fx(-L / 2)}" width="${fx(W)}" height="${fx(L)}" rx="${fx(r)}" fill="${darken(body, 0.38)}"/></g>` +
     wheelsAt(-depth * 0.2) +
     `<rect x="${fx(-W / 2)}" y="${fx(-L / 2)}" width="${fx(W)}" height="${fx(L)}" rx="${fx(r)}" fill="url(#${gid})"/>` +
-    // capot brillant
     `<ellipse cx="${fx(-W * 0.18)}" cy="${fx(-L / 2 + s * 0.2)}" rx="${fx(W * 0.2)}" ry="${fx(s * 0.07)}" fill="#fff" opacity="0.4"/>` +
-    // toit
     `<rect x="${fx(-cabinW / 2)}" y="${fx(cabinY - cabinLen / 2)}" width="${fx(cabinW)}" height="${fx(cabinLen)}" rx="${fx(s * 0.17)}" fill="${lighten(body, 0.12)}" stroke="${darken(body, 0.14)}" stroke-width="${fx(s * 0.03)}"/>` +
     glassFront + roofLines + glassRear +
-    // phares et feux
     `<circle cx="${fx(-W * 0.3)}" cy="${fx(-L / 2 + s * 0.1)}" r="${fx(s * 0.075)}" fill="#FFF6B8"/><circle cx="${fx(W * 0.3)}" cy="${fx(-L / 2 + s * 0.1)}" r="${fx(s * 0.075)}" fill="#FFF6B8"/>` +
-    `<rect x="${fx(-W * 0.4)}" y="${fx(L / 2 - s * 0.13)}" width="${fx(s * 0.17)}" height="${fx(s * 0.07)}" rx="${fx(s * 0.03)}" fill="#E8352B"/><rect x="${fx(W * 0.4 - s * 0.17)}" y="${fx(L / 2 - s * 0.13)}" width="${fx(s * 0.17)}" height="${fx(s * 0.07)}" rx="${fx(s * 0.03)}" fill="#E8352B"/>`
-  );
+    `<rect x="${fx(-W * 0.4)}" y="${fx(L / 2 - s * 0.13)}" width="${fx(s * 0.17)}" height="${fx(s * 0.07)}" rx="${fx(s * 0.03)}" fill="#E8352B"/><rect x="${fx(W * 0.4 - s * 0.17)}" y="${fx(L / 2 - s * 0.13)}" width="${fx(s * 0.17)}" height="${fx(s * 0.07)}" rx="${fx(s * 0.03)}" fill="#E8352B"/>`;
+  return { lower, upper, depth };
 }
 
 const DIR_ANGLE = { U: 0, R: 90, D: 180, L: 270 };
@@ -197,7 +193,10 @@ function car({ c, r, len, dir, color, s, ox, oy, flash = false, shadow = true })
   const cx = ox + c * s + w / 2;
   const cy = oy + r * s + h / 2;
   const sh = shadow ? `<ellipse cx="${fx(cx)}" cy="${fx(cy + s * 0.2)}" rx="${fx(w / 2 - s * 0.02)}" ry="${fx(h / 2 - s * 0.02)}" fill="#000" opacity="0.18"/>` : '';
-  return `${sh}<g transform="translate(${fx(cx)} ${fx(cy)}) rotate(${DIR_ANGLE[dir]})">${carLocal(len, color, s, { flash })}</g>`;
+  const { lower, upper, depth } = carLayers(len, color, s, { flash });
+  const a = DIR_ANGLE[dir];
+  // la tranche sombre est décalée vers le bas de l'ÉCRAN (hors de la rotation) : la lumière vient toujours d'en haut
+  return `${sh}<g transform="translate(${fx(cx)} ${fx(cy)})"><g transform="translate(0 ${fx(depth)})"><g transform="rotate(${a})">${lower}</g></g><g transform="rotate(${a})">${upper}</g></g>`;
 }
 
 // ---------------------------------------------------------------- décor du parking
@@ -352,5 +351,5 @@ const dim = (a = 0.5) => `<rect width="${W}" height="${H}" fill="#1B1D2E" opacit
 module.exports = {
   T, CAR_COLORS, ANIMALS, DIR_ANGLE, W, H,
   fx, mix, lighten, darken, text, star, button, roundButton, panel, icons,
-  car, carLocal, cone, psign, board, avatar, screen, withBg, dim, backdrop,
+  car, carLayers, cone, psign, board, avatar, screen, withBg, dim, backdrop,
 };

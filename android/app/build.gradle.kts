@@ -4,6 +4,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("io.github.takahirom.roborazzi")
 }
 
 // Version : l'étiquette android-vX.Y.Z donne le nom (X.Y.Z) ET le code de version (X*1_000_000 + Y*1_000 + Z), qui ne doit jamais
@@ -71,6 +72,22 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    testOptions {
+        unitTests {
+            // Robolectric (captures d'écran) a besoin des ressources de l'appli : polices, icônes.
+            isIncludeAndroidResources = true
+        }
+    }
+}
+
+// Les captures d'écran (Robolectric) sont plus lentes : `make android-test` les saute, `make android-screenshots` (-Pscreenshots) les joue.
+tasks.withType<Test>().configureEach {
+    // Dans le conteneur Docker (identifiant sans entrée passwd) `user.home` vaut « ? » : Robolectric y télécharge ses jars Android ; on les range dans le cache de Gradle.
+    System.getenv("GRADLE_USER_HOME")?.let {
+        File("$it/home").mkdirs()
+        systemProperty("user.home", "$it/home")
+    }
+    if (!project.hasProperty("screenshots")) exclude("**/screenshots/**") else include("**/screenshots/**")
 }
 
 kotlin {
@@ -94,4 +111,11 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // org.json de l'Android est un simple modèle dans les tests unitaires : on met la vraie bibliothèque.
     testImplementation("org.json:json:20250517")
+
+    // Captures d'écran sans téléphone : Robolectric (rendu natif) + Roborazzi + tests Compose.
+    testImplementation("org.robolectric:robolectric:4.16")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.69.0")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.69.0")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
