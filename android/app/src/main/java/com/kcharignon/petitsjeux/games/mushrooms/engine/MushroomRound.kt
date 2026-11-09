@@ -96,6 +96,7 @@ class MushroomRound(val difficulty: Difficulty, private val mushrooms: Int = dif
                 recentlyOut[m.id] = now
                 missed++
                 streak = 0
+                refillSoon(now)
                 events += RoundEvent.Missed(m.id)
             }
         }
@@ -129,6 +130,11 @@ class MushroomRound(val difficulty: Difficulty, private val mushrooms: Int = dif
         return events
     }
 
+    /** Un champignon à toucher vient de partir (touché ou éteint) : le suivant s'allume vite, sans attendre que les autres partent, mais pas à la même image. */
+    private fun refillSoon(now: Long) {
+        nextSpawnAt = maxOf(nextSpawnAt, now + difficulty.gapMs.first)
+    }
+
     /** Un champignon éteint, qui ne vient pas de s'éteindre (pour ne pas rallumer tout de suite le même). */
     private fun pickFree(now: Long): Int? {
         recentlyOut.entries.removeAll { now - it.value > RECENT_MS }
@@ -148,6 +154,7 @@ class MushroomRound(val difficulty: Difficulty, private val mushrooms: Int = dif
             return RoundEvent.DecoyTapped(id)
         }
         val reaction = (now - m.litAt).coerceAtLeast(0L)
+        refillSoon(now)
         val points = Scoring.points(reaction)
         score += points
         picked++

@@ -30,6 +30,37 @@ class MushroomRoundTest {
         return Played(round, events, now)
     }
 
+    /** Un « enfant » plus vrai : il touche **un champignon à la fois**, le plus ancien qu'il a le temps d'atteindre, et met [tapMs] pour passer de l'un à l'autre. */
+    private class OneByOne(val round: MushroomRound, val maxReal: Int, val litAt: List<Long>)
+
+    private fun playOneByOne(d: Difficulty, tapMs: Long, seed: Long = 1L): OneByOne {
+        val round = MushroomRound(d, seed = seed)
+        var now = 0L
+        var freeAt = 0L
+        var target: Int? = null
+        var tapAt = 0L
+        var maxReal = 0
+        val litAt = ArrayList<Long>()
+        while (!round.finished && now < 600_000L) {
+            for (e in round.update(now)) if (e is RoundEvent.Lit && !e.decoy) litAt += now
+            maxReal = maxOf(maxReal, round.lit.count { !it.decoy })
+            if (target == null && now >= freeAt) {
+                val reals = round.lit.filter { !it.decoy }
+                val limit = d.litMs
+                val reachable = if (limit == null) reals else reals.filter { it.litAt + limit - now > tapMs + 50 }
+                (reachable.minByOrNull { it.litAt } ?: reals.maxByOrNull { it.litAt })?.let { target = it.id; tapAt = now + tapMs }
+            }
+            val id = target
+            if (id != null && now >= tapAt) {
+                round.tap(id, now)
+                target = null
+                freeAt = now
+            }
+            now += 10L
+        }
+        return OneByOne(round, maxReal, litAt)
+    }
+
     @Test
     fun pointsDecreaseWithTheReactionTimeButNeverBelowTheMinimum() {
         assertEquals(100, Scoring.points(0))
@@ -57,7 +88,7 @@ class MushroomRoundTest {
     }
 
     @Test
-    fun onEasyMushroomsStayLitUntilTouchedAndNeverMoreThanTheLimit() {
+    fun onEasyOneMushroomIsLitAtATimeAndItStaysLitUntilTouched() {
         val round = MushroomRound(Difficulty.EASY, seed = 5)
         var now = 0L
         var maxLit = 0
@@ -66,9 +97,10 @@ class MushroomRoundTest {
             maxLit = maxOf(maxLit, round.lit.size)
             now += 50L
         }
-        // deux champignons s'allument, puis plus rien : ils restent allumés (on n'a rien touché) et la partie n'est pas finie
-        assertEquals(Difficulty.EASY.maxLit, maxLit)
-        assertEquals(2, round.lit.size)
+        // un seul champignon s'allume, puis plus rien : il reste allumé (on n'a rien touché) et la partie n'est pas finie
+        assertEquals(1, Difficulty.EASY.maxLit)
+        assertEquals(1, maxLit)
+        assertEquals(1, round.lit.size)
         assertFalse(round.finished)
         assertEquals(0, round.missed)
         assertTrue(round.lit.all { now - it.litAt > 100_000L })
@@ -108,8 +140,7 @@ class MushroomRoundTest {
                 now += 10L
             }
             assertEquals("${d.title} : allumages", d.targets, lit)
-            assertTrue("${d.title} : jamais plus de ${d.maxLit} à la fois ($maxReal)", maxReal <= d.maxLit)
-            assertTrue(maxReal >= minOf(2, d.maxLit))
+            assertEquals("${d.title} : jamais plus de ${d.maxLit} à la fois, et on les atteint", d.maxLit, maxReal)
         }
     }
 
@@ -125,10 +156,11 @@ class MushroomRoundTest {
 
     @Test
     fun starsMatchHowFastTheChildIs() {
-        for (d in Difficulty.entries) {
-            assertEquals("${d.title} : très rapide", 3, play(d, 300).round.stars)
-            assertEquals("${d.title} : assez rapide", 2, play(d, 1000).round.stars)
-            assertEquals("${d.title} : lent", 1, play(d, 2600).round.stars)
+        // plus il y a de champignons allumés en même temps, plus chacun attend avant d'être touché : les seuils sont réglés pour un enfant qui touche un champignon à la fois
+        for (d in Difficulty.entries) for (seed in 1L..5L) {
+            assertEquals("${d.title} : très rapide (graine $seed)", 3, playOneByOne(d, 450, seed).round.stars)
+            assertEquals("${d.title} : assez rapide (graine $seed)", 2, playOneByOne(d, 900, seed).round.stars)
+            assertEquals("${d.title} : lent (graine $seed)", 1, playOneByOne(d, 2200, seed).round.stars)
         }
         assertEquals(1, Difficulty.EASY.stars(0))
         assertEquals(2, Difficulty.EASY.stars(Difficulty.EASY.twoStars))
@@ -139,7 +171,11 @@ class MushroomRoundTest {
     @Test
     fun difficultiesGetHarder() {
         val d = Difficulty.entries
-        assertTrue(d.zipWithNext().all { (a, b) -> b.targets > a.targets && b.mushrooms >= a.mushrooms && b.maxLit >= a.maxLit && b.twoStars > a.twoStars })
+        assertTrue(d.zipWithNext().all { (a, b) -> b.targets > a.targets && b.mushrooms >= a.mushrooms })
+        // le même enfant (un champignon touché toutes les 0,75 s) gagne de moins en moins d'étoiles : il y a de plus en plus de champignons à surveiller
+        val starsOfTheSameChild = d.map { playOneByOne(it, 750).round.stars }
+        assertEquals(starsOfTheSameChild.sortedDescending(), starsOfTheSameChild)
+        assertEquals("allumés en même temps : 1, 2, 3 puis 4", listOf(1, 2, 3, 4), d.map { it.maxLit })
         assertEquals(null, Difficulty.EASY.litMs) // le premier : ils restent allumés
         assertEquals(null, Difficulty.MEDIUM.litMs)
         assertTrue(Difficulty.HARD.litMs != null && Difficulty.EXPERT.litMs != null && Difficulty.EXPERT.litMs!! < Difficulty.HARD.litMs!!)
@@ -232,6 +268,60 @@ class MushroomRoundTest {
         fun trace(): List<RoundEvent> = play(Difficulty.EXPERT, 800, seed = 77).events
         assertEquals(trace(), trace())
         assertTrue(play(Difficulty.EXPERT, 800, seed = 78).events != trace())
+    }
+
+    @Test
+    fun theyLightUpOneByOneUpToTheNumberOfSimultaneousMushroomsOfTheDifficulty() {
+        for (d in Difficulty.entries) {
+            // un enfant qui ne touche rien pendant les premières secondes : les champignons s'allument l'un après l'autre jusqu'au maximum
+            val round = MushroomRound(d, seed = 6)
+            val litTimes = ArrayList<Long>()
+            var maxReal = 0
+            var now = 0L
+            while (now <= d.litMs.let { it ?: 6000L }) {
+                for (e in round.update(now)) if (e is RoundEvent.Lit && !e.decoy) litTimes += now
+                maxReal = maxOf(maxReal, round.lit.count { !it.decoy })
+                now += 10L
+            }
+            assertEquals("${d.title} : ${d.maxLit} allumés en même temps", d.maxLit, maxReal)
+            assertTrue("${d.title} : pas tous d'un coup (${litTimes})", litTimes.zipWithNext().all { (a, b) -> b - a >= d.gapMs.first })
+            assertTrue("${d.title} : le premier attend un peu", litTimes.first() >= MushroomRound.START_DELAY_MS)
+        }
+    }
+
+    @Test
+    fun aNewMushroomLightsUpWithoutWaitingForTheOthersToGoOut() {
+        for (d in listOf(Difficulty.MEDIUM, Difficulty.HARD, Difficulty.EXPERT)) {
+            val round = MushroomRound(d, seed = 3)
+            var now = 0L
+            while (round.lit.count { !it.decoy } < d.maxLit && now < 20_000L) { round.update(now); now += 10L }
+            assertEquals(d.maxLit, round.lit.count { !it.decoy })
+            // on en touche un : les autres restent allumés et un nouveau s'allume vite, tant que les autres sont toujours là
+            val others = round.lit.filter { !it.decoy }.drop(1).map { it.id }
+            val touchedAt = now
+            round.tap(round.lit.first { !it.decoy }.id, touchedAt)
+            var newAt = -1L
+            while (newAt < 0 && now < touchedAt + 3000L) {
+                now += 10L
+                if (round.update(now).any { it is RoundEvent.Lit && !it.decoy }) newAt = now
+            }
+            assertTrue("${d.title} : un nouveau s'allume", newAt >= 0)
+            assertTrue("${d.title} : pas dans la même image (${newAt - touchedAt} ms)", newAt - touchedAt >= d.gapMs.first)
+            assertTrue("${d.title} : vite (${newAt - touchedAt} ms)", newAt - touchedAt <= d.gapMs.last + 100)
+            assertTrue("${d.title} : les autres sont toujours allumés", others.all { round.isLit(it) })
+            assertEquals(d.maxLit, round.lit.count { !it.decoy })
+        }
+    }
+
+    @Test
+    fun aQuickChildAlwaysFacesTheFullNumberLitAtOnceAndEveryRoundEnds() {
+        for (d in Difficulty.entries) for (tapMs in listOf(500L, 800L, 1500L)) {
+            val p = playOneByOne(d, tapMs)
+            assertTrue("${d.title} (${tapMs} ms) : finie", p.round.finished)
+            assertEquals("${d.title} (${tapMs} ms) : tous les champignons comptés", d.targets, p.round.picked + p.round.missed)
+            assertEquals("${d.title} (${tapMs} ms) : ${d.maxLit} allumés en même temps", d.maxLit, p.maxReal)
+            assertTrue(p.round.stars >= 1)
+        }
     }
 
     @Test
