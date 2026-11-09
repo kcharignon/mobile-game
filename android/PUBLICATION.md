@@ -83,7 +83,7 @@ Le workflow construit, teste, signe, **contrôle** (certificat attendu, version,
 
 ## Étape 5. Installer, puis mettre à jour
 
-1. Sur le téléphone, ouvre <https://github.com/kcharignon/mobile-game/releases/latest> (ou le lien « dernière version » du README) et télécharge `petitsjeux-X.Y.Z.apk`.
+1. Sur le téléphone, ouvre le lien « dernière version » du README (<https://github.com/kcharignon/mobile-game/releases/download/android-latest/petitsjeux.apk>) ou la page des [releases](https://github.com/kcharignon/mobile-game/releases) pour choisir une version (`petitsjeux-X.Y.Z.apk`).
 2. Ouvre le fichier téléchargé, autorise l'installation depuis Chrome si Android le demande, touche **Installer** (si Play Protect hésite : **Installer quand même**).
 3. **Mettre à jour** : même geste avec la version suivante, par-dessus. Les joueurs, leurs étoiles et leurs niveaux sont conservés.
 
