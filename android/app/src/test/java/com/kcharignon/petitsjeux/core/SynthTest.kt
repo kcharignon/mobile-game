@@ -20,6 +20,10 @@ class SynthTest {
             "etoile-3" to Synth.star(2),
             "indice" to Synth.hint(),
             "pop" to Synth.pop(),
+            "champi-1" to Synth.pick(0),
+            "champi-6" to Synth.pick(5),
+            "souffle" to Synth.puff(),
+            "toc" to Synth.bonk(),
         )
     }
 
@@ -50,10 +54,19 @@ class SynthTest {
     }
 
     @Test
+    fun theMushroomBellsRiseInPitchWithTheStreak() {
+        val pitches = (0 until Synth.PICK_NOTES).map { zeroCrossings(Synth.pick(it), 0.0, 0.2) }
+        assertTrue("de plus en plus aigu : $pitches", pitches.zipWithNext().all { (a, b) -> b > a })
+    }
+
+    @Test
     fun durationsAreAsDesigned() {
         assertTrue(seconds(sounds.getValue("vroum")) in 0.55..0.7)
         assertTrue(seconds(sounds.getValue("fanfare")) in 1.6..1.8)
         assertTrue(seconds(sounds.getValue("pop")) < 0.15)
+        assertTrue(seconds(sounds.getValue("champi-1")) < 0.6)
+        assertTrue(seconds(sounds.getValue("souffle")) < 0.3)
+        assertTrue(seconds(sounds.getValue("toc")) < 0.25)
         assertTrue(seconds(sounds.getValue("indice")) < 0.8)
     }
 
