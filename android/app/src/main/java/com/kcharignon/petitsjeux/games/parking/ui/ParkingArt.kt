@@ -8,6 +8,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -37,7 +39,9 @@ internal fun tone(base: Color, l: Float = 0f, d: Float = 0f, a: Float = 1f): Col
  * toujours le même pour une voiture donnée d'un niveau donné.
  */
 fun vehicleModelFor(car: Car): VehicleModel {
-    val options = VehicleModel.ofLength(car.len)
+    // le camion qui transporte une caisse est le pick-up (sa caisse se voit dans la benne) ; les autres camions de 3 cases : livraison ou fourgon
+    if (car.carrier) return VehicleModel.PICKUP
+    val options = VehicleModel.ofLength(car.len).filter { it != VehicleModel.PICKUP }
     return options[(car.id * 5 + car.color * 3) % options.size]
 }
 
@@ -133,9 +137,10 @@ class BoardTheme(val top: Color, val side: Color, val tileA: Color, val tileB: C
             BoardTheme(Color(0xFF6F9A86), Color(0xFF4F7766), Color(0xFF82AD99), Color(0xFF79A490)), // vert
             BoardTheme(Color(0xFF8A7FA8), Color(0xFF665D86), Color(0xFF9C92BB), Color(0xFF9389B1)), // violet
             BoardTheme(Color(0xFF50586B), Color(0xFF353B4B), Color(0xFF626B80), Color(0xFF596277)), // sombre
+            BoardTheme(Color(0xFFA39A86), Color(0xFF7B735F), Color(0xFFB4AC99), Color(0xFFAAA28E)), // sable de chantier
         )
 
-        fun of(world: Int) = worlds[world.coerceIn(0, worlds.lastIndex)]
+        fun of(world: Int) = worlds[world.coerceAtLeast(0) % worlds.size]
     }
 }
 
@@ -190,4 +195,36 @@ fun DrawScope.drawBoardDecor(g: BoardGeometry) {
     drawCone(slab.right - g.s * 0.2f, slab.top - g.s * 0.5f, g.s * 0.5f)
     drawCone(slab.left + g.s * 0.1f, slab.bottom + g.s * 0.62f, g.s * 0.5f)
     drawCone(slab.right - g.s * 0.1f, slab.bottom + g.s * 0.62f, g.s * 0.5f)
+}
+
+/** Une caisse en bois tombée sur la case centrée en ([cx], [cy]) : [appear] (0 à 1) la fait arriver de haut en rebondissant. */
+fun DrawScope.drawCrate(cx: Float, cy: Float, s: Float, appear: Float) {
+    if (appear <= 0.01f) return
+    val scale = 1f + (1f - appear.coerceAtMost(1f)) * 0.5f
+    val w = s * 0.72f * scale
+    val lift = (1f - appear.coerceAtMost(1f)) * s * 0.5f
+    val x = cx - w / 2
+    val y = cy - w / 2 - lift
+    val a = appear.coerceIn(0f, 1f)
+    drawRoundRect(Color.Black.copy(alpha = 0.22f * a), Offset(cx - w / 2, cy - w / 2 + s * 0.1f), Size(w, w), CornerRadius(w * 0.14f))
+    drawRoundRect(Color(0xFF8C6535).copy(alpha = a), Offset(x, y + s * 0.07f), Size(w, w), CornerRadius(w * 0.14f))
+    drawRoundRect(Color(0xFFD9AE70).copy(alpha = a), Offset(x, y), Size(w, w), CornerRadius(w * 0.14f))
+    drawRoundRect(Color(0xFF8C6535).copy(alpha = a), Offset(x, y), Size(w, w), CornerRadius(w * 0.14f), style = Stroke(s * 0.045f))
+    // planches et sangles
+    drawLine(Color(0xFF8C6535).copy(alpha = a), Offset(x + w * 0.1f, y + w * 0.5f), Offset(x + w * 0.9f, y + w * 0.5f), s * 0.04f, StrokeCap.Round)
+    drawLine(Color(0xFF8C6535).copy(alpha = a), Offset(x + w * 0.5f, y + w * 0.1f), Offset(x + w * 0.5f, y + w * 0.9f), s * 0.04f, StrokeCap.Round)
+    drawRoundRect(Color(0xFFF2D49B).copy(alpha = 0.6f * a), Offset(x + w * 0.1f, y + w * 0.08f), Size(w * 0.5f, w * 0.1f), CornerRadius(w * 0.05f))
+}
+
+/** Un chevron (V) qui montre le sens : [degrees] = rotation d'un chevron qui regarde vers le haut. */
+fun DrawScope.drawChevron(center: Offset, degrees: Float, size: Float, alpha: Float) {
+    if (alpha <= 0.02f) return
+    rotate(degrees, center) {
+        val path = Path().apply {
+            moveTo(center.x - size, center.y + size * 0.45f)
+            lineTo(center.x, center.y - size * 0.55f)
+            lineTo(center.x + size, center.y + size * 0.45f)
+        }
+        drawPath(path, Color.White.copy(alpha = alpha), style = Stroke(size * 0.5f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    }
 }

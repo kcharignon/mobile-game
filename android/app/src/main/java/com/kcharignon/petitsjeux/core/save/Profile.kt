@@ -84,6 +84,8 @@ object Ranks {
         Rank("Super turbo", 120),
         Rank("Génie du parking", 200),
         Rank("Légende du parking", 300),
+        Rank("Étoile du bitume", 450),
+        Rank("Légende absolue", 620),
     )
 
     fun of(stars: Int): Rank = all.last { stars >= it.minStars }

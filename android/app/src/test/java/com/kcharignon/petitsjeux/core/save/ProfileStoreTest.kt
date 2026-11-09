@@ -155,16 +155,18 @@ class RanksTest {
         assertEquals("Premier tour de roue", Ranks.of(10).name)
         assertEquals("As du créneau", Ranks.of(74).name)
         assertEquals("Légende du parking", Ranks.of(300).name)
-        assertEquals("Légende du parking", Ranks.of(9999).name)
+        assertEquals("Étoile du bitume", Ranks.of(450).name)
+        assertEquals("Légende absolue", Ranks.of(620).name)
+        assertEquals("Légende absolue", Ranks.of(9999).name)
     }
 
     @Test
     fun progressTowardsTheNextRank() {
         assertEquals(0f, Ranks.progress(0), 0.001f)
         assertEquals(0.5f, Ranks.progress(5), 0.001f)
-        assertEquals(1f, Ranks.progress(500), 0.001f)
+        assertEquals(1f, Ranks.progress(700), 0.001f)
         assertEquals(120, Ranks.next(74)!!.minStars)
-        assertNull(Ranks.next(300))
+        assertNull(Ranks.next(620))
     }
 
     @Test

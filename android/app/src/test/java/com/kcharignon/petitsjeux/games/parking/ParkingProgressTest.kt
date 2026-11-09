@@ -70,6 +70,6 @@ class ParkingProgressTest {
         assertEquals(Worlds.LEVEL_COUNT, p.currentLevel)
         assertTrue(p.isUnlocked(Worlds.LEVEL_COUNT))
         assertFalse(p.isUnlocked(Worlds.LEVEL_COUNT + 1))
-        assertEquals(300, p.totalStars)
+        assertEquals(3 * Worlds.LEVEL_COUNT, p.totalStars)
     }
 }

@@ -10,9 +10,13 @@ D'autres jeux viendront : le menu et la sauvegarde sont faits pour ça.
 |---|---|---|---|
 | ![Qui joue ?](docs/screenshots/01-choix-joueur.png) | ![Accueil](docs/screenshots/03-accueil.png) | ![Niveaux](docs/screenshots/06-niveaux.png) | ![Jeu](docs/screenshots/07-jeu.png) |
 
-| Une voiture sort | Une faute : « Pouet ! » | Victoire | Nouveau joueur |
+| Un véhicule sort | Une faute : « Pouet ! » | Victoire | Nouveau joueur |
 |---|---|---|---|
 | ![Sortie](docs/screenshots/08-jeu-sortie.png) | ![Pouet](docs/screenshots/09-jeu-pouet.png) | ![Victoire](docs/screenshots/11-victoire-niveau-1.png) | ![Nouveau joueur](docs/screenshots/02-nouveau-joueur.png) |
+
+| Plots de chantier (61+) | Grand parking (121+) | Caisse tombée (181+) | L'indice montre le sens |
+|---|---|---|---|
+| ![Plots](docs/screenshots/17-jeu-plots.png) | ![Grand parking](docs/screenshots/18-jeu-grand-parking.png) | ![Caisse](docs/screenshots/19-jeu-caisse.png) | ![Indice](docs/screenshots/20-jeu-indice.png) |
 
 ## Installer
 
@@ -28,12 +32,12 @@ Sur le téléphone : ouvrir le fichier téléchargé, autoriser l'installation d
 
 ## Le jeu
 
-- **Toucher un véhicule le fait rouler tout droit, dans la direction de son nez** (phares blancs et grand pare-brise).
-  Voie libre : il sort. Sinon il klaxonne (« Pouet ! »), rougit et recule : c'est une **faute**.
+- **Glisse un véhicule le long de sa longueur : il roule tout droit, en marche avant ou en marche arrière selon le sens où tu le glisses** (un simple toucher le fait avancer).
+  Voie libre dans ce sens : il sort. Sinon il klaxonne (« Pouet ! »), rougit et revient : c'est une **faute**.
 - Des **voitures** (3 modèles), des **camions** (pick-up, camion de livraison, fourgon) et, plus loin, des **bus** et des **camions-citernes** : 8 véhicules dessinés par le code ([aperçu](docs/design/vehicules.png)).
 - On gagne quand **toutes** les voitures sont sorties. Pas de chronomètre, jamais de « perdu ».
 - **Étoiles** : 0 faute = 3 ★, 1 ou 2 fautes = 2 ★, plus = 1 ★. Un bouton **Indice** gratuit entoure une voiture qui peut sortir.
-- **100 niveaux** en 5 mondes, générés de façon déterministe et **toujours solubles** ; la difficulté monte doucement (de 3 véhicules à 24).
+- **240 niveaux**, générés de façon déterministe et **toujours solubles**, avec **une mécanique de plus tous les 60 niveaux** : marche avant et arrière (1-60), **plots de chantier** (61-120), **parking agrandi** jusqu'à 8×10 (121-180), **pick-up qui laissent tomber une caisse** derrière eux, toujours sur la même case (181-240).
 - **L'évolution du joueur** : ses étoiles font monter son **rang** (Petite voiture, …, Légende du parking), affiché partout où il apparaît.
 
 Règles complètes, sauvegarde et architecture : [`docs/DESIGN.md`](docs/DESIGN.md) ; maquettes : [`docs/design/`](docs/design/).
@@ -50,7 +54,7 @@ Aucun JDK ni SDK Android à installer : seulement Docker.
 
 ```bash
 make android               # APK de débogage : dist/petitsjeux-debug.apk (le premier lancement télécharge le SDK et Gradle : plusieurs minutes)
-make android-test          # tests Kotlin : règles, solubilité des 100 niveaux, sauvegardes
+make android-test          # tests Kotlin : règles, solveur, solubilité des 240 niveaux, sauvegardes, mise à jour
 make android-screenshots   # rend les écrans en PNG (Robolectric, sans téléphone) dans docs/screenshots/ et joue de vrais parcours
 make android-release-selftest  # prouve la chaîne de publication signée avec une clé jetable
 make design                # régénère les maquettes SVG (PNG : node tools/design/render.js, demande Playwright)
