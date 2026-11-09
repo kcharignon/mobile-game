@@ -45,6 +45,12 @@ interface Feedback {
 
     /** On a touché un champignon interdit. */
     fun bonk()
+
+    /** Le poussin saute : un petit « pip ». */
+    fun hop()
+
+    /** Les feux d'une voie ferrée se mettent à clignoter : la cloche du passage à niveau sonne. */
+    fun bell()
 }
 
 object NoFeedback : Feedback {
@@ -58,6 +64,8 @@ object NoFeedback : Feedback {
     override fun finalPick() = Unit
     override fun puff() = Unit
     override fun bonk() = Unit
+    override fun hop() = Unit
+    override fun bell() = Unit
 }
 
 val LocalFeedback = compositionLocalOf<Feedback> { NoFeedback }
@@ -82,6 +90,8 @@ class AndroidFeedback(private val context: Context, private val soundOn: () -> B
     @Volatile private var chord: Sound? = null
     @Volatile private var puff: Sound? = null
     @Volatile private var bonk: Sound? = null
+    @Volatile private var hop: Sound? = null
+    @Volatile private var bell: Sound? = null
     @Volatile private var win: Sound? = null
     @Volatile private var tap: Sound? = null
     @Volatile private var hint: Sound? = null
@@ -99,7 +109,9 @@ class AndroidFeedback(private val context: Context, private val soundOn: () -> B
                 chord = Sound(Synth.chord(), Synth.RATE)
                 puff = Sound(Synth.puff(), Synth.RATE)
                 bonk = Sound(Synth.bonk(), Synth.RATE)
-                win = Sound(Synth.fanfare(), Synth.RATE)
+                hop = Sound(Synth.hop(), Synth.RATE)
+                bell = Sound(Synth.crossingBell(), Synth.RATE)
+                win =Sound(Synth.fanfare(), Synth.RATE)
             }
             runCatching {
                 val raws = intArrayOf(R.raw.horn_small, R.raw.horn_car, R.raw.horn_classic, R.raw.horn_double)
@@ -154,6 +166,10 @@ class AndroidFeedback(private val context: Context, private val soundOn: () -> B
         play { bonk }
         buzz(40)
     }
+
+    override fun hop() = play { hop }
+
+    override fun bell() = play { bell }
 
     private fun buzz(ms: Long) {
         if (!vibrationOn()) return

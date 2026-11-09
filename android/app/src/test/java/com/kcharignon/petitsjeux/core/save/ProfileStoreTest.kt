@@ -159,7 +159,9 @@ class RanksTest {
         assertEquals("Maître du bitume", Ranks.of(300).name)
         assertEquals("Roi de la route", Ranks.of(400).name)
         assertEquals("Légende absolue", Ranks.of(540).name)
-        assertEquals("Légende absolue", Ranks.of(9999).name)
+        assertEquals("Légende absolue", Ranks.of(695).name)
+        assertEquals("Super champion", Ranks.of(696).name)
+        assertEquals("Super champion", Ranks.of(9999).name)
     }
 
     @Test
@@ -168,7 +170,8 @@ class RanksTest {
         assertEquals(0.5f, Ranks.progress(5), 0.001f)
         assertEquals(1f, Ranks.progress(700), 0.001f)
         assertEquals(100, Ranks.next(99)!!.minStars)
-        assertNull(Ranks.next(540))
+        assertEquals(696, Ranks.next(540)!!.minStars)
+        assertNull(Ranks.next(696))
     }
 
     @Test
