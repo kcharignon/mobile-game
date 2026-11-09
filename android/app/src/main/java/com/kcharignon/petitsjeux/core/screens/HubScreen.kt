@@ -31,10 +31,12 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kcharignon.petitsjeux.core.AppUpdate
 import com.kcharignon.petitsjeux.core.Games
 import com.kcharignon.petitsjeux.core.MiniGame
 import com.kcharignon.petitsjeux.core.save.Profile
@@ -178,6 +180,8 @@ fun SettingsCard(
     initialConfirm: Boolean = false,
 ) {
     var confirm by rememberSaveable { mutableStateOf(initialConfirm) }
+    val context = LocalContext.current
+    var noBrowser by remember { mutableStateOf(false) }
     Modal(onDismiss = onClose) {
         Panel(
             Modifier.padding(horizontal = 26.dp).fillMaxWidth().consumeTaps(),
@@ -189,7 +193,17 @@ fun SettingsCard(
                 SettingRow("Sons", profile.settings.sound, Modifier.padding(top = 18.dp)) { onSettingsChange(profile.settings.copy(sound = it)) }
                 SettingRow("Vibrations", profile.settings.vibration, Modifier.padding(top = 10.dp)) { onSettingsChange(profile.settings.copy(vibration = it)) }
                 if (!confirm) {
-                    ChunkyButton("Fermer", onClose, Modifier.padding(top = 22.dp).fillMaxWidth(), height = 56.dp, fontSize = 24.sp)
+                    // l'appli ne se connecte pas : ce bouton ouvre le téléchargement de la dernière version dans le navigateur
+                    ChunkyButton(
+                        "Mettre à jour", { noBrowser = !AppUpdate.open(context) }, Modifier.padding(top = 18.dp).fillMaxWidth(),
+                        color = Pj.Blue, dark = Pj.BlueDark, height = 52.dp, fontSize = 21.sp,
+                    )
+                    PjText(
+                        if (noBrowser) "Aucun navigateur sur ce téléphone." else "Version ${AppUpdate.installedVersion(context)} · ouvre le téléchargement",
+                        Modifier.padding(top = 6.dp).fillMaxWidth(), size = 13.sp, weight = FontWeight.Medium,
+                        color = if (noBrowser) Pj.RedDark else Pj.InkSoft, align = TextAlign.Center,
+                    )
+                    ChunkyButton("Fermer", onClose, Modifier.padding(top = 14.dp).fillMaxWidth(), height = 56.dp, fontSize = 24.sp)
                     ChunkyButton(
                         "Effacer ce joueur", { confirm = true }, Modifier.padding(top = 12.dp).fillMaxWidth(),
                         color = Pj.Slate, dark = Pj.SlateDark, height = 44.dp, fontSize = 16.sp,

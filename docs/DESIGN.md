@@ -20,7 +20,8 @@ le Kotlin reprend les mêmes proportions.
 ## Principes
 
 - **Pensé pour un enfant** : gros boutons, peu de texte, jamais de « perdu » : une faute coûte une étoile, pas la partie. Un bouton **Indice** gratuit.
-- **Zéro pub, zéro suivi, zéro permission réseau.** Seule permission : vibration (retour tactile, désactivable).
+- **Zéro pub, zéro suivi, zéro permission réseau.** Seule permission : vibration (retour tactile, désactivable). Pour se mettre à jour, le bouton des réglages
+  ouvre le téléchargement dans le navigateur : l'appli elle-même ne se connecte jamais.
 - **Portrait uniquement**, Android 8+ (API 26), une main.
 - **Rapide** : tout est dessiné par le code (Canvas), pas d'image, pas de son à charger. Les sons sont synthétisés.
 - **Extensible** : un jeu = un module qui reçoit le joueur courant et sait lire/écrire **sa part** de la sauvegarde.
@@ -31,7 +32,7 @@ le Kotlin reprend les mêmes proportions.
 Lancement ─► Choix du joueur ─► Accueil (jeux) ─► Choix du niveau ─► Jeu ─► Victoire ─► niveau suivant
                  │  ▲                  │
                  │  └──── « Changer de joueur »
-                 └─► Nouveau joueur (prénom + animal)      engrenage : son, vibration, effacer ce joueur
+                 └─► Nouveau joueur (prénom + animal)      engrenage : son, vibration, mettre à jour, effacer ce joueur
 ```
 
 - Au lancement on arrive **toujours** sur le choix du joueur (appareil partagé entre frères et sœurs).

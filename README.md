@@ -24,7 +24,7 @@ Android 8 ou plus. L'appli se distribue en **APK signé** (sans Google Play) :
 | Toutes les versions | <https://github.com/kcharignon/mobile-game/releases> |
 
 Sur le téléphone : ouvrir le fichier téléchargé, autoriser l'installation depuis le navigateur si Android le demande, **Installer**
-(si Play Protect hésite : *Installer quand même*). **Mettre à jour** : même geste avec la version suivante, par-dessus : les joueurs et leurs étoiles sont conservés.
+(si Play Protect hésite : *Installer quand même*). **Mettre à jour** : dans l'appli, **réglages (engrenage) > Mettre à jour** ouvre le téléchargement dans le navigateur (l'appli elle-même ne se connecte jamais) ; ouvrir ensuite le fichier téléchargé. Même geste à la main avec le lien ci-dessus. Ça s'installe par-dessus : les joueurs et leurs étoiles sont conservés.
 
 ## Le jeu
 

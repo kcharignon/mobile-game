@@ -1,5 +1,6 @@
 package com.kcharignon.petitsjeux.screenshots
 
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
@@ -10,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
+import com.kcharignon.petitsjeux.core.AppUpdate
 import com.kcharignon.petitsjeux.core.PetitsJeuxApp
 import com.kcharignon.petitsjeux.core.Screen
 import com.kcharignon.petitsjeux.core.save.Avatar
@@ -35,6 +37,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.GraphicsMode
 
 /**
@@ -83,6 +86,18 @@ class ScreenshotsTest {
     @Test
     fun settings() = show("04-reglages") {
         HubScreen(three[0], onPlay = {}, onSwitchPlayer = {}, onSettingsChange = {}, onDelete = {}, initialSettingsOpen = true)
+    }
+
+    @Test
+    fun theUpdateButtonOpensTheDownloadInTheBrowser() {
+        show(null) { HubScreen(three[0], onPlay = {}, onSwitchPlayer = {}, onSettingsChange = {}, onDelete = {}, initialSettingsOpen = true) }
+        rule.onNodeWithText("Mettre à jour").performClick()
+        rule.mainClock.advanceTimeBy(100)
+        val opened = shadowOf(rule.activity).nextStartedActivity
+        assertEquals(Intent.ACTION_VIEW, opened.action)
+        assertEquals(AppUpdate.DOWNLOAD_URL, opened.dataString)
+        // c'est bien l'adresse fixe de la dernière version
+        assertTrue(AppUpdate.DOWNLOAD_URL.endsWith("/releases/download/android-latest/petitsjeux.apk"))
     }
 
     @Test
