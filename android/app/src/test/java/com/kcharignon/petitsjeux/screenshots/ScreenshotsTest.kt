@@ -26,14 +26,18 @@ import com.kcharignon.petitsjeux.core.screens.ProfilesScreen
 import com.kcharignon.petitsjeux.core.screens.SettingsCard
 import com.kcharignon.petitsjeux.core.ui.Backdrop
 import com.kcharignon.petitsjeux.games.parking.ParkingProgress
+import com.kcharignon.petitsjeux.games.parking.engine.Arrow
 import com.kcharignon.petitsjeux.games.parking.engine.Car
 import com.kcharignon.petitsjeux.games.parking.engine.Cell
 import com.kcharignon.petitsjeux.games.parking.engine.Dir
+import com.kcharignon.petitsjeux.games.parking.engine.Gate
 import com.kcharignon.petitsjeux.games.parking.engine.Level
 import com.kcharignon.petitsjeux.games.parking.engine.LevelGenerator
 import com.kcharignon.petitsjeux.games.parking.engine.Move
 import com.kcharignon.petitsjeux.games.parking.engine.ParkingGame
+import com.kcharignon.petitsjeux.games.parking.engine.Portal
 import com.kcharignon.petitsjeux.games.parking.engine.Solver
+import com.kcharignon.petitsjeux.games.parking.engine.Wall
 import com.kcharignon.petitsjeux.games.parking.ui.BoardGeometry
 import com.kcharignon.petitsjeux.games.parking.ui.LevelSelectScreen
 import com.kcharignon.petitsjeux.games.parking.ui.PlayScreen
@@ -411,6 +415,92 @@ class ScreenshotsTest {
         rule.mainClock.advanceTimeBy(3000)
         rule.onNodeWithText("Pouet !").assertDoesNotExist()
         assertEquals(0, finishedBumps)
+    }
+
+    @Test
+    fun theOneWaySignsAreDrawn() = show("26-jeu-sens-unique") {
+        PlayScreen(LevelGenerator.level(110), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
+    }
+
+    @Test
+    fun theConveyorBeltsAreDrawn() = show("27-jeu-tapis") {
+        PlayScreen(LevelGenerator.level(130), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
+    }
+
+    @Test
+    fun theTeleportersAreDrawn() = show("28-jeu-teleporteurs") {
+        PlayScreen(LevelGenerator.level(150), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
+    }
+
+    @Test
+    fun theGatesAreDrawn() = show("29-jeu-barrieres") {
+        PlayScreen(LevelGenerator.level(170), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
+    }
+
+    private fun playToTheEnd(index: Int) {
+        val store = InMemoryProfileStore(listOf(profile(0, "Léa", Avatar.CAT, levels = index - 1)))
+        playLevelFromTheMenu(store, index)
+        val saved = ParkingProgress.fromJson(store.load(0)!!.gameSave(ParkingProgress.GAME_ID))
+        assertEquals("niveau $index", 3, saved.starsOf(index))
+    }
+
+    @Test
+    fun aLevelWithOneWaySignsCanBePlayedToTheEnd() = playToTheEnd(103)
+
+    @Test
+    fun aLevelWithBeltsCanBePlayedToTheEnd() = playToTheEnd(123)
+
+    @Test
+    fun aLevelWithTeleportersCanBePlayedToTheEnd() = playToTheEnd(143)
+
+    @Test
+    fun aLevelWithGatesCanBePlayedToTheEnd() = playToTheEnd(163)
+
+    @Test
+    fun aVehicleIsPushedSidewaysByABelt() {
+        val level = Level(1, 6, 5, listOf(Car(0, 0, 2, 2, Dir.RIGHT, 0)), belts = listOf(Arrow(Cell(3, 2), Dir.DOWN)))
+        var finished = -1
+        show(null) { PlayScreen(level, hasNext = false, onFinished = { finished = it }, onNext = {}, onLevels = {}) }
+        perform(level, level.cars[0], Move.FORWARD)
+        rule.mainClock.advanceTimeBy(480)
+        rule.onRoot().captureRoboImage("../../docs/screenshots/30-jeu-glissement.png")
+        rule.mainClock.advanceTimeBy(3000)
+        assertEquals(0, finished)
+    }
+
+    @Test
+    fun aVehicleTeleports() {
+        val level = Level(1, 6, 5, listOf(Car(0, 0, 2, 2, Dir.RIGHT, 0)), portals = listOf(Portal(Cell(3, 2), Cell(2, 0))))
+        var finished = -1
+        show(null) { PlayScreen(level, hasNext = false, onFinished = { finished = it }, onNext = {}, onLevels = {}) }
+        perform(level, level.cars[0], Move.FORWARD)
+        rule.mainClock.advanceTimeBy(400)
+        rule.onRoot().captureRoboImage("../../docs/screenshots/31-jeu-teleportation.png")
+        rule.mainClock.advanceTimeBy(3000)
+        assertEquals(0, finished)
+    }
+
+    @Test
+    fun theGateChangesWhenAVehicleLeaves() {
+        // 0 et 1 sont libres ; 2 doit passer par la barrière, fermée au début, ouverte après un premier départ
+        val level = Level(
+            161, 8, 3,
+            listOf(Car(0, 0, 0, 2, Dir.RIGHT, 0), Car(1, 0, 2, 2, Dir.RIGHT, 1), Car(2, 0, 1, 2, Dir.RIGHT, 2)),
+            walls = listOf(Wall(Cell(0, 1), Dir.LEFT)),
+            gates = listOf(Gate(Cell(4, 1), startsOpen = false)),
+        )
+        var finished = -1
+        show(null) { PlayScreen(level, hasNext = false, onFinished = { finished = it }, onNext = {}, onLevels = {}) }
+        rule.onRoot().captureRoboImage("../../docs/screenshots/32-jeu-barriere-fermee.png")
+        perform(level, level.cars[0], Move.FORWARD)
+        rule.mainClock.advanceTimeBy(2500)
+        rule.onRoot().captureRoboImage("../../docs/screenshots/33-jeu-barriere-ouverte.png")
+        perform(level, level.cars[2], Move.FORWARD)
+        rule.mainClock.advanceTimeBy(300)
+        rule.onNodeWithText("Pouet !").assertDoesNotExist()
+        perform(level, level.cars[1], Move.FORWARD)
+        rule.mainClock.advanceTimeBy(3000)
+        assertEquals(0, finished)
     }
 
     @Test

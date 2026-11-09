@@ -84,7 +84,9 @@ object Ranks {
         Rank("Super turbo", 100),
         Rank("Génie du parking", 160),
         Rank("Légende du parking", 230),
-        Rank("Légende absolue", 300), // toutes les étoiles de tous les niveaux (100 niveaux x 3 étoiles)
+        Rank("Maître du bitume", 300), // toutes les étoiles des 100 premiers niveaux
+        Rank("Roi de la route", 400),
+        Rank("Légende absolue", 540), // toutes les étoiles de tous les niveaux (180 niveaux x 3 étoiles)
     )
 
     fun of(stars: Int): Rank = all.last { stars >= it.minStars }

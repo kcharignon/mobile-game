@@ -54,7 +54,7 @@ Lancement ─► Choix du joueur ─► Accueil (jeux) ─► Choix du niveau �
 
 ## Parking Malin : règles
 
-- Un parking = une grille (de 5×6 à 9×10 cases) ; des **voitures** (2 cases : berline, citadine, sportive), des **camions** (3 cases : pick-up, camion de livraison, fourgon)
+- Un parking = une grille (de 5×6 à 11×13 cases) ; des **voitures** (2 cases : berline, citadine, sportive), des **camions** (3 cases : pick-up, camion de livraison, fourgon)
   et, à partir du monde 3 (niveau 41), des **bus et poids lourds** (4 cases : autobus, camion-citerne), larges d'une case, garés dans les 4 directions.
   Le **nez** (phares blancs, grand pare-brise ; l'arrière a une petite lunette teintée) montre le sens de la **marche avant**.
 - **Chaque véhicule peut rouler en marche avant ou en marche arrière, selon le sens où on le glisse.**
@@ -68,15 +68,16 @@ Lancement ─► Choix du joueur ─► Accueil (jeux) ─► Choix du niveau �
 - **Indice** : entoure un véhicule qui peut sortir et fait filer deux **chevrons** dans le sens où il faut le glisser. Il ne conseille jamais un coup qui mène à une impasse.
 - **Recommencer** : remet le niveau à zéro (fautes comprises).
 
-### Collisions : un véhicule qui roule est un obstacle (sauf pour celui qui le suit)
+### Collisions : seulement si les véhicules se touchent vraiment à l'écran
 
-Un véhicule qui roule (il sort, ou il fonce sur un obstacle puis revient) **barre son couloir** tant qu'il n'a pas fini : de la case où se trouve sa queue
-**en ce moment** jusqu'au bord (ou jusqu'au point de choc). Si on envoie un autre véhicule en **travers** de ce couloir, ils **se percutent** : « Pouet ! », faute, rebond.
-Dès que la queue du véhicule a dépassé une case, elle est libre, et **dès qu'il a quitté le plateau son couloir est vide** : il ne gêne plus rien.
+Deux véhicules ne se percutent **que s'ils se toucheraient visuellement**, avec une marge (**0,25 case** de chaque côté) : s'ils se frôlent, ça passe.
 
-- **Deux véhicules l'un derrière l'autre sur la même file** : celui qui part derrière un véhicule qui **sort** dans le **même sens** ne le heurte jamais.
-  Tous les véhicules qui sortent ont la **même accélération** (la distance parcourue ne dépend que du temps écoulé) : celui qui part après ne rattrape donc jamais celui qui est parti avant.
-- Un véhicule qui **rebondit** (il a foncé sur un obstacle) barre tout son couloir, même pour celui qui le suit : il revient vers lui.
+- Un véhicule **à l'arrêt** occupe ses cases : si on envoie un autre véhicule dessus, c'est une faute (« Pouet ! », rebond).
+- Un véhicule qui **sort** n'occupe que les cases où il est (ou sera) **au moment où l'autre y passe**. Tous les véhicules qui sortent ont la **même accélération** (la distance parcourue ne dépend que du temps écoulé :
+  14 × t² cases) : le moteur sait donc, case par case, à quel instant chacun l'occupe, et ne signale une collision que si les deux instants se chevauchent.
+  Conséquences : deux véhicules **l'un derrière l'autre** sur la même file partent à la suite sans se heurter (le deuxième arrive toujours après) ; un véhicule peut **traverser devant** un autre qui arrive encore de loin ;
+  il n'y a **pas de couloir fantôme** devant un véhicule qui s'éloigne, et un véhicule sorti du plateau ne gêne plus rien.
+- Un véhicule qui **rebondit** (il a foncé sur un obstacle) occupe tout ce qu'il balaie tant qu'il fonce, puis seulement l'endroit où il est quand il revient.
 - Un véhicule qui rebondit encore ne peut pas être touché une deuxième fois (un enfant impatient ne perd pas deux étoiles d'un coup).
 
 Le moteur lit la position **dessinée** du véhicule (c'est l'animation qui fait foi) : ce qu'on voit est ce qui compte.
@@ -88,40 +89,56 @@ Le moteur lit la position **dessinée** du véhicule (c'est l'animation qui fait
 | Niveaux | Monde | Parking | Mécanique ajoutée | Ce qui change |
 |---|---|---|---|---|
 | 1 à 20 | Le petit parking | 5×6 | **Marche avant et arrière** | Le sens du glissement choisit le sens du véhicule. Les premiers niveaux obligent à reculer (le niveau 2 le montre). |
-| 21 à 40 | Les travaux | 6×7 | **Plots de chantier** | Un plot occupe une case pour de bon : on ne passe pas dessus. **1 plot au début**, puis de plus en plus (jusqu'à 5). |
-| 41 à 60 | Le château fort | 7×8 | **Murs sur le bord du parking** | Un mur de briques ferme **la sortie d'une file** : le véhicule arrive jusqu'au bord, mais ne passe pas ; il doit sortir par l'autre bout ou attendre. **1 mur au début** (2 au plus pendant les 15 premiers niveaux), puis de plus en plus (jusqu'à 6). Les bus (4 cases) arrivent aussi. |
+| 21 à 40 | Les travaux | 6×7 | **Plots de chantier** | Un plot occupe une case pour de bon : on ne passe pas dessus. **1 plot au début**, puis de plus en plus. |
+| 41 à 60 | Le château fort | 7×8 | **Murs sur le bord du parking** | Un mur de briques ferme **la sortie d'une file** : le véhicule arrive jusqu'au bord, mais ne passe pas ; il doit sortir par l'autre bout ou attendre. **1 mur au début**, puis de plus en plus. Les bus (4 cases) arrivent aussi. |
 | 61 à 80 | Le port | 8×9 | **Le pick-up laisse tomber une caisse** | En partant, un pick-up (celui qui a une caisse dans sa benne) laisse tomber sa caisse **derrière lui**, toujours sur la **même case : celle que sa queue occupait**. Elle bloque cette case pour de bon. **1 pick-up au début**, jusqu'à 3. |
-| 81 à 100 | La station-service | 9×10 | **Taches d'huile** | Un véhicule qui roule sur une tache fait un **virage à 90°** : **à droite s'il avance, à gauche s'il recule**. Puis il repart tout droit dans ce nouveau sens jusqu'au bord : c'est là qu'il sort (et les murs comptent à cet endroit). **1 tache au début**, jusqu'à 5. |
+| 81 à 100 | La station-service | 9×10 | **Taches d'huile** | Un véhicule qui roule sur une tache fait un **virage à 90°** : **à droite s'il avance, à gauche s'il recule**. Puis il repart tout droit dans ce nouveau sens jusqu'au bord : c'est là qu'il sort (et les murs comptent à cet endroit). **1 tache au début**. |
+| 101 à 120 | Le parking à étages | 10×11 | **Sens uniques** | Un panneau bleu à flèche blanche : on ne franchit la case que **dans le sens de la flèche**. Dans l'autre sens, ou en travers, le véhicule avance jusqu'au panneau, klaxonne et revient. **1 panneau au début**. |
+| 121 à 140 | L'usine | 10×12 | **Tapis roulants** | Un véhicule qui **traverse** un tapis (en travers) est **poussé d'une case de côté**, sans tourner, puis continue tout droit dans sa nouvelle file. Dans le sens du tapis ou à contresens, il n'a aucun effet. **1 tapis au début**. |
+| 141 à 160 | Le parc magique | 11×12 | **Téléporteurs** | Deux cases de la même couleur : un véhicule qui entre par l'une **ressort par l'autre**, dans le même sens, puis continue tout droit. Il s'efface d'un côté et réapparaît de l'autre. **1 paire au début**, jusqu'à 3. |
+| 161 à 180 | Le péage | 11×13 | **Barrières** | Une barrière est **fermée ou ouverte**, et **elle change à chaque véhicule qui sort du parking** (qu'il passe par elle ou non). Fermée, elle bloque comme un plot. Le **bon ordre** compte : l'indice ne conseille jamais un coup qui fermerait une barrière pour toujours. **1 barrière au début**, jusqu'à 4. |
 
-- **Les premiers niveaux d'un monde sont plus simples** : à chaque début de monde (niveaux 1, 21, 41, 61, 81), les 3 premiers niveaux ont 55 % des véhicules habituels, les 3 suivants 75 %, les 3 suivants 90 %,
-  avec un seul plot, un seul mur, un seul pick-up ou une seule tache au départ. La difficulté remonte ensuite. Le premier niveau de chaque mécanique (et les niveaux 1 à 3) affiche un petit mot qui explique la nouveauté
-  (niveaux 1, 2, 3, 21, 41, 61, 81) ; ce même niveau est aussi celui où le parking s'agrandit.
-- Dans les niveaux avec plots, murs ou taches, ceux-ci **servent vraiment** : le générateur choisit des plans où ils coupent au moins une voie utile, ferment une sortie utile ou font tourner un véhicule.
-- Pour ajouter une mécanique : ajouter un monde dans `Worlds`, sa taille dans `LevelGenerator.sizes` et ses réglages dans `LevelGenerator.paramsFor`.
+- **Les premiers niveaux d'un monde sont plus simples** : à chaque début de monde (niveaux 1, 21, 41, 61, 81, 101, 121, 141, 161), les 3 premiers niveaux ont 55 % des véhicules habituels, les 3 suivants 75 %, les 3 suivants 90 %,
+  avec un seul élément de la nouveauté au départ. La difficulté remonte ensuite. Le premier niveau de chaque mécanique (et les niveaux 1 à 3) affiche un petit mot qui explique la nouveauté ;
+  ce même niveau est aussi celui où le parking s'agrandit.
+- Dans les niveaux avec une mécanique, celle-ci **sert vraiment** : le générateur choisit des plans où chaque plot, mur, huile, sens unique, tapis, téléporteur ou barrière touche le trajet d'au moins un véhicule.
+- **Les 100 premiers niveaux ne changent plus** : leurs étoiles sont rangées par numéro de niveau (un test d'empreinte le vérifie). Pour ajouter une mécanique : ajouter un monde dans `Worlds`, sa taille dans `LevelGenerator.sizes` et ses réglages dans `LevelGenerator.paramsFor`.
+- Les grands parkings (jusqu'à 11×13) rendent les cases plus petites : environ 5 mm de large sur un téléphone ordinaire.
 
 **La caisse** : le pick-up peut partir dans les deux sens, mais la caisse ne tombe pas au même endroit : s'il part vers l'avant, elle tombe sur la case de sa queue ;
 s'il recule, elle tombe sur la case de son nez (le bout qui reste « derrière » dans ce sens). Choisir le bon sens, et le bon moment, est le casse-tête. Si une caisse ferme le dernier
 passage, l'écran **« Oups, bloqué ! »** propose de **recommencer** (sans punition).
 
-**L'huile** : la tache est au sol, on peut rouler dessus (aucun bruit, aucune faute). Le virage se fait **dans le sens de la marche** : en avançant vers la droite de l'écran, le véhicule tourne vers le bas ; en reculant vers la gauche
-de l'écran, il tourne aussi vers le bas. À l'écran, les deux bouts d'une même file tournent donc du **même côté**. Un virage qui ramènerait le véhicule sur sa propre place (un tour en rond) n'est pas un trajet : il ne peut pas sortir par là. Le véhicule tourne en douceur, le nez dans le sens du virage (le cul d'abord s'il recule).
-Le chemin après le virage doit être libre (véhicules, plots, caisses) et sa sortie ne doit pas être murée. L'**indice** et le **solveur** suivent ces virages.
+**Le sol, en détail** : tout ce qui est au sol (huile, sens unique, tapis, téléporteur, barrière) est sur une case où **aucun véhicule n'est garé**. Le trajet d'un véhicule est calculé case par case, dans l'ordre :
+
+- **huile** : virage dans le sens de la marche (à droite en avançant, à gauche en reculant). À l'écran, les deux bouts d'une même file tournent du **même côté** ;
+- **tapis** : poussée d'une case de côté en travers ; si elle sort du plateau, le véhicule glisse hors du plateau par le côté (un mur sur ce bord le bloque) ;
+- **téléporteur** : saut vers l'autre case de la paire, sans effet à l'arrivée (jamais d'aller-retour), puis tout droit ;
+- **sens unique** : franchissable seulement dans le sens de sa flèche, sinon le trajet s'arrête devant ;
+- un trajet qui **tourne en rond**, ou qui **reviendrait sur la place du véhicule**, n'est pas un trajet : il ne peut pas sortir par là ;
+- le chemin doit être libre (véhicules, plots, caisses, barrières fermées) et la sortie finale ne doit pas être murée. L'**indice** et le **solveur** suivent exactement ces trajets.
 
 ### Niveaux
 
-**100 niveaux** en 5 mondes de 20, **générés de façon déterministe** (le niveau *n* est toujours le même) et **toujours solubles**.
+**180 niveaux** en 9 mondes de 20, **générés de façon déterministe** (le niveau *n* est toujours le même) et **toujours solubles**.
 
-| Monde | Niveaux | Parking | Véhicules | Plots | Murs | Pick-up à caisse | Taches |
-|---|---|---|---|---|---|---|---|
-| Le petit parking | 1-20 | 5×6 | 3 → 6 (camions dès le niveau 4) | 0 | 0 | 0 | 0 |
-| Les travaux | 21-40 | 6×7 | 4 → 10 | 1 → 2 | 0 | 0 | 0 |
-| Le château fort | 41-60 | 7×8 | 6 → 14 (bus dès le niveau 41) | 2 → 3 | 1 → 3 | 0 | 0 |
-| Le port | 61-80 | 8×9 | 9 → 19 | 3 → 4 | 3 → 4 | 1 → 2 | 0 |
-| La station-service | 81-100 | 9×10 | 12 → 25 | 4 → 5 | 4 → 6 | 2 → 3 | 1 → 5 |
+| Monde | Niveaux | Parking | Véhicules | Plots | Murs | Pick-up | Taches | Sens uniques | Tapis | Téléporteurs | Barrières |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Le petit parking | 1-20 | 5×6 | 3 → 6 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Les travaux | 21-40 | 6×7 | 4 → 10 | 1 → 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Le château fort | 41-60 | 7×8 | 6 → 14 | 2 → 3 | 1 → 3 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Le port | 61-80 | 8×9 | 9 → 20 | 3 → 4 | 3 → 4 | 1 → 2 | 0 | 0 | 0 | 0 | 0 |
+| La station-service | 81-100 | 9×10 | 12 → 25 | 4 → 5 | 4 → 6 | 2 → 3 | 1 → 5 | 0 | 0 | 0 | 0 |
+| Le parking à étages | 101-120 | 10×11 | 15 → 31 | 5 → 6 | 6 → 7 | 3 | 5 → 6 | 1 → 2 | 0 | 0 | 0 |
+| L'usine | 121-140 | 10×12 | 16 → 33 | 6 → 7 | 7 → 8 | 3 → 4 | 6 → 7 | 2 → 3 | 1 → 2 | 0 | 0 |
+| Le parc magique | 141-160 | 11×12 | 17 → 34 | 7 → 8 | 8 → 9 | 4 | 7 → 8 | 4 → 5 | 2 → 4 | 1 → 2 | 0 |
+| Le péage | 161-180 | 11×13 | 18 → 34 | 8 → 9 | 9 → 10 | 4 → 5 | 8 → 9 | 5 → 6 | 4 → 5 | 2 → 3 | 1 → 4 |
 
-**Pourquoi c'est toujours soluble** : faire sortir un véhicule libère toujours de la place. Sans caisse, le niveau est donc soluble si et seulement si on peut tout vider en retirant à chaque fois un véhicule qui a **une voie libre dans un sens ou dans l'autre**
-(vers le bord, **en suivant les virages des taches d'huile**, sans véhicule ni plot ni caisse, et **sans mur à la sortie**). Les pick-up qui laissent tomber une caisse **ajoutent** un obstacle : seuls eux demandent de chercher le bon ordre, et ils sont peu nombreux, donc la recherche du solveur
-(`Solver`) est minuscule. Le générateur ne garde qu'un niveau que le solveur résout, un test vérifie les 100 niveaux en suivant les indices, et un autre que le niveau *n* ne change jamais (empreinte).
+**Pourquoi c'est toujours soluble** : faire sortir un véhicule libère toujours de la place. Sans caisse ni barrière, le niveau est donc soluble si et seulement si on peut tout vider en retirant à chaque fois un véhicule qui a **une voie libre dans un sens ou dans l'autre**
+(en suivant les virages, les poussées et les sauts du sol, sans véhicule ni plot ni caisse, et **sans mur à la sortie**). Les pick-up qui laissent tomber une caisse **ajoutent** un obstacle : seuls eux demandent de chercher le bon ordre, et ils sont peu nombreux,
+donc la recherche du solveur (`Solver`) est minuscule. Les **barrières** changent à chaque sortie, donc l'ordre compte : l'état est alors (véhicules restants, caisses, parité du nombre de sorties), et le solveur fait une recherche en profondeur mémorisée,
+bornée (en essayant d'abord les véhicules que les barrières concernent). Dans le jeu, si la recherche est trop longue pour conclure, on suppose que c'est faisable (jamais d'écran « bloqué » à tort) ; le générateur, lui, n'accepte que les niveaux dont il est sûr.
+Un test vérifie les 180 niveaux en suivant les indices sans faute, et un autre que les niveaux ne changent jamais (empreinte).
 La **difficulté** vient du nombre de « vagues » de sorties (la longueur de la plus longue suite de dépendances) et du peu de véhicules libres au départ ; dans les derniers mondes, on cherche aussi des **pièges**
 (un coup qui paraît bon mais mène à l'impasse).
 
@@ -140,7 +157,9 @@ Le niveau suivant se débloque quand le précédent est réussi.
 | 100 | Super turbo |
 | 160 | Génie du parking |
 | 230 | Légende du parking |
-| 300 | Légende absolue (toutes les étoiles : 100 niveaux × 3) |
+| 300 | Maître du bitume |
+| 400 | Roi de la route |
+| 540 | Légende absolue (toutes les étoiles : 180 niveaux × 3) |
 
 - Statistiques gardées : voitures sorties, fautes, niveaux réussis, plus haut niveau atteint.
 - Le choix du **joueur** : un prénom (12 caractères) et un **animal** parmi 8 (chat, chien, ours, panda, lapin, grenouille, renard, lion), dessinés par le code.
@@ -199,7 +218,7 @@ games/parking/engine   règles pures (aucune dépendance Android) : grille, voit
 games/parking/ui       plateau, voitures, animations, écrans de niveaux et de jeu
 ```
 
-Le moteur de Parking Malin est du Kotlin pur, testé sur la JVM : règles de sortie et de faute, solveur, **les 100 niveaux solubles et stables**.
+Le moteur de Parking Malin est du Kotlin pur, testé sur la JVM : règles de sortie et de faute, solveur, **les 180 niveaux solubles et stables**.
 L'écriture de la sauvegarde est testée sur un dossier temporaire. L'interface est jouée sans téléphone (Robolectric) : `make android-screenshots` crée un joueur, finit un niveau, vérifie la sauvegarde et rend les captures de `docs/screenshots/`.
 
 ## Hors périmètre (pour l'instant)

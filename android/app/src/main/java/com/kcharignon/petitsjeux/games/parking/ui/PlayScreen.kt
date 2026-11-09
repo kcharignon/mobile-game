@@ -74,6 +74,7 @@ import com.kcharignon.petitsjeux.core.ui.drawStar
 import com.kcharignon.petitsjeux.games.parking.engine.Blocker
 import com.kcharignon.petitsjeux.games.parking.engine.Car
 import com.kcharignon.petitsjeux.games.parking.engine.Cell
+import com.kcharignon.petitsjeux.games.parking.engine.EXIT_ACCELERATION
 import com.kcharignon.petitsjeux.games.parking.engine.Hint
 import com.kcharignon.petitsjeux.games.parking.engine.Level
 import com.kcharignon.petitsjeux.games.parking.engine.Move
@@ -92,9 +93,6 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /** Ce qui s'anime pour un véhicule : son avancement le long de son trajet (en cases, 0 = à sa place), sa rougeur de faute, son tremblement. */
-/** Accélération (en cases par seconde au carré) d'un véhicule qui sort : la distance parcourue après t secondes est EXIT_ACCELERATION × t². */
-const val EXIT_ACCELERATION = 14f
-
 class CarVisual {
     val progress = Animatable(0f)
     val flash = Animatable(0f)
@@ -181,6 +179,10 @@ fun levelCaption(index: Int): String? = when (index) {
     41 -> "Nouveau : un plus grand parking, et des murs qui ferment certaines sorties !"
     61 -> "Nouveau : un plus grand parking, et un pick-up qui laisse tomber une caisse derrière lui. Elle bloque la case !"
     81 -> "Nouveau : un plus grand parking, et des taches d'huile : on y tourne à droite en avançant, à gauche en reculant !"
+    101 -> "Nouveau : un plus grand parking, et des sens uniques : on ne passe que dans le sens de la flèche !"
+    121 -> "Nouveau : un plus grand parking, et des tapis roulants : ils te poussent d'une case sur le côté !"
+    141 -> "Nouveau : un plus grand parking, et des téléporteurs : entre par un, ressors par l'autre de la même couleur !"
+    161 -> "Nouveau : un plus grand parking, et des barrières : elles s'ouvrent ou se ferment chaque fois qu'un véhicule sort !"
     else -> null
 }
 
@@ -268,7 +270,7 @@ private fun PlayBoard(
                     crates[cell] = crate
                     scope.launch { crate.appear.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 260f)) }
                 }
-                visuals.getValue(car.id).begin(MotionPath(car, move, result.route, result.finalDirection))
+                visuals.getValue(car.id).begin(MotionPath(car, move, result.trip))
                 scope.launch {
                     visuals.getValue(car.id).exit(result.route.size, car.len)
                     game.finishMotion(car.id)
@@ -287,7 +289,7 @@ private fun PlayBoard(
             is TapResult.Bumped -> {
                 bumps = game.bumps
                 feedback.bump(car.len)
-                val path = MotionPath(car, move, result.route, result.direction)
+                val path = MotionPath(car, move, result.trip)
                 visuals.getValue(car.id).begin(path)
                 visuals.getValue(car.id).startBump()
                 scope.launch {
@@ -345,6 +347,10 @@ private fun PlayBoard(
                 val hintPhase by rememberInfiniteTransition(label = "hint").animateFloat(
                     0f, 1f, infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Restart), label = "dash",
                 )
+                // les tapis roulants défilent et les téléporteurs tournent
+                val floorPhase by rememberInfiniteTransition(label = "floor").animateFloat(
+                    0f, 1f, infiniteRepeatable(tween(2400, easing = LinearEasing), RepeatMode.Restart), label = "belt",
+                )
 
                 Canvas(
                     Modifier.fillMaxSize().testTag("board").pointerInput(level, g) {
@@ -388,6 +394,24 @@ private fun PlayBoard(
                         val tl = g.cellTopLeft(oil.col, oil.row)
                         drawOil(tl.x + g.s / 2, tl.y + g.s / 2, g.s)
                     }
+                    // sens uniques, tapis roulants, téléporteurs : au sol, sous les véhicules
+                    for (arrow in level.oneWays) {
+                        val tl = g.cellTopLeft(arrow.cell.col, arrow.cell.row)
+                        drawOneWay(tl.x + g.s / 2, tl.y + g.s / 2, g.s, arrow.dir)
+                    }
+                    for (belt in level.belts) {
+                        val tl = g.cellTopLeft(belt.cell.col, belt.cell.row)
+                        drawBelt(tl.x + g.s / 2, tl.y + g.s / 2, g.s, belt.dir, floorPhase)
+                    }
+                    for ((k, portal) in level.portals.withIndex()) for (end in listOf(portal.a, portal.b)) {
+                        val tl = g.cellTopLeft(end.col, end.row)
+                        drawPortal(tl.x + g.s / 2, tl.y + g.s / 2, g.s, PortalColors[k % PortalColors.size], floorPhase)
+                    }
+                    // barrières : elles changent à chaque véhicule qui sort (carsLeft change à ce moment-là)
+                    if (carsLeft >= 0) for (gate in level.gates) {
+                        val tl = g.cellTopLeft(gate.cell.col, gate.cell.row)
+                        drawGate(tl.x + g.s / 2, tl.y + g.s / 2, g.s, game.isOpen(gate))
+                    }
                     // caisses tombées : sous les véhicules (le camion qui part passe par-dessus)
                     for ((cell, crate) in crates) {
                         val tl = g.cellTopLeft(cell.col, cell.row)
@@ -405,7 +429,7 @@ private fun PlayBoard(
                             center = pose.first,
                             degrees = pose.second,
                             flash = v.flash.value,
-                            alpha = v.alpha(car.len),
+                            alpha = v.alpha(car.len) * pose.third,
                         )
                     }
                     hint?.let { h ->
@@ -471,7 +495,7 @@ private fun PlayBoard(
  * Où et comment est dessiné un véhicule : (centre en pixels, rotation en degrés). À l'arrêt : à sa place. En mouvement : sur son trajet (qui peut tourner sur l'huile),
  * avec un petit tremblement en travers quand un autre véhicule le percute.
  */
-private fun carPose(g: BoardGeometry, car: Car, v: CarVisual): Pair<Offset, Float> {
+private fun carPose(g: BoardGeometry, car: Car, v: CarVisual): Triple<Offset, Float, Float> {
     val path = v.path
     val horizontal = car.dir.horizontal
     val w = (if (horizontal) car.len else 1) * g.s
@@ -480,14 +504,14 @@ private fun carPose(g: BoardGeometry, car: Car, v: CarVisual): Pair<Offset, Floa
     val shaking = sin(v.shake.value * 3f * 2f * PI.toFloat()) * (1f - v.shake.value) * 0.07f * g.s
     if (path == null) {
         // le tremblement se fait en travers de la voie
-        return Offset(rest.x + if (horizontal) 0f else shaking, rest.y + if (horizontal) shaking else 0f) to car.dir.degrees
+        return Triple(Offset(rest.x + if (horizontal) 0f else shaking, rest.y + if (horizontal) shaking else 0f), car.dir.degrees, 1f)
     }
     val pose = path.at(v.progress.value.coerceAtLeast(-0.2f))
     val heading = path.headingDegrees(pose.travelDegrees)
     val rad = Math.toRadians(heading.toDouble())
     // en travers du nez : (cos, sin) du cap
     val lateral = Offset(cos(rad).toFloat() * shaking, sin(rad).toFloat() * shaking)
-    return Offset(g.origin.x + pose.col * g.s + lateral.x, g.origin.y + pose.row * g.s + lateral.y) to heading
+    return Triple(Offset(g.origin.x + pose.col * g.s + lateral.x, g.origin.y + pose.row * g.s + lateral.y), heading, pose.alpha)
 }
 
 /** Le bout du nez après avoir parcouru [cells] cases de son trajet : là où la bulle « Pouet ! » se pose. */
