@@ -11,7 +11,11 @@ enum class Avatar(val id: String) {
     RABBIT("lapin"),
     FROG("grenouille"),
     FOX("renard"),
-    LION("lion");
+    LION("lion"),
+    UNICORN("licorne"),
+    TIGER("tigre"),
+    OWL("hibou"),
+    PENGUIN("pingouin");
 
     companion object {
         fun fromId(id: String?): Avatar = entries.firstOrNull { it.id == id } ?: CAT

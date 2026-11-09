@@ -48,6 +48,17 @@ class ProfileStoreTest {
     }
 
     @Test
+    fun everyAnimalSurvivesASaveAndALoad() {
+        val store = store()
+        for ((i, avatar) in Avatar.entries.withIndex()) {
+            store.save(Profile.create(i % Profile.SLOTS, "Joueur", avatar, now = 1L)!!)
+            assertEquals(avatar, FileProfileStore(File(tmp.root, "saves")).load(i % Profile.SLOTS)!!.avatar)
+        }
+        assertEquals(12, Avatar.entries.size)
+        assertEquals("tous les identifiants sont différents", 12, Avatar.entries.map { it.id }.toSet().size)
+    }
+
+    @Test
     fun theFivePlayersAreIndependent() {
         val store = store()
         for (slot in 0 until Profile.SLOTS) {
@@ -141,7 +152,7 @@ class ProfileStoreTest {
     fun avatarIdsAreStable() {
         // Ces identifiants sont écrits dans les sauvegardes : ils ne doivent jamais changer.
         assertEquals(
-            listOf("chat", "chien", "ours", "panda", "lapin", "grenouille", "renard", "lion"),
+            listOf("chat", "chien", "ours", "panda", "lapin", "grenouille", "renard", "lion", "licorne", "tigre", "hibou", "pingouin"),
             Avatar.entries.map { it.id },
         )
     }
