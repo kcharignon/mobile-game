@@ -92,7 +92,11 @@ class CarVisual {
 
     /** Vrai pendant que la voiture fonce, rebondit et rougit : un autre toucher ne compte pas (un enfant impatient ne perd pas deux étoiles d'un coup). */
     var bumping = false
-        private set
+
+    /** Appelé dès le toucher (pas quand l'animation démarre) : deux touchers dans la même image ne comptent qu'une faute. */
+    fun startBump() {
+        bumping = true
+    }
 
     /** Distance (en cases) à partir de laquelle la voiture commence à s'effacer : son nez passe le bord du plateau. */
     var fadeFrom = Float.MAX_VALUE
@@ -107,7 +111,6 @@ class CarVisual {
 
     /** Faute : elle fonce jusqu'à toucher l'autre voiture, rougit, rebondit en arrière. */
     suspend fun bump(freeCells: Int, onHit: () -> Unit) {
-        bumping = true
         try {
             offset.animateTo(freeCells + 0.12f, tween(durationMillis = 90 + 80 * freeCells, easing = LinearEasing))
             onHit()
@@ -175,6 +178,7 @@ private fun PlayBoard(
     var carsLeft by remember { mutableIntStateOf(game.carsLeft) }
     var bumps by remember { mutableIntStateOf(0) }
     var won by remember { mutableStateOf(false) }
+    var finished by remember { mutableStateOf(false) }
     var hintId by remember { mutableStateOf<Int?>(null) }
     var honk by remember { mutableStateOf<Honk?>(null) }
     var honkToken by remember { mutableIntStateOf(0) }
@@ -203,18 +207,24 @@ private fun PlayBoard(
             is TapResult.Exited -> {
                 carsLeft = game.carsLeft
                 feedback.exit()
+                // Le niveau est réussi (et sauvegardé) dès que la dernière voiture est partie : quitter pendant son animation ne perd rien.
+                if (game.isWon && !finished) {
+                    finished = true
+                    onFinished(game.bumps)
+                }
                 scope.launch {
                     visuals.getValue(car.id).exit(result.pathLength, car.len)
+                    // la fenêtre de victoire attend la fin de l'animation
                     if (game.isWon && !won) {
                         won = true
                         feedback.win()
-                        onFinished(game.bumps)
                     }
                 }
             }
             is TapResult.Bumped -> {
                 bumps = game.bumps
                 feedback.bump()
+                visuals.getValue(car.id).startBump()
                 scope.launch {
                     visuals.getValue(car.id).bump(result.freeCells) {
                         geometry.value?.let { g ->

@@ -145,7 +145,7 @@ class ScreenshotsTest {
         rule.onRoot().captureRoboImage("../../docs/screenshots/09-jeu-pouet.png")
     }
 
-    private fun playFirstLevelFromTheMenu(store: InMemoryProfileStore, mistakes: Int, impatient: Boolean = false) {
+    private fun playFirstLevelFromTheMenu(store: InMemoryProfileStore, mistakes: Int, impatient: Boolean = false, settleAtEnd: Boolean = true) {
         rule.mainClock.autoAdvance = false
         rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, ParkingProgress.GAME_ID)) }
         rule.mainClock.advanceTimeBy(300)
@@ -169,9 +169,10 @@ class ScreenshotsTest {
             val car = game.hint()!!
             tapCar(level, car)
             game.tap(car.id)
-            rule.mainClock.advanceTimeBy(1500)
+            // (le toucher de la dernière voiture est suivi d'une seule image : la voiture roule encore)
+            rule.mainClock.advanceTimeBy(if (game.isWon && !settleAtEnd) 16 else 1500)
         }
-        rule.mainClock.advanceTimeBy(1500)
+        if (settleAtEnd) rule.mainClock.advanceTimeBy(1500)
     }
 
     @Test
@@ -183,6 +184,16 @@ class ScreenshotsTest {
         assertEquals(3, saved.starsOf(1))
         assertEquals(2, saved.currentLevel)
         assertEquals(LevelGenerator.level(1).cars.size, saved.carsFreed)
+        assertEquals(1, saved.played)
+    }
+
+    @Test
+    fun theLevelIsSavedTheMomentTheLastCarLeavesEvenIfWeQuitDuringItsAnimation() {
+        val store = InMemoryProfileStore(listOf(profile(0, "Léa", Avatar.CAT)))
+        playFirstLevelFromTheMenu(store, mistakes = 0, settleAtEnd = false)
+        // ni la voiture n'a fini de rouler, ni la fenêtre de victoire n'est là : c'est déjà enregistré
+        val saved = ParkingProgress.fromJson(store.load(0)!!.gameSave(ParkingProgress.GAME_ID))
+        assertEquals(3, saved.starsOf(1))
         assertEquals(1, saved.played)
     }
 

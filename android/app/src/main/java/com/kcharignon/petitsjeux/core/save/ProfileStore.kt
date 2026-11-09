@@ -1,8 +1,10 @@
 package com.kcharignon.petitsjeux.core.save
 
+import org.json.JSONException
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
@@ -80,14 +82,27 @@ class FileProfileStore(private val dir: File) : ProfileStore {
     override fun load(slot: Int): Profile? {
         val file = file(slot)
         if (!file.isFile) return null
+        val text = try {
+            file.readText(Charsets.UTF_8)
+        } catch (e: IOException) {
+            return null // lecture impossible pour l'instant : on ne touche à rien, le fichier est peut-être très bien
+        }
         return try {
-            ProfileJson.decode(file.readText(Charsets.UTF_8), slot)
-        } catch (e: Exception) {
-            runCatching {
-                Files.move(file.toPath(), File(dir, "slot-$slot.json.corrupt").toPath(), StandardCopyOption.REPLACE_EXISTING)
-            }
+            ProfileJson.decode(text, slot)
+        } catch (e: JSONException) {
+            setAside(file, slot)
+            null
+        } catch (e: IllegalArgumentException) {
+            setAside(file, slot)
             null
         }
+    }
+
+    /** Met un fichier illisible de côté (sans jamais écraser une mise de côté précédente) pour que l'emplacement soit libre. */
+    private fun setAside(file: File, slot: Int) {
+        var backup = File(dir, "slot-$slot.json.corrupt")
+        if (backup.exists()) backup = File(dir, "slot-$slot.json.corrupt-${System.currentTimeMillis()}")
+        runCatching { Files.move(file.toPath(), backup.toPath(), StandardCopyOption.REPLACE_EXISTING) }
     }
 
     override fun save(profile: Profile) {

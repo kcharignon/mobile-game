@@ -74,7 +74,8 @@ fun PetitsJeuxApp(
     }
 
     fun save(profile: Profile) {
-        store.save(profile)
+        // Une écriture qui échoue (disque plein…) ne doit pas faire planter l'appli : le joueur continue en mémoire, la prochaine écriture réussie ré-écrit tout.
+        runCatching { store.save(profile) }
         profiles = profiles.toMutableList().also { it[profile.slot] = profile }
     }
 

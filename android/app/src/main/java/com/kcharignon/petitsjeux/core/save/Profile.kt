@@ -60,6 +60,12 @@ data class Profile(
             return cut.ifEmpty { null }
         }
 
+        /** Ce que l'on tape dans le champ du prénom : sans retour à la ligne, coupé à 12 caractères (jamais au milieu d'un emoji). */
+        fun limitTyping(raw: String): String {
+            val single = raw.filterNot { it == '\n' || it == '\r' }
+            return if (single.codePointCount(0, single.length) > NAME_MAX) single.substring(0, single.offsetByCodePoints(0, NAME_MAX)) else single
+        }
+
         /** Un nouveau joueur, ou `null` si le prénom est vide. */
         fun create(slot: Int, rawName: String, avatar: Avatar, now: Long): Profile? =
             cleanName(rawName)?.let { Profile(slot = slot, name = it, avatar = avatar, created = now) }

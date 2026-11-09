@@ -186,7 +186,7 @@ fun NewPlayerCard(onCancel: () -> Unit, onCreate: (name: String, avatar: Avatar)
                 PjText("Ton prénom", Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 6.dp), size = 15.sp, color = Pj.InkSoft)
                 BasicTextField(
                     value = name,
-                    onValueChange = { name = it.take(Profile.NAME_MAX).filterNot { c -> c == '\n' } },
+                    onValueChange = { name = Profile.limitTyping(it) },
                     singleLine = true,
                     textStyle = TextStyle(fontFamily = PjFont, fontSize = 28.sp, fontWeight = FontWeight.SemiBold, color = Pj.Ink),
                     cursorBrush = SolidColor(Pj.Blue),

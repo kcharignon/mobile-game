@@ -83,6 +83,28 @@ class ProfileStoreTest {
     }
 
     @Test
+    fun twoCorruptFilesInARowAreBothKept() {
+        val dir = File(tmp.root, "saves").apply { mkdirs() }
+        val store = FileProfileStore(dir)
+        File(dir, "slot-2.json").writeText("premier")
+        assertNull(store.load(2))
+        File(dir, "slot-2.json").writeText("deuxième")
+        assertNull(store.load(2))
+        val kept = dir.list()!!.filter { it.startsWith("slot-2.json.corrupt") }
+        assertEquals(2, kept.size)
+    }
+
+    @Test
+    fun typingIsCutByCharactersNeverInTheMiddleOfAnEmoji() {
+        val typed = Profile.limitTyping("abcdefghijk" + "😀😀")
+        assertEquals(12, typed.codePointCount(0, typed.length))
+        assertTrue(typed.endsWith("😀"))
+        assertFalse(Character.isHighSurrogate(typed.last()))
+        assertEquals("Léa", Profile.limitTyping("Léa\n"))
+        assertNotNull(Profile.create(0, typed, Avatar.CAT, 0))
+    }
+
+    @Test
     fun aSaveFromAnotherSlotIsRefused() {
         val dir = File(tmp.root, "saves").apply { mkdirs() }
         File(dir, "slot-0.json").writeText(ProfileJson.encode(lea(3)))
