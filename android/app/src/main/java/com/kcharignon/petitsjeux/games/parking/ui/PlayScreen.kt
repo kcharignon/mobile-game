@@ -78,6 +78,7 @@ import com.kcharignon.petitsjeux.games.parking.engine.Cell
 import com.kcharignon.petitsjeux.games.parking.engine.Hint
 import com.kcharignon.petitsjeux.games.parking.engine.Level
 import com.kcharignon.petitsjeux.games.parking.engine.Move
+import com.kcharignon.petitsjeux.games.parking.engine.MotionSource
 import com.kcharignon.petitsjeux.games.parking.engine.ParkingGame
 import com.kcharignon.petitsjeux.games.parking.engine.TapResult
 import com.kcharignon.petitsjeux.games.parking.engine.Worlds
@@ -164,8 +165,9 @@ fun levelCaption(index: Int): String? = when (index) {
     1 -> "Touche un véhicule : il avance tout droit !"
     2 -> "Glisse un véhicule vers l'arrière : il recule !"
     3 -> "Glisse-le dans le sens que tu veux : avant ou arrière."
+    31, 91, 151, 211 -> "Le parking s'agrandit !"
     61 -> "Nouveau : les plots de chantier bloquent le passage !"
-    121 -> "Nouveau : le parking est plus grand !"
+    121 -> "Nouveau : des murs ferment certaines sorties du parking !"
     181 -> "Nouveau : le pick-up laisse tomber une caisse derrière lui. Elle bloque la case !"
     else -> null
 }
@@ -200,8 +202,13 @@ private fun PlayBoard(
     onRestart: () -> Unit,
     modifier: Modifier,
 ) {
-    val game = remember { ParkingGame(level) }
     val visuals = remember { level.cars.associate { it.id to CarVisual() } }
+    val game = remember {
+        ParkingGame(level).also { g ->
+            // le moteur lit où sont dessinés les véhicules qui roulent : un véhicule envoyé sur l'un d'eux le percute toujours
+            g.motionSource = MotionSource { id -> visuals[id]?.offset?.value }
+        }
+    }
     val crates = remember { mutableStateMapOf<Cell, CrateVisual>() }
     var carsLeft by remember { mutableIntStateOf(game.carsLeft) }
     var bumps by remember { mutableIntStateOf(0) }
@@ -251,6 +258,7 @@ private fun PlayBoard(
                 }
                 scope.launch {
                     visuals.getValue(car.id).exit(result.pathLength, car.len, move)
+                    game.finishMotion(car.id)
                     if (game.isWon && !won) {
                         // un court instant pour savourer le plateau vide, puis la fenêtre de victoire
                         delay(WIN_DELAY_MS)
@@ -273,6 +281,7 @@ private fun PlayBoard(
                             honk = Honk(noseCenter(g, car, move, result.freeCells + 0.12f), ++honkToken)
                         }
                     }
+                    game.finishMotion(car.id)
                 }
                 (result.blocker as? Blocker.Vehicle)?.let { scope.launch { visuals.getValue(it.car.id).wobble() } }
             }
@@ -352,6 +361,8 @@ private fun PlayBoard(
                 ) {
                     drawBoard(g, theme)
                     drawBoardDecor(g)
+                    // murs sur le bord : ils murent certaines sorties
+                    for (wall in level.walls) drawWall(g, wall)
                     // plots de chantier : fixes
                     for (cone in level.cones) {
                         val tl = g.cellTopLeft(cone.col, cone.row)

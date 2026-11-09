@@ -27,6 +27,7 @@ import com.kcharignon.petitsjeux.core.screens.SettingsCard
 import com.kcharignon.petitsjeux.core.ui.Backdrop
 import com.kcharignon.petitsjeux.games.parking.ParkingProgress
 import com.kcharignon.petitsjeux.games.parking.engine.Car
+import com.kcharignon.petitsjeux.games.parking.engine.Dir
 import com.kcharignon.petitsjeux.games.parking.engine.Level
 import com.kcharignon.petitsjeux.games.parking.engine.LevelGenerator
 import com.kcharignon.petitsjeux.games.parking.engine.Move
@@ -269,6 +270,7 @@ class ScreenshotsTest {
             val blocked = game.cars.first { !game.canMove(it, Move.FORWARD) }
             tapCar(level, blocked)
             game.tap(blocked.id)
+            game.finishMotion(blocked.id)
             if (impatient) {
                 // un deuxième toucher alors que le véhicule rebondit encore : il ne compte pas
                 rule.mainClock.advanceTimeBy(60)
@@ -282,6 +284,7 @@ class ScreenshotsTest {
             val car = game.cars.first { !game.canMove(it, Move.FORWARD) && game.canMove(it, Move.BACKWARD) }
             perform(level, car, Move.BACKWARD)
             game.tap(car.id, Move.BACKWARD)
+            game.finishMotion(car.id)
             used += Move.BACKWARD
             rule.mainClock.advanceTimeBy(1500)
         }
@@ -289,6 +292,7 @@ class ScreenshotsTest {
             val hint = game.hint()!!
             perform(level, hint.car, hint.move, swipeEvenForward)
             game.tap(hint.car.id, hint.move)
+            game.finishMotion(hint.car.id) // la copie du niveau (côté test) n'a pas d'animation : le mouvement est fini tout de suite
             used += hint.move
             // (le geste sur le dernier véhicule est suivi d'une seule image : le véhicule roule encore)
             rule.mainClock.advanceTimeBy(if (game.isWon && !settleAtEnd) 16 else 1500)
@@ -334,8 +338,35 @@ class ScreenshotsTest {
     }
 
     @Test
-    fun theBigCarPark() = show("18-jeu-grand-parking") {
-        PlayScreen(LevelGenerator.level(165), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
+    fun theWallsOnTheBorderAreDrawn() = show("18-jeu-murs") {
+        PlayScreen(LevelGenerator.level(139), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
+    }
+
+    @Test
+    fun aLevelWithWallsCanBePlayedToTheEnd() {
+        val store = InMemoryProfileStore(listOf(profile(0, "Léa", Avatar.CAT, levels = 121)))
+        playLevelFromTheMenu(store, 122)
+        val saved = ParkingProgress.fromJson(store.load(0)!!.gameSave(ParkingProgress.GAME_ID))
+        assertEquals(3, saved.starsOf(122))
+    }
+
+    @Test
+    fun aVehicleSentOntoARollingOneCollidesWithIt() {
+        // A (ligne 1) sort vers la droite en traversant la colonne 3 ; B (colonne 3) monte et croise la file de A : si on l'envoie pendant que A roule, ils se percutent
+        val level = Level(1, 6, 4, listOf(Car(0, 0, 1, 2, Dir.RIGHT, 0), Car(1, 3, 2, 2, Dir.UP, 1)))
+        var finishedBumps = -1
+        show(null) { PlayScreen(level, hasNext = false, onFinished = { finishedBumps = it }, onNext = {}, onLevels = {}) }
+        perform(level, level.cars[0], Move.FORWARD)
+        rule.mainClock.advanceTimeBy(40)
+        perform(level, level.cars[1], Move.FORWARD)
+        rule.mainClock.advanceTimeBy(300)
+        rule.onNodeWithText("Pouet !").assertExists()
+        rule.onRoot().captureRoboImage("../../docs/screenshots/22-jeu-collision.png")
+        // A est partie, B a fini de rebondir : on peut maintenant l'envoyer sans rien percuter
+        rule.mainClock.advanceTimeBy(3000)
+        perform(level, level.cars[1], Move.FORWARD)
+        rule.mainClock.advanceTimeBy(3000)
+        assertEquals(1, finishedBumps)
     }
 
     @Test

@@ -54,7 +54,7 @@ Lancement ─► Choix du joueur ─► Accueil (jeux) ─► Choix du niveau �
 
 ## Parking Malin : règles
 
-- Un parking = une grille (de 4×5 à 8×10 cases) ; des **voitures** (2 cases : berline, citadine, sportive), des **camions** (3 cases : pick-up, camion de livraison, fourgon)
+- Un parking = une grille (de 5×6 à 9×10 cases) ; des **voitures** (2 cases : berline, citadine, sportive), des **camions** (3 cases : pick-up, camion de livraison, fourgon)
   et, à partir du monde 3, des **bus et poids lourds** (4 cases : autobus, camion-citerne), larges d'une case, garés dans les 4 directions.
   Le **nez** (phares blancs, grand pare-brise ; l'arrière a une petite lunette teintée) montre le sens de la **marche avant**.
 - **Chaque véhicule peut rouler en marche avant ou en marche arrière, selon le sens où on le glisse.**
@@ -68,18 +68,32 @@ Lancement ─► Choix du joueur ─► Accueil (jeux) ─► Choix du niveau �
 - **Indice** : entoure un véhicule qui peut sortir et fait filer deux **chevrons** dans le sens où il faut le glisser. Il ne conseille jamais un coup qui mène à une impasse.
 - **Recommencer** : remet le niveau à zéro (fautes comprises).
 
-### Une mécanique de plus tous les 60 niveaux
+### Collisions : un véhicule qui roule est toujours un obstacle
+
+Un véhicule qui roule (il sort, ou il fonce sur un obstacle puis revient) **barre son couloir** tant qu'il n'a pas fini : de la case où se trouve sa queue
+**en ce moment** jusqu'au bord (ou jusqu'au point de choc). Si on envoie un autre véhicule sur ce couloir, ils **se percutent** : « Pouet ! », faute, rebond.
+Dès que la queue du véhicule a dépassé une case, elle est libre. Un véhicule qui rebondit encore ne peut pas être touché une deuxième fois (un enfant impatient ne perd pas deux étoiles d'un coup).
+Le moteur lit la position **dessinée** du véhicule (c'est l'animation qui fait foi) : ce qu'on voit est ce qui compte.
+
+### Comment les niveaux évoluent
+
+- **Tous les 30 niveaux, le parking s'agrandit** (5×6, 6×7, 6×8, 7×8, 7×9, 8×9, 8×10, puis 9×10) : un palier. Dans une tranche de 30, le remplissage monte doucement ;
+  dans le parking agrandi, il repart un peu plus bas, puis remonte (et la tendance générale est à la hausse).
+- **Tous les 60 niveaux, une mécanique de plus** s'ajoute **aux précédentes** (elles se cumulent) :
 
 | Niveaux | Mécanique | Ce qui change |
 |---|---|---|
 | 1 à 60 | **Marche avant et arrière** | Le sens du glissement choisit le sens du véhicule. Les premiers niveaux obligent à reculer (le niveau 2 le montre). |
-| 61 à 120 | **Plots de chantier** | Un plot occupe une case pour de bon : on ne passe pas dessus, ni devant, ni derrière. De 1 à 5 plots. |
-| 121 à 180 | **Parking agrandi** | La grille grandit jusqu'à 8×10 cases, avec plus de véhicules (et encore des plots). |
-| 181 à 240 | **Le pick-up laisse tomber une caisse** | En partant, un pick-up (celui qui a une caisse dans sa benne) laisse tomber sa caisse **derrière lui**, toujours sur la **même case : celle que sa queue occupait**. Elle bloque cette case pour de bon. De 1 à 3 pick-up. |
+| 61 à 120 | **Plots de chantier** | Un plot occupe une case pour de bon : on ne passe pas dessus, ni devant, ni derrière. **1 plot au début**, puis de plus en plus (jusqu'à 8). |
+| 121 à 180 | **Murs sur le bord du parking** | Un mur de briques ferme **la sortie d'une file** : le véhicule arrive jusqu'au bord, mais ne passe pas ; il doit sortir par l'autre bout ou attendre. **1 mur au début**, puis de plus en plus (jusqu'à 8). |
+| 181 à 240 | **Le pick-up laisse tomber une caisse** | En partant, un pick-up (celui qui a une caisse dans sa benne) laisse tomber sa caisse **derrière lui**, toujours sur la **même case : celle que sa queue occupait**. Elle bloque cette case pour de bon. **1 pick-up au début**, jusqu'à 3. |
 
-Le premier niveau de chaque groupe (1 à 3, 61, 121, 181) affiche un petit mot qui explique la nouveauté.
+- **Les premiers niveaux d'une mécanique sont plus simples** : à chaque début de groupe (niveaux 1, 61, 121, 181), les 3 premiers niveaux ont 55 % des véhicules habituels, les 3 suivants 75 %, les 3 suivants 90 %,
+  avec un seul plot, un seul mur ou un seul pick-up au départ. La difficulté remonte ensuite. Le premier niveau de chaque mécanique affiche un petit mot qui explique la nouveauté
+  (niveaux 1 à 3, 61, 121, 181), et le niveau où le parking s'agrandit le dit aussi (31, 91, 151, 211).
+- Dans les niveaux avec plots ou murs, ceux-ci **servent vraiment** : le générateur choisit des plans où ils coupent au moins une voie utile.
 
-**La caisse** : le pick-up peut partir dans les deux sens, mais la caisse ne tombe pas au même endroit : si le pick-up part vers l'avant, elle tombe sur la case de sa queue ;
+**La caisse** : le pick-up peut partir dans les deux sens, mais la caisse ne tombe pas au même endroit : s'il part vers l'avant, elle tombe sur la case de sa queue ;
 s'il recule, elle tombe sur la case de son nez (le bout qui reste « derrière » dans ce sens). Choisir le bon sens, et le bon moment, est le casse-tête. Si une caisse ferme le dernier
 passage, l'écran **« Oups, bloqué ! »** propose de **recommencer** (sans punition).
 
@@ -87,15 +101,15 @@ passage, l'écran **« Oups, bloqué ! »** propose de **recommencer** (sans pun
 
 **240 niveaux** en 12 mondes de 20 (4 groupes de 3 mondes), **générés de façon déterministe** (le niveau *n* est toujours le même) et **toujours solubles**.
 
-| Groupe | Mondes | Grille | Véhicules | Plots | Pick-up à caisse |
-|---|---|---|---|---|---|
-| 1 (1-60) | Le petit parking, Le centre-ville, Le centre commercial | 4×5 → 6×8 | 3 → 16 (camions dès le niveau 4, bus dès le niveau 41) | 0 | 0 |
-| 2 (61-120) | Les travaux, Le chantier, Le tunnel | 6×7 → 7×9 | 12 → 20 | 1 → 5 | 0 |
-| 3 (121-180) | Le grand parking, L'aéroport, La gare | 7×9 → 8×10 | 18 → 24 | 3 → 7 | 0 |
-| 4 (181-240) | Le port, L'entrepôt, Le grand garage | 8×10 | 20 → 25 | 4 → 8 | 1 → 3 |
+| Groupe | Mondes | Parking | Véhicules | Plots | Murs | Pick-up à caisse |
+|---|---|---|---|---|---|---|
+| 1 (1-60) | Le petit parking, Le centre-ville, Le centre commercial | 5×6 → 6×7 | 3 → 10 (camions dès le niveau 4, bus dès le niveau 41) | 0 | 0 | 0 |
+| 2 (61-120) | Les travaux, Le chantier, Le tunnel | 6×8 → 7×8 | 5 → 14 | 1 → 3 | 0 | 0 |
+| 3 (121-180) | Les murs, Le château fort, La citadelle | 7×9 → 8×9 | 8 → 20 | 3 → 6 | 1 → 4 | 0 |
+| 4 (181-240) | Le port, L'entrepôt, Le grand garage | 8×10 → 9×10 | 11 → 27 | 6 → 8 | 4 → 8 | 1 → 3 |
 
 **Pourquoi c'est toujours soluble** : faire sortir un véhicule libère toujours de la place. Sans caisse, le niveau est donc soluble si et seulement si on peut tout vider en retirant à chaque fois un véhicule qui a **une voie libre dans un sens ou dans l'autre**
-(vers le bord, sans véhicule ni plot ni caisse). Les pick-up qui laissent tomber une caisse **ajoutent** un obstacle : seuls eux demandent de chercher le bon ordre, et ils sont peu nombreux, donc la recherche du solveur
+(vers le bord, sans véhicule ni plot ni caisse, et **sans mur à la sortie**). Les pick-up qui laissent tomber une caisse **ajoutent** un obstacle : seuls eux demandent de chercher le bon ordre, et ils sont peu nombreux, donc la recherche du solveur
 (`Solver`) est minuscule. Le générateur ne garde qu'un niveau que le solveur résout, un test vérifie les 240 niveaux en suivant les indices, et un autre que le niveau *n* ne change jamais (empreinte).
 La **difficulté** vient du nombre de « vagues » de sorties (la longueur de la plus longue suite de dépendances) et du peu de véhicules libres au départ ; dans le dernier groupe, on cherche aussi des **pièges**
 (un coup qui paraît bon mais mène à l'impasse).

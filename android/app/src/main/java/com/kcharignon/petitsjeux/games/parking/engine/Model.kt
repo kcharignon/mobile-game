@@ -74,6 +74,9 @@ data class Car(
     /** La case du nez. */
     val head: Cell get() = lead(Move.FORWARD)
 
+    /** L'endroit par où ce véhicule sortirait du parking dans ce sens : le bout de sa file. S'il y a un mur, il ne peut pas sortir par là. */
+    fun exitEdge(cols: Int, rows: Int, move: Move = Move.FORWARD): Wall = Wall(path(cols, rows, move).lastOrNull() ?: lead(move), directionOf(move))
+
     /** Cases devant le véhicule dans le sens du mouvement, de la plus proche au bord du plateau. Elles doivent être libres pour qu'il sorte. */
     fun path(cols: Int, rows: Int, move: Move = Move.FORWARD): List<Cell> {
         val d = directionOf(move)
@@ -90,13 +93,20 @@ data class Car(
     }
 }
 
-/** Un parking à vider. [index] commence à 1. [cones] : les plots de chantier (jamais déplacés, on ne passe pas dessus). */
+/**
+ * Un mur posé sur le bord du parking, **à la sortie** d'une file : le véhicule d'une file dont ce bout est muré ne peut pas sortir de ce côté-là.
+ * [cell] est une case du bord ; [side] le côté de cette case qui donne sur l'extérieur (HAUT pour la ligne du haut, etc.).
+ */
+data class Wall(val cell: Cell, val side: Dir)
+
+/** Un parking à vider. [index] commence à 1. [cones] : les plots de chantier (jamais déplacés, on ne passe pas dessus) ; [walls] : les sorties murées. */
 data class Level(
     val index: Int,
     val cols: Int,
     val rows: Int,
     val cars: List<Car>,
     val cones: List<Cell> = emptyList(),
+    val walls: List<Wall> = emptyList(),
 ) {
     val world: Int get() = Worlds.of(index)
 
@@ -110,12 +120,25 @@ data class Level(
             require(inGrid(cone)) { "un plot sort de la grille en $cone" }
             require(seen.add(cone)) { "deux choses sur la case $cone" }
         }
+        val edges = HashSet<Wall>()
+        for (wall in walls) {
+            require(inGrid(wall.cell) && isOutside(wall)) { "un mur doit être sur le bord du parking : $wall" }
+            require(edges.add(wall)) { "deux murs au même endroit : $wall" }
+        }
+    }
+
+    /** Le côté du mur donne-t-il bien sur l'extérieur du parking ? */
+    private fun isOutside(w: Wall): Boolean = when (w.side) {
+        Dir.UP -> w.cell.row == 0
+        Dir.DOWN -> w.cell.row == rows - 1
+        Dir.LEFT -> w.cell.col == 0
+        Dir.RIGHT -> w.cell.col == cols - 1
     }
 
     private fun inGrid(cell: Cell) = cell.col in 0 until cols && cell.row in 0 until rows
 }
 
-/** Les mondes de 20 niveaux, regroupés par 60 : à chaque groupe, une nouvelle mécanique. */
+/** Les mondes de 20 niveaux, regroupés par 60 : à chaque groupe, une nouvelle mécanique qui s'ajoute aux précédentes. */
 object Worlds {
     const val LEVELS_PER_WORLD = 20
     const val LEVELS_PER_GROUP = 60
@@ -126,14 +149,14 @@ object Worlds {
     val names = listOf(
         "Le petit parking", "Le centre-ville", "Le centre commercial", // 1-60 : avancer et reculer
         "Les travaux", "Le chantier", "Le tunnel", // 61-120 : plots de chantier
-        "Le grand parking", "L'aéroport", "La gare", // 121-180 : parking agrandi
+        "Les murs", "Le château fort", "La citadelle", // 121-180 : murs sur le bord du parking
         "Le port", "L'entrepôt", "Le grand garage", // 181-240 : caisses qui tombent
     )
 
     /** Monde (0 à 11) d'un niveau (1 à 240) ; au-delà, le dernier monde. */
     fun of(levelIndex: Int): Int = ((levelIndex - 1) / LEVELS_PER_WORLD).coerceIn(0, COUNT - 1)
 
-    /** Groupe de 60 niveaux (0 à 3) : 0 = avancer et reculer, 1 = plots de chantier, 2 = parking agrandi, 3 = caisses qui tombent. */
+    /** Groupe de 60 niveaux (0 à 3) : 0 = avancer et reculer, 1 = plots de chantier, 2 = murs sur le bord, 3 = caisses qui tombent. */
     fun groupOf(levelIndex: Int): Int = ((levelIndex - 1) / LEVELS_PER_GROUP).coerceIn(0, GROUPS - 1)
 
     /** Premier niveau du monde. */
