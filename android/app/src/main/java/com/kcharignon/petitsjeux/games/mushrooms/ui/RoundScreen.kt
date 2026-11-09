@@ -337,6 +337,7 @@ private fun Round(
 
 private fun introLines(d: Difficulty): List<String> = buildList {
     add("Appuie vite sur les champignons qui s'allument !")
+    if (d.maxLit >= 2) add("Jusqu'à ${d.maxLit} champignons allumés en même temps !")
     add("Plus tu es rapide, plus tu gagnes de points.")
     if (d.litMs != null) add("Attention : ils s'éteignent si tu attends trop.")
     if (d.decoys) add("Ne touche pas les champignons violets !")

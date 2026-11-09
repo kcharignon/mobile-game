@@ -161,18 +161,20 @@ On **choisit sa difficulté** au début ; on **débloque la suivante en faisant 
 
 | Difficulté | Champignons | À toucher | Allumés en même temps | Ce qui change | 2 étoiles | 3 étoiles |
 |---|---|---|---|---|---|---|
-| Petit champi | 12 | 15 | 2 | Ils **restent allumés** jusqu'à ce qu'on les touche | 700 | 1000 |
-| Champi rapide | 16 | 20 | 3 | Plus de champignons, plus d'allumages en même temps | 1000 | 1400 |
-| Champi filant | 18 | 25 | 3 | Ils **s'éteignent au bout de 3,5 s** si on est trop lent | 1300 | 1800 |
-| Champi malin | 20 | 30 | 4 | S'éteignent au bout de 3 s, et des champignons **violets (interdits)** s'allument aussi : il ne faut pas les toucher | 1650 | 2200 |
+| Petit champi | 12 | 15 | **1** | Ils **restent allumés** jusqu'à ce qu'on les touche | 700 | 1000 |
+| Champi rapide | 16 | 20 | **2** | Plus de champignons, **deux allumés en même temps** | 800 | 1300 |
+| Champi filant | 18 | 25 | **3** | Trois allumés en même temps, et ils **s'éteignent au bout de 4 s** si on est trop lent | 700 | 1300 |
+| Champi malin | 20 | 30 | **4** | Quatre allumés en même temps, ils s'éteignent au bout de 3,6 s, et des champignons **violets (interdits)** s'allument aussi : il ne faut pas les toucher | 650 | 1300 |
 
+- **Plusieurs allumés en même temps** : le nombre de champignons allumés **monte de 1 à chaque difficulté (1, 2, 3, puis 4)**. Ils ne s'allument pas tous d'un coup : ils s'allument **l'un après l'autre** (quelques dixièmes de seconde d'écart), et **dès qu'il en manque un** (touché ou éteint), un nouveau s'allume vite, **sans attendre que les autres soient touchés ou éteints**. Un joueur rapide voit donc presque toujours le maximum allumé. Le petit champi reste comme avant : un seul champignon à la fois.
+- **Les étoiles suivent le rythme** : un champignon allumé perd des points tant qu'on ne l'a pas touché, donc quand 4 attendent en même temps, chacun rapporte moins. Les seuils d'étoiles sont réglés pour un joueur qui touche un champignon à la fois : environ 0,5 s par champignon pour 3 étoiles (la 1re difficulté est plus tolérante), environ 1 s pour 2 étoiles. Les seuils ont été calibrés par simulation, pas avec de vrais enfants.
 - **La couleur interdite** (violet, avec une barre rouge) ne vient qu'à la dernière difficulté, et on la rappelle partout : dans la fenêtre du début et dans une pastille « Pas les violets ! » en haut de l'écran. Un champignon interdit touché ne donne **aucun point** et remet la série à zéro (aucune punition, la partie continue) ; s'il n'est pas touché, il s'éteint tout seul au bout de 2,5 s. Les interdits ne comptent pas parmi les champignons à toucher.
 - **Les étoiles comptent pour le rang** du joueur, comme celles de Parking Malin (jusqu'à 12 étoiles : 4 difficultés × 3).
 - **Sauvegarde** (`games.mushrooms`) : le meilleur score de chaque difficulté, le nombre de champignons touchés, de parties jouées et la plus longue série. Les étoiles se déduisent du meilleur score.
 
 ### Comment c'est fait
 
-Le moteur (`games/mushrooms/engine`) est du Kotlin pur piloté par une horloge simulée : `MushroomRound` allume et éteint les champignons, `Scoring` donne les points, `ForestLayout` place des champignons de tailles variées sans qu'ils se touchent (graine fixe = même forêt), `Difficulty` décrit les quatre difficultés. Un test joue des parties complètes avec des « enfants » qui touchent après 0,3 s, 1 s ou 2,6 s et vérifie le score, les étoiles et qu'on ne perd jamais.
+Le moteur (`games/mushrooms/engine`) est du Kotlin pur piloté par une horloge simulée : `MushroomRound` allume et éteint les champignons, `Scoring` donne les points, `ForestLayout` place des champignons de tailles variées sans qu'ils se touchent (graine fixe = même forêt), `Difficulty` décrit les quatre difficultés. Des tests jouent des parties complètes avec des « enfants » qui touchent chaque champignon un certain temps après son allumage, et avec un enfant plus vrai qui touche **un champignon à la fois** (0,45 s, 0,9 s ou 2,2 s par champignon) : ils vérifient le score, les étoiles, qu'on ne perd jamais, et que le nombre d'allumés en même temps monte bien à 1, 2, 3 puis 4.
 L'interface (`games/mushrooms/ui`) dessine tout au pinceau : `ForestArt` (forêt, champignons, étincelles), le menu des difficultés, l'écran de partie. L'horloge de la partie n'avance que pendant qu'on joue et jamais de plus de 100 ms par image : si l'appli est mise de côté, rien n'expire d'un coup.
 
 ## Poussin Traverse : règles

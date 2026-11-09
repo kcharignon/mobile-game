@@ -6,7 +6,7 @@ package com.kcharignon.petitsjeux.games.mushrooms.engine
  *
  * - [targets] : combien de champignons s'allument pendant une partie (les faux, interdits, ne comptent pas) ;
  * - [mushrooms] : combien de champignons dans la forêt ;
- * - [maxLit] : combien peuvent être allumés en même temps ;
+ * - [maxLit] : combien peuvent être allumés **en même temps** (1, 2, 3, puis 4) : dès qu'il en manque un, le suivant s'allume vite, sans attendre que les autres soient touchés ou éteints ;
  * - [litMs] : au bout de combien de temps un champignon allumé s'éteint tout seul (raté, sans punition) ; `null` = il reste allumé jusqu'à ce qu'on le touche ;
  * - [decoys] : des champignons de la couleur **interdite** (violette) s'allument aussi : il ne faut pas les toucher ;
  * - [gapMs] : le délai, au hasard, entre deux allumages.
@@ -23,10 +23,10 @@ enum class Difficulty(
     val twoStars: Int,
     val threeStars: Int,
 ) {
-    EASY("Petit champi", "Ils restent allumés jusqu'à ce que tu les touches.", 15, 12, 2, null, false, 900L..1500L, 700, 1000),
-    MEDIUM("Champi rapide", "Plus de champignons, et plusieurs allumés en même temps.", 20, 16, 3, null, false, 700L..1200L, 1000, 1400),
-    HARD("Champi filant", "Attention : ils s'éteignent si tu es trop lent.", 25, 18, 3, 3500L, false, 600L..1100L, 1300, 1800),
-    EXPERT("Champi malin", "Ne touche pas les violets ! Et ils s'éteignent vite.", 30, 20, 4, 3000L, true, 500L..1000L, 1650, 2200);
+    EASY("Petit champi", "Ils restent allumés jusqu'à ce que tu les touches.", 15, 12, 1, null, false, 900L..1500L, 700, 1000),
+    MEDIUM("Champi rapide", "Deux champignons allumés en même temps.", 20, 16, 2, null, false, 250L..450L, 800, 1300),
+    HARD("Champi filant", "Trois allumés ! Ils s'éteignent si tu es trop lent.", 25, 18, 3, 4000L, false, 220L..400L, 700, 1300),
+    EXPERT("Champi malin", "Quatre allumés ! Ne touche pas les violets.", 30, 20, 4, 3600L, true, 200L..350L, 650, 1300);
 
     val index: Int get() = ordinal
 
