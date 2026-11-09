@@ -33,6 +33,15 @@ interface Feedback {
 
     /** Un indice est donné : « tin-tin ». */
     fun hint()
+
+    /** Un champignon allumé est touché : une cloche de plus en plus aiguë selon la [streak] (série de champignons touchés de suite). */
+    fun pick(streak: Int)
+
+    /** Un champignon s'éteint tout seul. */
+    fun puff()
+
+    /** On a touché un champignon interdit. */
+    fun bonk()
 }
 
 object NoFeedback : Feedback {
@@ -42,6 +51,9 @@ object NoFeedback : Feedback {
     override fun tap() = Unit
     override fun star(index: Int) = Unit
     override fun hint() = Unit
+    override fun pick(streak: Int) = Unit
+    override fun puff() = Unit
+    override fun bonk() = Unit
 }
 
 val LocalFeedback = compositionLocalOf<Feedback> { NoFeedback }
@@ -62,6 +74,9 @@ class AndroidFeedback(private val context: Context, private val soundOn: () -> B
     private val exits = AtomicReferenceArray<Sound>(3)
     private val stars = AtomicReferenceArray<Sound>(3)
     private val horns = AtomicReferenceArray<Sound>(4) // petit, voiture, camion, bus
+    private val picks = AtomicReferenceArray<Sound>(Synth.PICK_NOTES)
+    @Volatile private var puff: Sound? = null
+    @Volatile private var bonk: Sound? = null
     @Volatile private var win: Sound? = null
     @Volatile private var tap: Sound? = null
     @Volatile private var hint: Sound? = null
@@ -75,6 +90,9 @@ class AndroidFeedback(private val context: Context, private val soundOn: () -> B
                 for ((k, pitch) in doubleArrayOf(1.0, 0.9, 1.13).withIndex()) exits.set(k, Sound(Synth.vroum(pitch), Synth.RATE))
                 for (k in 0 until 3) stars.set(k, Sound(Synth.star(k), Synth.RATE))
                 hint = Sound(Synth.hint(), Synth.RATE)
+                for (k in 0 until Synth.PICK_NOTES) picks.set(k, Sound(Synth.pick(k), Synth.RATE))
+                puff = Sound(Synth.puff(), Synth.RATE)
+                bonk = Sound(Synth.bonk(), Synth.RATE)
                 win = Sound(Synth.fanfare(), Synth.RATE)
             }
             runCatching {
@@ -112,6 +130,18 @@ class AndroidFeedback(private val context: Context, private val soundOn: () -> B
     override fun star(index: Int) = play { if (index in 0 until stars.length()) stars.get(index) else null }
 
     override fun hint() = play { hint }
+
+    override fun pick(streak: Int) {
+        play { picks.get((streak - 1).coerceIn(0, Synth.PICK_NOTES - 1)) }
+        buzz(12)
+    }
+
+    override fun puff() = play { puff }
+
+    override fun bonk() {
+        play { bonk }
+        buzz(40)
+    }
 
     private fun buzz(ms: Long) {
         if (!vibrationOn()) return

@@ -3,7 +3,7 @@
 [![Android](https://github.com/kcharignon/mobile-game/actions/workflows/android.yml/badge.svg)](https://github.com/kcharignon/mobile-game/actions/workflows/android.yml)
 
 Appli Android **sans pub et sans suivi**, pour les enfants. Au lancement on choisit **qui joue** (5 sauvegardes locales distinctes),
-puis **le jeu**. Premier jeu : **Parking Malin** — des voitures garées, à faire sortir une par une dans le bon ordre.
+puis **le jeu**. Deux jeux : **Parking Malin** — des voitures garées, à faire sortir une par une dans le bon ordre ; **Champis Magiques** — des champignons s'allument dans la forêt, il faut les toucher le plus vite possible.
 D'autres jeux viendront : le menu et la sauvegarde sont faits pour ça.
 
 | Qui joue ? | Les jeux du joueur | Choix du niveau | Un niveau |
@@ -30,7 +30,13 @@ Android 8 ou plus. L'appli se distribue en **APK signé** (sans Google Play) :
 Sur le téléphone : ouvrir le fichier téléchargé, autoriser l'installation depuis le navigateur si Android le demande, **Installer**
 (si Play Protect hésite : *Installer quand même*). **Mettre à jour** : même geste avec la version suivante, par-dessus : les joueurs et leurs étoiles sont conservés.
 
-## Le jeu
+## Champis Magiques
+
+- Une forêt de **champignons blancs de tailles différentes** : certains **s'allument**, il faut les **toucher le plus vite possible** — plus on est rapide, plus on marque de points.
+- **On ne perd jamais** : une partie dure un nombre fixe de champignons et finit toujours avec au moins une étoile.
+- **4 difficultés** à choisir : « Petit champi » (ils restent allumés), « Champi rapide » (plus nombreux), « Champi filant » (ils s'éteignent si on est trop lent) et « Champi malin » (avec une **couleur interdite**, le violet). On débloque la suivante avec **2 étoiles** sur la précédente.
+
+## Parking Malin
 
 - **Glisse un véhicule le long de sa longueur : il roule tout droit, en marche avant ou en marche arrière selon le sens où tu le glisses** (un simple toucher le fait avancer).
   Voie libre dans ce sens : il sort. Sinon il klaxonne (« Pouet ! »), rougit et revient : c'est une **faute**.
@@ -74,6 +80,7 @@ android/app/src/main/java/com/kcharignon/petitsjeux/
   core/screens   « Qui joue ? », accueil des jeux, réglages
   core/          MiniGame (contrat d'un jeu), registre des jeux, navigation, sons et vibrations
   games/parking  Parking Malin : engine/ (règles pures), ui/ (plateau, voitures, animations), progression
+  games/mushrooms  Champis Magiques : engine/ (difficultés, score, partie, forêt), ui/ (forêt, champignons, écrans), progression
 android/app/src/test/    tests Kotlin ; screenshots/ = interface rendue par Robolectric (sans téléphone)
 docs/                    DESIGN.md, maquettes (design/), captures du README (screenshots/)
 tools/design/            générateurs (Node, sans dépendance) : maquettes, icône, et les véhicules (vehicles.js -> VehicleArt.kt généré + aperçu)

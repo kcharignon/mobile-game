@@ -144,6 +144,36 @@ La **difficulté** vient du nombre de « vagues » de sorties (la longueur de la
 
 Le niveau suivant se débloque quand le précédent est réussi.
 
+## Champis Magiques : règles
+
+Un jeu d'adresse et de réflexes, **où l'on ne perd jamais** : le but est de s'amuser et d'entraîner sa dextérité.
+
+- **La forêt** : une forêt du soir (bleu-vert profond, sapins, lucioles) remplie de **champignons blancs de tailles différentes**, de 12 à 20 selon la difficulté. Tous les champignons sont assez grands pour un doigt d'enfant (chapeau d'au moins 52 dp).
+- **Le jeu** : des champignons **s'allument** (jaune, orange, rose, cyan ou vert, avec un halo qui pulse). L'enfant doit **les toucher**. On réagit **dès que le doigt se pose** (pas besoin de le relever), et à plusieurs doigts si on veut. Toucher un champignon éteint ne fait rien et ne coûte rien.
+- **Le score** : plus on touche vite un champignon allumé, plus il rapporte : **100 points tout de suite, environ 60 après 1 seconde, 38 après 2, 19 après 4, jamais moins de 10**. Des points « +85 » montent au-dessus du champignon touché, des étincelles jaillissent, et la cloche est de plus en plus aiguë quand on enchaîne.
+- **Une partie** : un nombre fixe de champignons à toucher (15 à 30 selon la difficulté), puis la partie finit toujours, avec **au moins 1 étoile** (2 et 3 étoiles selon le score). On ne perd jamais : un champignon qui s'éteint tout seul n'est qu'un champignon raté, sans punition, et la partie continue.
+- **Au début d'une partie** : une fenêtre explique le jeu (« Appuie vite sur les champignons qui s'allument ! ») et le chronomètre ne démarre que quand l'enfant appuie sur **« C'est parti ! »**. « Rejouer » relance tout de suite.
+
+### Les difficultés
+
+On **choisit sa difficulté** au début ; on **débloque la suivante en faisant 2 étoiles sur la précédente**. La première est toujours ouverte.
+
+| Difficulté | Champignons | À toucher | Allumés en même temps | Ce qui change | 2 étoiles | 3 étoiles |
+|---|---|---|---|---|---|---|
+| Petit champi | 12 | 15 | 2 | Ils **restent allumés** jusqu'à ce qu'on les touche | 700 | 1000 |
+| Champi rapide | 16 | 20 | 3 | Plus de champignons, plus d'allumages en même temps | 1000 | 1400 |
+| Champi filant | 18 | 25 | 3 | Ils **s'éteignent au bout de 3,5 s** si on est trop lent | 1300 | 1800 |
+| Champi malin | 20 | 30 | 4 | S'éteignent au bout de 3 s, et des champignons **violets (interdits)** s'allument aussi : il ne faut pas les toucher | 1650 | 2200 |
+
+- **La couleur interdite** (violet, avec une barre rouge) ne vient qu'à la dernière difficulté, et on la rappelle partout : dans la fenêtre du début et dans une pastille « Pas les violets ! » en haut de l'écran. Un champignon interdit touché ne donne **aucun point** et remet la série à zéro (aucune punition, la partie continue) ; s'il n'est pas touché, il s'éteint tout seul au bout de 2,5 s. Les interdits ne comptent pas parmi les champignons à toucher.
+- **Les étoiles comptent pour le rang** du joueur, comme celles de Parking Malin (jusqu'à 12 étoiles : 4 difficultés × 3).
+- **Sauvegarde** (`games.mushrooms`) : le meilleur score de chaque difficulté, le nombre de champignons touchés, de parties jouées et la plus longue série. Les étoiles se déduisent du meilleur score.
+
+### Comment c'est fait
+
+Le moteur (`games/mushrooms/engine`) est du Kotlin pur piloté par une horloge simulée : `MushroomRound` allume et éteint les champignons, `Scoring` donne les points, `ForestLayout` place des champignons de tailles variées sans qu'ils se touchent (graine fixe = même forêt), `Difficulty` décrit les quatre difficultés. Un test joue des parties complètes avec des « enfants » qui touchent après 0,3 s, 1 s ou 2,6 s et vérifie le score, les étoiles et qu'on ne perd jamais.
+L'interface (`games/mushrooms/ui`) dessine tout au pinceau : `ForestArt` (forêt, champignons, étincelles), le menu des difficultés, l'écran de partie. L'horloge de la partie n'avance que pendant qu'on joue et jamais de plus de 100 ms par image : si l'appli est mise de côté, rien n'expire d'un coup.
+
 ## Progression du joueur (« l'évolution »)
 
 - **Étoiles** cumulées (somme des meilleures notes) → **rang**, affiché partout où le joueur apparaît :
@@ -216,6 +246,8 @@ core/screens   « Qui joue ? », accueil des jeux, réglages
 core/          MiniGame (contrat d'un jeu), registre des jeux, navigation (PetitsJeuxApp), sons et vibrations (Feedback)
 games/parking/engine   règles pures (aucune dépendance Android) : grille, voitures, tap, attentes, générateur, étoiles
 games/parking/ui       plateau, voitures, animations, écrans de niveaux et de jeu
+games/mushrooms/engine règles pures de Champis Magiques : difficultés, score, partie, forêt
+games/mushrooms/ui     forêt, champignons, menu des difficultés, écran de partie
 ```
 
 Le moteur de Parking Malin est du Kotlin pur, testé sur la JVM : règles de sortie et de faute, solveur, **les 180 niveaux solubles et stables**.
