@@ -241,7 +241,7 @@ Le moteur (`games/road/engine`) est du Kotlin pur piloté par une horloge en mil
 | 696 | Super champion (toutes les étoiles de tous les jeux : 540 + 12 + 144) |
 
 - Statistiques gardées : voitures sorties, fautes, niveaux réussis, plus haut niveau atteint.
-- Le choix du **joueur** : un prénom (12 caractères) et un **animal** parmi 8 (chat, chien, ours, panda, lapin, grenouille, renard, lion), dessinés par le code.
+- Le choix du **joueur** : un prénom (12 caractères) et un **animal** parmi 12 (chat, chien, ours, panda, lapin, grenouille, renard, lion, licorne, tigre, hibou, pingouin), dessinés par le code.
 
 ## Sauvegarde locale
 

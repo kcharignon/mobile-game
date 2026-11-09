@@ -1,6 +1,19 @@
 package com.kcharignon.petitsjeux.screenshots
 
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.unit.dp
+import com.kcharignon.petitsjeux.core.ui.AvatarFace
 import java.io.File
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
@@ -91,6 +104,34 @@ class ScreenshotsTest {
     @Test
     fun newPlayer() = show("02-nouveau-joueur") {
         ProfilesScreen(profiles = three + listOf(null, null), onPlay = {}, onCreate = { _, _, _ -> }, initialCreating = 3)
+    }
+
+    @Test
+    fun allTheAnimals() = show("34-animaux") {
+        Column(Modifier.background(Color(0xFFFFF8E7)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            for (row in Avatar.entries.chunked(4)) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { for (a in row) AvatarFace(a, 78.dp) }
+        }
+    }
+
+    @Test
+    fun aNewPlayerCanPickEveryAnimal() {
+        var created: Triple<Int, String, Avatar>? = null
+        show(null) { ProfilesScreen(profiles = three + listOf(null, null), onPlay = {}, onCreate = { s, n, a -> created = Triple(s, n, a) }, initialCreating = 3) }
+        rule.onNode(hasSetTextAction()).performTextInput("Zoé")
+        rule.mainClock.advanceTimeBy(100)
+        for (animal in Avatar.entries) {
+            rule.onNodeWithTag("avatar-${animal.id}").performClick()
+            rule.mainClock.advanceTimeBy(100)
+            for (other in Avatar.entries) {
+                val node = rule.onNodeWithTag("avatar-${other.id}")
+                if (other == animal) node.assertIsSelected() else node.assertIsNotSelected()
+            }
+        }
+        // le dernier animal choisi (le pingouin) est celui du nouveau joueur
+        rule.onNodeWithText("C’est parti !").performClick()
+        rule.mainClock.advanceTimeBy(100)
+        assertEquals(Triple(3, "Zoé", Avatar.entries.last()), created)
+        assertEquals(Avatar.PENGUIN, Avatar.entries.last())
     }
 
     @Test
