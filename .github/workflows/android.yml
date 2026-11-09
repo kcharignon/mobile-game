@@ -55,6 +55,15 @@ jobs:
           cache-to: type=gha,scope=android,mode=max
       - name: Tests Kotlin
         run: make android-test ANDROID_BUILD=
+      # Joue l'interface sans téléphone (Robolectric) : parcours complets (créer un joueur, finir un niveau, sauvegarde) et captures des écrans.
+      - name: Interface, parcours et captures d'écran
+        run: make android-screenshots ANDROID_BUILD=
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: captures-ecran
+          path: docs/screenshots/*.png
+          if-no-files-found: error
+          retention-days: 14
       - name: APK de débogage
         env:
           # Le numéro monte à chaque exécution ; sans étiquette, la version est « 0.0.0-dev ».

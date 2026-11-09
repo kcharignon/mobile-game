@@ -160,7 +160,7 @@ release_selftest() {
 case "${1:-apk}" in
   apk) build_debug ;;
   test) "${GRADLE[@]}" testDebugUnitTest ;;
-  screenshots) "${GRADLE[@]}" recordRoborazziDebug ;;
+  screenshots) "${GRADLE[@]}" testDebugUnitTest -Pscreenshots -Proborazzi.test.record=true ;;
   release) build_release ;;
   verify-release) verify_release "${2:-}" ;;
   release-selftest) release_selftest ;;

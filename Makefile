@@ -26,9 +26,11 @@ android-release: ## Build the signed APK dist/petitsjeux.apk (needs ANDROID_KEYS
 	@$(ANDROID_RUN) android ./build.sh release
 
 android-release-verify: ## Check the signed APK right after android-release (needs ANDROID_VERSION_TAG and ANDROID_EXPECTED_CERT_SHA256, the public certificate fingerprint)
+	@mkdir -p dist
 	@$(ANDROID_RUN) android ./build.sh verify-release
 
 android-release-selftest: ## Prove the release refuses without a key and succeeds with a throwaway one (nothing is kept)
+	@mkdir -p dist
 	@$(ANDROID_RUN) android ./build.sh release-selftest
 
 check: android-test ## Run all the tests
