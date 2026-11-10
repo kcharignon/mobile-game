@@ -49,11 +49,11 @@ data class Analysis(
 
 /**
  * Le solveur. Règles : un véhicule sort s'il peut rouler **dans un sens ou dans l'autre** jusqu'au bord (en suivant les virages de l'huile, les poussées des tapis
- * et les sauts des téléporteurs) sans rencontrer ni véhicule, ni plot, ni caisse, ni barrière fermée, ni sens interdit, et sans mur à la sortie.
+ * et les sauts des téléporteurs) sans rencontrer ni véhicule, ni plot, ni caisse, ni barrière baissée, ni sens interdit, et sans mur à la sortie.
  *
  * Faire sortir un véhicule libère toujours de la place (monotone) : sans caisse ni barrière, le niveau est soluble si et seulement si on peut tout vider
  * en retirant à chaque fois un véhicule libre, dans n'importe quel ordre. Les camions qui laissent tomber une caisse **ajoutent** un obstacle : seuls eux
- * demandent de chercher le bon ordre, et ils sont peu nombreux. Les barrières changent à chaque sortie : là, l'ordre compte aussi (voir [canFinish]).
+ * demandent de chercher le bon ordre, et ils sont peu nombreux. Les barrières changent à chaque sortie (une fois par véhicule sorti) : là, l'ordre compte aussi (voir [canFinish]).
  */
 object Solver {
     private class Piece(
@@ -65,19 +65,26 @@ object Solver {
         val walled: BooleanArray,
         val routes: Array<Route>,
         val touchesGate: Boolean,
+        /** [move][parité] : une barrière de ce trajet est-elle baissée quand le sol a changé un nombre pair (0) ou impair (1) de fois ? */
+        val gateBlocked: Array<BooleanArray>,
     )
 
-    private class Compiled(val cols: Int, val rows: Int, val pieces: List<Piece>, val cones: Bits, val closedGates: Array<Bits>, val floor: Floor)
+    private class Compiled(val cols: Int, val rows: Int, val pieces: List<Piece>, val cones: Bits, val floor: Floor)
 
     private fun compile(cols: Int, rows: Int, cones: Collection<Cell>, cars: List<Car>, walls: Collection<Wall>, floor: Floor): Compiled {
         require(cols * rows <= 256) { "grille trop grande pour le solveur" }
         fun idx(c: Cell) = c.row * cols + c.col
         val wallSet = walls.toHashSet()
-        val gateBits = floor.gates.fold(Bits()) { acc, g -> acc.with(idx(g.cell)) }
         val pieces = cars.mapIndexed { i, car ->
             // le trajet de chaque sens : ses cases, et si la sortie est fermée (mur, sens unique, tour en rond)
             val routes = Array(2) { m -> car.route(cols, rows, Move.entries[m], floor) }
             val paths = Array(2) { m -> routes[m].cells.fold(Bits()) { acc, c -> acc.with(idx(c)) } }
+            // les barrières que ce trajet traverse (entre la case d'où l'on part et celle où l'on arrive ; un saut de téléporteur n'en traverse pas)
+            val crossings = Array(2) { m ->
+                val r = routes[m]
+                r.cells.indices.filter { i -> r.entries[i] != Entry.JUMP }
+                    .mapNotNull { i -> floor.gates.indexOfFirst { it.separates(r.origins[i], r.cells[i]) }.takeIf { it >= 0 } }
+            }
             Piece(
                 i,
                 car,
@@ -86,17 +93,19 @@ object Solver {
                 IntArray(2) { m -> idx(car.trail(Move.entries[m])) },
                 BooleanArray(2) { m -> routes[m].stop != null || routes[m].exit in wallSet },
                 routes,
-                paths.any { it.intersects(gateBits) },
+                crossings.any { it.isNotEmpty() },
+                Array(2) { m -> BooleanArray(2) { parity -> crossings[m].any { !floor.gates[it].isOpen(parity) } } },
             )
         }
-        // cases fermées selon la parité du nombre de véhicules sortis : [0] = nombre pair, [1] = nombre impair
-        val closed = Array(2) { parity -> floor.gates.filter { !it.isOpen(parity) }.fold(Bits()) { acc, g -> acc.with(idx(g.cell)) } }
-        return Compiled(cols, rows, pieces, cones.fold(Bits()) { acc, c -> acc.with(idx(c)) }, closed, floor)
+        return Compiled(cols, rows, pieces, cones.fold(Bits()) { acc, c -> acc.with(idx(c)) }, floor)
     }
 
     private fun occupied(pieces: List<Piece>, fixed: Bits): Bits = pieces.fold(fixed) { acc, p -> acc + p.cells }
 
     private fun isFree(p: Piece, move: Move, occupied: Bits) = !p.walled[move.ordinal] && !p.paths[move.ordinal].intersects(occupied)
+
+    /** Comme [isFree], et en plus aucune barrière de ce trajet n'est baissée quand le sol a changé [turns] fois. */
+    private fun isFreeAt(p: Piece, move: Move, occupied: Bits, turns: Int) = isFree(p, move, occupied) && !p.gateBlocked[move.ordinal][turns and 1]
 
     private fun isFreeEitherWay(p: Piece, occupied: Bits) = isFree(p, Move.FORWARD, occupied) || isFree(p, Move.BACKWARD, occupied)
 
@@ -153,11 +162,11 @@ object Solver {
             return false
         }
         if (--budget.left < 0) return null
-        val occ = occupied(remaining, c.cones + crates + c.closedGates[exits and 1])
+        val occ = occupied(remaining, c.cones + crates)
         var unknown = false
         for (p in remaining.sortedBy { if (it.touchesGate) 0 else 1 }) {
             for (m in Move.entries) {
-                if (!isFree(p, m, occ)) continue
+                if (!isFreeAt(p, m, occ, exits)) continue
                 val nextCrates = if (p.car.carrier) crates.with(p.trailIndex[m.ordinal]) else crates
                 when (solveTimed(c, remaining - p, nextCrates, exits + 1, memo, staticMemo, budget)) {
                     true -> {
@@ -220,9 +229,9 @@ object Solver {
         exits: Int = 0,
     ): List<Move> {
         val c = compile(cols, rows, fixedObstacles, cars, walls, floor)
-        val occ = occupied(c.pieces, c.cones + c.closedGates[exits and 1])
+        val occ = occupied(c.pieces, c.cones)
         val piece = c.pieces.first { it.car.id == car.id }
-        return Move.entries.filter { isFree(piece, it, occ) }
+        return Move.entries.filter { isFreeAt(piece, it, occ, exits) }
     }
 
     /** Idem pour des niveaux qui n'ont que des taches d'huile. */

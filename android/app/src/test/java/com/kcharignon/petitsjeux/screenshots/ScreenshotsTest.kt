@@ -541,19 +541,45 @@ class ScreenshotsTest {
     }
 
     @Test
+    fun aVehicleHonkingAtALoweredGateRaisesIt() {
+        // 2 doit passer par la barrière, baissée au début : il klaxonne (une faute), la barrière se lève, et il passe au deuxième essai
+        val level = Level(
+            161, 8, 3,
+            listOf(Car(0, 0, 0, 2, Dir.RIGHT, 0), Car(1, 0, 2, 2, Dir.RIGHT, 1), Car(2, 0, 1, 2, Dir.RIGHT, 2)),
+            walls = listOf(Wall(Cell(0, 1), Dir.LEFT)),
+            gates = listOf(Gate(Cell(3, 1), Cell(4, 1), startsOpen = false)),
+        )
+        var finished = -1
+        show(null) { PlayScreen(level, hasNext = false, onFinished = { finished = it }, onNext = {}, onLevels = {}) }
+        perform(level, level.cars[2], Move.FORWARD)
+        rule.mainClock.advanceTimeBy(900)
+        rule.onNodeWithText("Pouet !").assertExists()
+        rule.mainClock.advanceTimeBy(1500)
+        perform(level, level.cars[2], Move.FORWARD)
+        rule.mainClock.advanceTimeBy(2500)
+        perform(level, level.cars[0], Move.FORWARD)
+        rule.mainClock.advanceTimeBy(2500)
+        perform(level, level.cars[1], Move.FORWARD)
+        rule.mainClock.advanceTimeBy(3000)
+        assertEquals("une seule faute : le klaxon devant la barrière", 1, finished)
+    }
+
+    @Test
     fun theGateChangesWhenAVehicleLeaves() {
         // 0 et 1 sont libres ; 2 doit passer par la barrière, fermée au début, ouverte après un premier départ
         val level = Level(
             161, 8, 3,
             listOf(Car(0, 0, 0, 2, Dir.RIGHT, 0), Car(1, 0, 2, 2, Dir.RIGHT, 1), Car(2, 0, 1, 2, Dir.RIGHT, 2)),
             walls = listOf(Wall(Cell(0, 1), Dir.LEFT)),
-            gates = listOf(Gate(Cell(4, 1), startsOpen = false)),
+            gates = listOf(Gate(Cell(3, 1), Cell(4, 1), startsOpen = false)),
         )
         var finished = -1
         show(null) { PlayScreen(level, hasNext = false, onFinished = { finished = it }, onNext = {}, onLevels = {}) }
         rule.onRoot().captureRoboImage("../../docs/screenshots/32-jeu-barriere-fermee.png")
         perform(level, level.cars[0], Move.FORWARD)
-        rule.mainClock.advanceTimeBy(2500)
+        rule.mainClock.advanceTimeBy(260) // le bras est à mi-course
+        rule.onRoot().captureRoboImage("../../docs/screenshots/35-jeu-barriere-mouvement.png")
+        rule.mainClock.advanceTimeBy(2240)
         rule.onRoot().captureRoboImage("../../docs/screenshots/33-jeu-barriere-ouverte.png")
         perform(level, level.cars[2], Move.FORWARD)
         rule.mainClock.advanceTimeBy(300)
@@ -567,7 +593,7 @@ class ScreenshotsTest {
     fun aPickupDropsItsCrateAndItShowsOnTheBoard() {
         // un niveau où un pick-up peut partir tout de suite, sans mener à une impasse
         fun safeMove(level: Level, pickup: Car) =
-            Move.entries.firstOrNull { m -> ParkingGame(level).canMove(pickup, m) && !ParkingGame(level).also { it.tap(pickup.id, m) }.mustSmashACrate }
+            Move.entries.firstOrNull { m -> ParkingGame(level).canMove(pickup, m) && !ParkingGame(level).also { it.tap(pickup.id, m) }.faultAhead }
         val level = (61..100).map { LevelGenerator.level(it) }.first { l -> l.cars.any { it.carrier && safeMove(l, it) != null } }
         val pickup = level.cars.first { it.carrier && safeMove(level, it) != null }
         val move = safeMove(level, pickup)!!
@@ -581,7 +607,7 @@ class ScreenshotsTest {
     fun aVehicleDrivingOverACrateSmashesItAndItIsOnlyAFault() {
         // un niveau piégé : un pick-up qui part du mauvais côté laisse sa caisse là où elle ferme le dernier passage
         val level = (61..100).map { LevelGenerator.level(it) }.first { Solver.analyse(it).traps >= 1 }
-        fun badMove(pickup: Car) = Move.entries.firstOrNull { m -> ParkingGame(level).canMove(pickup, m) && ParkingGame(level).also { g -> g.tap(pickup.id, m) }.mustSmashACrate }
+        fun badMove(pickup: Car) = Move.entries.firstOrNull { m -> ParkingGame(level).canMove(pickup, m) && ParkingGame(level).also { g -> g.tap(pickup.id, m) }.faultAhead }
         val pickup = level.cars.first { it.carrier && badMove(it) != null }
         // le même parcours dans le moteur : le mauvais coup, puis les indices jusqu'au bout (le premier coup qui écrase la caisse est repéré)
         val mirror = ParkingGame(level)

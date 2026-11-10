@@ -5,7 +5,7 @@ import kotlin.math.floor
 import kotlin.math.sqrt
 
 /**
- * Ce qui bloque un véhicule : un autre véhicule (même s'il roule), un plot de chantier, une barrière fermée, un sens interdit,
+ * Ce qui bloque un véhicule : un autre véhicule (même s'il roule), un plot de chantier, une barrière baissée, un sens interdit,
  * un mur à la sortie ou un tour en rond (huile, tapis, téléporteur).
  */
 sealed interface Blocker {
@@ -15,9 +15,12 @@ sealed interface Blocker {
 
     /** La sortie de la file est murée : on arrive jusqu'au bord, mais on ne passe pas. */
     data class Barrier(val wall: Wall) : Blocker
+
+    /** Une barrière de péage baissée, entre deux cases : le véhicule s'arrête devant. */
+    data class ClosedGate(val gate: Gate) : Blocker
 }
 
-enum class ObstacleKind { CONE, OIL, ONEWAY, GATE }
+enum class ObstacleKind { CONE, OIL, ONEWAY }
 
 /** Une caisse tombée que le véhicule écrase en passant : sa case, et l'indice de cette case dans le trajet (0 = la première case devant lui). */
 data class Smash(val cell: Cell, val index: Int)
@@ -109,6 +112,13 @@ class ParkingGame(val level: Level) {
     var exited: Int = 0
         private set
 
+    /**
+     * Combien de fois les barrières ont changé : une fois par véhicule sorti, et une fois par véhicule qui klaxonne devant une barrière baissée (une faute,
+     * mais on n'est jamais bloqué pour de bon : klaxonner devant la barrière la change).
+     */
+    var gateTurns: Int = 0
+        private set
+
     val carsLeft: Int get() = onBoard.size
     val isWon: Boolean get() = onBoard.isEmpty()
     val stars: Int get() = starsForBumps(bumps)
@@ -131,8 +141,8 @@ class ParkingGame(val level: Level) {
 
     private fun fixedObstacles(): Set<Cell> = level.cones.toSet() + fallenCrates
 
-    /** Cette barrière est-elle ouverte maintenant ? Elle change à chaque véhicule qui sort du parking. */
-    fun isOpen(gate: Gate): Boolean = gate.isOpen(exited)
+    /** Cette barrière est-elle levée maintenant ? Elle change à chaque véhicule qui sort du parking (et à chaque klaxon devant une barrière baissée). */
+    fun isOpen(gate: Gate): Boolean = gate.isOpen(gateTurns)
 
     private fun inGrid(c: Cell) = c.col in 0 until level.cols && c.row in 0 until level.rows
 
@@ -176,11 +186,13 @@ class ParkingGame(val level: Level) {
         return false
     }
 
+    /** La barrière baissée entre ces deux cases voisines, s'il y en a une. */
+    private fun closedGateBetween(from: Cell, to: Cell): Gate? = level.gates.firstOrNull { it.separates(from, to) && !isOpen(it) }
+
     /** Le premier obstacle sur le trajet [route] de [car] : son indice dans le trajet et ce que c'est, ou `null` si rien ne le touche. */
     private fun firstBlock(car: Car, route: Route): Pair<Int, Blocker>? {
         val fixed = HashMap<Cell, Blocker>()
         for (cone in level.cones) fixed[cone] = Blocker.Obstacle(cone, ObstacleKind.CONE)
-        for (gate in level.gates) if (!isOpen(gate)) fixed[gate.cell] = Blocker.Obstacle(gate.cell, ObstacleKind.GATE)
         // un véhicule immobile occupe ses cases ; un véhicule qui rebondit, ce qu'il balaie
         for (other in onBoard.values) if (other.id !in motions) for (cell in other.cells) fixed[cell] = Blocker.Vehicle(other)
         val rolling = ArrayList<Motion>()
@@ -189,6 +201,8 @@ class ParkingGame(val level: Level) {
             if (m.exiting) rolling += m else for (cell in bouncingCells(m)) fixed[cell] = Blocker.Vehicle(m.car)
         }
         for ((r, cell) in route.cells.withIndex()) {
+            // une barrière baissée entre la case d'où il part et celle où il arrive l'arrête avant d'entrer (sauf s'il saute par un téléporteur)
+            if (route.entries[r] != Entry.JUMP) closedGateBetween(route.origins[r], cell)?.let { return r to Blocker.ClosedGate(it) }
             fixed[cell]?.let { return r to it }
             rolling.firstOrNull { touchesRolling(it, cell, r, car) }?.let { return r to Blocker.Vehicle(it.car) }
         }
@@ -214,6 +228,7 @@ class ParkingGame(val level: Level) {
         val blocker = block?.second ?: route.stop?.let { Blocker.Obstacle(it.cell, it.kind) } ?: route.exit?.takeIf { it in level.walls }?.let { Blocker.Barrier(it) }
         if (blocker != null) {
             bumps++
+            if (blocker is Blocker.ClosedGate) gateTurns++
             val free = block?.first ?: route.cells.size
             val trip = route.take(free, car.directionOf(move))
             val smashed = smash(trip.cells)
@@ -222,6 +237,7 @@ class ParkingGame(val level: Level) {
         }
         onBoard.remove(id)
         exited++
+        gateTurns++
         motions[id] = Motion(car, move, route.cells, exiting = true)
         val smashed = smash(route.cells)
         val dropped = if (car.carrier) car.trail(move).also { fallenCrates += it } else null
@@ -246,15 +262,22 @@ class ParkingGame(val level: Level) {
     }
 
     /**
-     * Une vraie impasse : plus aucun coup ne permet de tout faire sortir, **même en écrasant les caisses** (seules les barrières qui changent à chaque sortie
-     * peuvent encore en créer une). Les caisses mal placées ne sont plus des impasses : le prochain véhicule les écrase, avec une faute.
+     * On ne peut plus tout faire sortir **sans faute** : une caisse mal placée (il faudra l'écraser) ou une barrière dans le mauvais état (il faudra klaxonner
+     * devant). Ce n'est jamais une impasse : on s'en sort toujours, avec une faute. Les indices ne mènent jamais là tant qu'il existe un coup sans faute.
      */
-    val isStuck: Boolean
-        get() = onBoard.isNotEmpty() && !Solver.canFinish(level.cols, level.rows, level.cones.toSet(), onBoard.values.map { it.copy(carrier = false) }, level.walls, level.floor, exits = exited, optimistic = true)
+    val faultAhead: Boolean
+        get() = onBoard.isNotEmpty() && !Solver.canFinish(level.cols, level.rows, fixedObstacles(), onBoard.values.toList(), level.walls, level.floor, exits = gateTurns, optimistic = true)
 
-    /** Une caisse mal placée : on ne peut plus tout faire sortir **sans faute** (il faudra en écraser une). Les indices ne le conseillent jamais. */
-    val mustSmashACrate: Boolean
-        get() = onBoard.isNotEmpty() && !Solver.canFinish(level.cols, level.rows, fixedObstacles(), onBoard.values.toList(), level.walls, level.floor, exits = exited, optimistic = true)
+    /**
+     * Quand aucun coup ne mène à la solution sans autre faute : un véhicule arrêté devant une barrière baissée, que l'on fait klaxonner (une faute) pour changer
+     * les barrières, si cela ouvre un chemin ; sinon n'importe lequel.
+     */
+    private fun gateHint(remaining: List<Car>, fixed: Set<Cell>): Hint? {
+        val blocked = remaining.flatMap { car -> Move.entries.filter { blockerOf(car, it) is Blocker.ClosedGate }.map { Hint(car, it) } }
+        if (blocked.isEmpty()) return null
+        val opens = Solver.canFinish(level.cols, level.rows, fixed, remaining, level.walls, level.floor, exits = gateTurns + 1, optimistic = true)
+        return blocked.minWith(compareBy<Hint> { if (opens) 0 else 1 }.thenBy { it.car.id }.thenBy { if (it.move == Move.FORWARD) 0 else 1 })
+    }
 
     /**
      * Un coup qui mène à la solution : un véhicule libre **maintenant**, dans un sens où il peut sortir, qui en débloque le plus d'autres.
@@ -271,9 +294,9 @@ class ParkingGame(val level: Level) {
                 val smashed = smashes(h.car, h.move).map { it.cell }.toSet()
                 faults[h] = smashed.size
                 val crates = (fixed - smashed).let { if (h.car.carrier) it + h.car.trail(h.move) else it }
-                Solver.canFinish(level.cols, level.rows, crates, remaining - h.car, level.walls, level.floor, exits = exited + 1, optimistic = true)
+                Solver.canFinish(level.cols, level.rows, crates, remaining - h.car, level.walls, level.floor, exits = gateTurns + 1, optimistic = true)
             }
-        val fewest = reachable.minOfOrNull { faults.getValue(it) } ?: return null
+        val fewest = reachable.minOfOrNull { faults.getValue(it) } ?: return gateHint(remaining, fixed)
         val candidates = reachable.filter { faults.getValue(it) == fewest }
         val dependants = candidates.associateWith { h ->
             val cells = h.car.cells.toSet()
