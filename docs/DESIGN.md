@@ -1,7 +1,7 @@
 # Petits Jeux — document de design
 
 Appli Android **sans pub et sans suivi**, pour les enfants : un menu principal où l'on choisit **qui joue** (5 sauvegardes
-locales distinctes), puis **le jeu**. Trois jeux : **Parking Malin** (des voitures garées, à faire sortir une par une dans le bon ordre), **Champis Magiques** (des champignons s'allument, à toucher vite) et **Poussin Traverse** (traverser des routes de plus en plus larges, en paysage).
+locales distinctes), puis **le jeu**. Quatre jeux : **Parking Malin** (des voitures garées, à faire sortir une par une dans le bon ordre), **Champis Magiques** (des champignons s'allument, à toucher vite), **Poussin Traverse** (traverser des routes de plus en plus larges, en paysage) et **Poisson Perdu** (tracer au doigt le chemin d'un labyrinthe de corail jusqu'à la sortie).
 D'autres jeux viendront : le menu et la sauvegarde sont faits pour ça.
 
 Maquettes : [`docs/design/`](design/) (SVG générés par `tools/design/`, PNG rendus à côté). Elles sont la référence visuelle ;
@@ -222,11 +222,69 @@ Le poussin est jaune, vu du dessus, bec en avant ; il bat des ailes et grossit a
 
 Le moteur (`games/road/engine`) est du Kotlin pur piloté par une horloge en millisecondes : tout ce qui roule (`Stream`, `TrainLine`) est une **fonction pure du temps** (flux périodique de véhicules : aucune simulation, aucun hasard pendant la partie), `Crossing` est la traversée (sauts, points, écrasements, retour au refuge), `Planner` est le robot, `RoadLevels` génère les 48 niveaux. Le moteur avance par pas de 20 ms au plus pour qu'aucun véhicule ne « traverse » le poussin sans le toucher. La sauvegarde (`games.road`) garde le meilleur score et les étoiles de chaque niveau, le nombre d'écrasements et de traversées.
 
-## Poisson Perdu : le prochain jeu (maquettes, pas encore codé)
+## Poisson Perdu : règles
 
-Un labyrinthe vu du dessus où l'on **trace le chemin au doigt** jusqu'à la sortie : un poisson-clown perdu retrouve son anémone à travers un récif de corail.
-100 niveaux (10 mondes de 10, de 4×5 à 11×16 cases), fabriqués à l'avance par un outil puis rangés dans un fichier. Analyse, règles, étoiles, plan : [issue #22](https://github.com/kcharignon/mobile-game/issues/22).
-Les maquettes sont la référence visuelle à valider **avant** d'écrire le Kotlin (`node tools/design/make-recif.js`, dessin dans `tools/design/recif.js`).
+Un labyrinthe vu du dessus, **entièrement visible** (ni défilement ni zoom : on peut regarder avant de tracer). Un poisson-clown perdu attend à l'entrée, en bas ; sa maison, une anémone qui brille, est à la sortie, en haut (au milieu du labyrinthe dans quelques niveaux).
+**On pose le doigt sur le poisson et on trace le chemin** jusqu'à l'anémone. **Pas de chronomètre, on ne perd jamais** : les erreurs ne font perdre que des étoiles. En portrait, une main. Analyse et plan : [issue #22](https://github.com/kcharignon/mobile-game/issues/22).
+
+### Tracer au doigt
+
+- Le doigt prend la trace s'il se pose **près de sa tête** (à moins de 1,3 case : le poisson au début). Il se pose ailleurs ? Rien ne se passe.
+- La trace suit les **couloirs, pas le doigt** : si le doigt est sur une case qu'un couloir relie à la tête, la trace s'allonge le long du couloir, **sans jamais traverser un mur**. Le doigt peut couper un coin (la trace suit le couloir en L) ou frôler un mur sans rien casser. Un doigt de l'autre côté d'un mur ne fait rien : la trace attend devant.
+- Un doigt rapide gagne plusieurs cases d'un coup (3 pour un doigt lent, jusqu'à 8), jamais plus.
+- **Reculer** : repasser le doigt sur la trace la **rembobine** jusque-là (les bulles de la partie effacée éclatent). La trace est toujours un chemin simple : jamais deux fois la même case. Un doigt qui frôle un couloir voisin du même tracé, loin derrière la tête, n'efface rien.
+- **Lever le doigt ne perd rien** : la trace reste, on la reprend en reposant le doigt sur sa tête. La zone de jeu est exclue des gestes système (un glissé au bord ne déclenche pas « retour »).
+- **Arriver** : dès que la trace entre dans la case de sortie, c'est gagné, sans geste de validation. Le poisson **suit alors le chemin tracé** jusqu'à son anémone, puis le bilan s'affiche en bas de l'écran (le labyrinthe et la trace restent visibles au-dessus).
+
+### Impasses, étoiles, indice
+
+- **Impasse** : chaque série de pas qui **s'éloigne de la sortie** (par le chemin le plus court) en compte **une**, quelle que soit sa longueur. Dans une grille, deux cases voisines diffèrent toujours d'exactement 1 en distance à la sortie, donc la règle est sans ambiguïté, **avec ou sans boucle** (un plus court chemin existe toujours et ne compte aucune impasse : les 3 étoiles sont toujours possibles). Se ré-engager dans l'impasse après être revenu à l'embranchement en compte une de plus.
+- **Étoiles** : 0 impasse = 3 ★, 1 ou 2 = 2 ★, 3 ou plus = 1 ★ (on gagne toujours au moins une étoile). Un niveau déjà réussi garde sa meilleure note ; le suivant se débloque quand le précédent est réussi.
+- **Indice** (gratuit, jamais une étoile en moins) : si la trace est sur le bon chemin, 5 pastilles jaunes de plus en plus petites montrent les prochaines cases ; si elle est dans une impasse, elles montrent le **chemin du retour** jusqu'à l'embranchement. **Recommencer** efface la trace et remet les impasses à zéro.
+- **Le son « chaud-froid »** : chaque case gagnée joue un petit « bloup » de bulle, **plus aigu quand la trace se rapproche de la sortie** (8 hauteurs de la gamme pentatonique de do, calculées sur la distance à la sortie), plus grave quand elle s'en éloigne. L'enfant entend s'il est sur la bonne voie sans qu'un mot le lui dise. Une bulle qui éclate en reculant, un « toc » au fond d'une impasse. Ni musique de fond, ni vibration à chaque case. Jamais écouté sur un téléphone.
+- Rejeté : des perles à ramasser (sur le bon chemin elles donnent la réponse, dans les impasses elles punissent l'enfant curieux), des étoiles selon le temps (pas de chronomètre dans l'appli) ou selon les murs touchés (un doigt qui dérive n'est pas une faute).
+
+### Les 100 niveaux : fabriqués à l'avance
+
+Les niveaux ne sont **pas calculés dans l'appli** : `tools/mazes/make-mazes.js` (Node, sans dépendance, déterministe, `make mazes`) les fabrique une fois et les range dans `android/app/src/main/res/raw/maze_levels.json`, en grilles de **art ASCII lisibles dans un diff**, avec le départ et la sortie. Une **planche-contact** des 100 niveaux est rendue avec : [`20-labyrinthes-planche.png`](design/20-labyrinthes-planche.png). Les niveaux **publiés ne changent plus** (un test garde l'empreinte SHA-256 de chaque monde) : pour en ajouter, on complète le fichier ; `node tools/mazes/make-mazes.js --check` (étape CI) vérifie que le fichier est exactement ce que l'outil produit.
+
+Format d'une grille : `+--+` mur horizontal, `+  +` passage ; `|` mur vertical ; deux espaces par case ; le bord est dessiné, avec l'**entrée** (en bas, sous le départ) et la **sortie** (en haut) comme ouvertures. `MazeLevels.parse` rejette tout ce qui est incohérent (ligne trop courte, coin absent, case non vide, bord ouvert ailleurs, départ ou sortie mal placés, cases isolées).
+
+| Monde | Niveaux | Labyrinthe | Solution (cases) | Embranchements | Décor | Ce qui change |
+|---|---|---|---|---|---|---|
+| Le lagon | 1-10 | 4×5 | 8-10 | 1-2 | turquoise clair | **Apprendre à tracer** : couloirs simples |
+| Le récif de corail | 11-20 | 5×7 | 12-14 | 2-3 | rose et orange | Ça grandit |
+| La forêt d'algues | 21-30 | 6×8 | 15-18 | 3-5 | vert | — |
+| L'épave | 31-40 | 7×9 | 19-24 | 5-7 | bois | — |
+| La grotte lumineuse | 41-50 | 8×11 | 27-33 | 7-10 | violet, cristaux | Plus d'impasses |
+| La banquise | 51-60 | 9×12 | 34-42 | 10-13 | glace | **Des boucles** : plusieurs chemins |
+| Le volcan | 61-70 | 10×13 | 44-52 | 13-17 | rouge, roche | — |
+| Le jardin d'anémones | 71-80 | 10×14 | 49-58 | 15-18 | rose, anémones | **La maison au milieu** (niveaux 73, 76, 79) |
+| Les abysses | 81-90 | 11×15 | 48-65 | 17-22 | bleu nuit, méduses (liseré clair) | — |
+| Le palais du roi | 91-100 | 11×16 | 55-88 | 20-24 | or et nacre | Tout mélangé |
+
+- **Comment l'outil fabrique un niveau** : un labyrinthe parfait par « growing tree » (à chaque pas on creuse depuis la case la plus récente avec une probabilité `p`, sinon depuis une case au hasard : `p` haut = longs couloirs sinueux et peu d'embranchements, `p` bas = beaucoup de petites impasses), des culs-de-sac percés dans les mondes à boucles, **500 candidats par niveau** (d'autres paquets si aucun n'est dans les bornes), départ au bord du bas et sortie au bord du haut (ou au centre) choisis parmi toutes les paires. On garde le candidat le plus proche de la cible du niveau (qui monte du premier au dernier de son monde) **dans des bornes dures** : embranchements à 2 près, solution à 15 % près de la bande du monde, au moins une boucle à partir du monde 6, jamais plus de 60 % de la solution en ligne droite, ni doublon ni miroir d'un autre niveau.
+- **Les cases** font de 82 dp (4×5) à environ 29 dp (11×16) de large sur un téléphone de 360 dp : la trace suit les couloirs, c'est ce qui rend les petits couloirs jouables au doigt. À vérifier sur un vrai doigt.
+
+### Dessin et sons
+
+Tout est dessiné par le code (`games/maze/ui/MazeArt.kt`), aucune image. Le décor change à chaque monde (`MazeTheme` : sol, trois couleurs de corail, fond marin, ruban, petit objet de décor).
+
+- **Les murs** : des coraux épais à bouts ronds (0,26 case), des têtes de corail aux jonctions, un **contour obligatoire** (la couleur du mur mélangée à 50 % d'encre, ou un liseré clair dans les abysses). Un test vérifie que ce contour contraste **au moins 3:1** avec le sol dans chaque monde (le plus faible : 3,64:1, la banquise), et la trace aussi.
+- **La trace** : un ruban d'eau bleu (contour `#1F6FB5`, cœur `#5DB8F2`) jalonné de bulles blanches, **doré avec des étincelles** si le niveau est fini sans impasse (blanc et jaune pâle dans les abysses). La tête de la trace est une grosse bulle sous le doigt.
+- **Le poisson-clown** est vu du dessus (nez vers le haut), pivote vers là où il va, bat de la queue. **L'anémone** brille, ondule, et projette un faisceau de lumière par l'ouverture de la sortie : on la voit d'un coup d'œil même dans un grand labyrinthe. Une bouée marque l'entrée.
+- **Les petits objets du décor** (coquillage, étoile de mer, algues, planche, cristaux, glaçon, roche, anémone, méduse, perle) ne se posent **qu'au fond des impasses**, à 70 % d'opacité : jamais sur la solution (ils la révéleraient), jamais assez voyants pour passer pour quelque chose à ramasser (testé).
+- **Écran de jeu** : fond marin pleine page aux couleurs du monde (rayons de lumière, bulles qui montent), bandeau (retour, niveau et monde, recommencer), étoiles encore possibles, le labyrinthe centré, et en bas les impasses et le bouton Indice. Au premier niveau du jeu et au premier niveau de chaque monde, une introduction dit ce qui est nouveau.
+
+### Comment c'est fait
+
+`games/maze/engine` est du Kotlin pur, sans Android, testé sur la JVM : `MazeLevels` (lecture du fichier), `MazeLevel` (grille, voisins, distances à la sortie, solution), `MazePlay` (le tracé : positions en cases, événements `Stepped`, `Backed`, `Detour`, `DeadEnd`, `Blocked`, `Arrived`), `MazeScoring`. L'interface convertit les pixels en cases (`MazeLayout`) et s'occupe des animations. Sauvegarde : `games.maze` = `{"stars": {"1": 3, …}, "detours": N, "played": N}`, tolérante (champ absent ou invalide = zéro).
+
+Tests : le fichier relu **tel qu'il est livré** (relié, entrée en bas, sorties, bandes de difficulté par monde, difficulté moyenne qui ne baisse jamais d'un monde au suivant, doublons et miroirs, cases ≥ 28 dp), l'empreinte de chaque monde, l'analyse qui rejette les grilles mal formées, un **doigt robot** avec du tremblement qui finit les 100 niveaux avec 3 étoiles, un **tir au hasard** (1 500 gestes sur 25 niveaux : la trace reste un chemin valide qui ne traverse aucun mur), un **promeneur** qui entre dans les impasses puis ne suit que les indices et finit sans nouvelle impasse, le contraste des dix palettes, et à l'écran (Robolectric) de vrais niveaux tracés au toucher, le rembobinage, l'indice, la victoire, les sons, la sauvegarde depuis l'appli et « Niveau suivant ».
+
+### Les maquettes
+
+Les maquettes ont précédé le code (`node tools/design/make-recif.js`, dessin dans `tools/design/recif.js`). Elles sont la référence visuelle ; le Kotlin reprend les mêmes formes et couleurs.
 
 | Écran | Maquette |
 |---|---|
@@ -237,14 +295,7 @@ Les maquettes sont la référence visuelle à valider **avant** d'écrire le Kot
 | Jeu, trace en cours, et indice | [`14-recif-jeu.png`](design/14-recif-jeu.png), [`15-recif-jeu-indice.png`](design/15-recif-jeu-indice.png) |
 | Victoire | [`16-recif-victoire.png`](design/16-recif-victoire.png) |
 
-Ce que les maquettes ont tranché (et qui précise l'issue) :
-
-- **La trace est un ruban d'eau bleu** (contour `#1F6FB5`, cœur `#5DB8F2`) jalonné de bulles blanches, et non une ligne blanche : du blanc sur le sol turquoise très pâle ne se voyait pas. Il devient **doré** quand le niveau est fini sans aucune impasse. Dans les abysses (sol sombre), il est blanc et jaune pâle.
-- **L'indice** montre les 5 prochaines cases du bon chemin par des pastilles jaunes de plus en plus petites, bien distinctes du ruban bleu.
-- **Le poisson est dessiné vu du dessus** (nez vers le haut, comme les voitures et le poussin), il pivote vers là où il va et reste à l'entrée pendant le tracé ; à la victoire il rejoint l'anémone. L'anémone brille et projette un faisceau de lumière par l'ouverture de la sortie : on la repère d'un coup d'œil même dans un grand labyrinthe.
-- **Les murs** sont des coraux épais à bouts ronds (0,26 case), avec des têtes de corail aux jonctions, et un **contour obligatoire** : `tools/design/recif.js` vérifie que chaque couleur de mur de chaque monde contraste **au moins 3:1** avec le sol (le plus faible : 3,64:1, la banquise). Ce même contrôle sera repris en test Kotlin sur les palettes.
-- **Les petits objets du décor** (coquillage, étoile de mer, algues…) ne se posent **qu'au fond des impasses**, à 70 % d'opacité et plus petits : jamais sur la solution (ils la révéleraient), et jamais assez voyants pour passer pour quelque chose à ramasser.
-- **Écran de jeu** : fond marin pleine page aux couleurs du monde, bandeau et boutons dans les zones sûres, labyrinthe centré et entièrement visible. **Victoire** : panneau en bas, pour que la trace dorée et l'arrivée du poisson restent visibles.
+Ce que les maquettes ont tranché : la trace est **bleue** (le blanc ne se voyait pas sur le sol turquoise très pâle) ; le bilan est **en bas** (sinon il cachait la trace dorée et l'arrivée du poisson, la récompense du jeu) ; le décor d'impasse est discret (il ne doit pas passer pour quelque chose à ramasser) ; le contour des murs est à 50 % d'encre (à 35 % l'orange ne tenait pas 3:1).
 
 ## Progression du joueur (« l'évolution »)
 
@@ -262,7 +313,8 @@ Ce que les maquettes ont tranché (et qui précise l'issue) :
 | 300 | Maître du bitume |
 | 400 | Roi de la route |
 | 540 | Légende absolue (toutes les étoiles de Parking Malin : 180 niveaux × 3) |
-| 696 | Super champion (toutes les étoiles de tous les jeux : 540 + 12 + 144) |
+| 696 | Grand explorateur (toutes les étoiles des trois premiers jeux : 540 + 12 + 144) |
+| 996 | Super champion (toutes les étoiles de tous les jeux : 696 + 300 de Poisson Perdu) |
 
 - Statistiques gardées : voitures sorties, fautes, niveaux réussis, plus haut niveau atteint.
 - Le choix du **joueur** : un prénom (12 caractères) et un **animal** parmi 12 (chat, chien, ours, panda, lapin, grenouille, renard, lion, licorne, tigre, hibou, pingouin), dessinés par le code.
@@ -323,6 +375,8 @@ games/mushrooms/engine règles pures de Champis Magiques : difficultés, score, 
 games/mushrooms/ui     forêt, champignons, menu des difficultés, écran de partie
 games/road/engine      règles pures de Poussin Traverse : véhicules (fonctions du temps), traversée, robot, 48 niveaux
 games/road/ui          dessin de la route, des véhicules et du poussin, menu des niveaux, écran de traversée (paysage)
+games/maze/engine      règles pures de Poisson Perdu : lecture du fichier de niveaux, grille et distances, tracé au doigt, impasses, indice, étoiles
+games/maze/ui          récif (murs en corail, ruban de bulles, poisson, anémone, 10 décors), menu des niveaux, écran de jeu
 ```
 
 Le moteur de Parking Malin est du Kotlin pur, testé sur la JVM : règles de sortie et de faute, solveur, **les 180 niveaux solubles et stables**.

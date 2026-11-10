@@ -29,6 +29,9 @@ object Synth {
     private val E6 = 1318.5
     private val G6 = 1568.0
 
+    /** Les huit hauteurs du « bloup » de Poisson Perdu (gamme pentatonique de do, de do5 à mi6) : plus la trace se rapproche de la sortie, plus il est aigu. */
+    val BLOOP_HZ = doubleArrayOf(C5, 587.33, E5, G5, 880.0, C6, 1174.66, E6)
+
     // ------------------------------------------------------------------ outils
 
     /** Bruit blanc déterministe (le même à chaque lancement). */
@@ -279,6 +282,30 @@ object Synth {
             val t = i / RATE.toDouble()
             phase += (560.0 + 520.0 * (t / 0.09)) / RATE
             out[i] = sin(TWO_PI * phase) * exp(-t / 0.022) + noise.next() * exp(-t / 0.002) * 0.25
+        }
+        return pcm(out, 0.4)
+    }
+
+    /** Un « bloup » de bulle à chaque case de la trace : une note ronde et courte qui monte un peu ; sa hauteur [hz] dit si l'on s'approche de la sortie. */
+    fun bloop(hz: Double): ShortArray {
+        val out = samples(0.14)
+        var phase = 0.0
+        for (i in out.indices) {
+            val t = i / RATE.toDouble()
+            phase += hz * (0.82 + 0.4 * (t / 0.14).coerceAtMost(1.0)) / RATE
+            out[i] = (sin(TWO_PI * phase) + 0.22 * sin(TWO_PI * 2.0 * phase) * exp(-t / 0.03)) * exp(-t / 0.045) * minOf(1.0, t / 0.006)
+        }
+        return pcm(out, 0.4)
+    }
+
+    /** Une bulle qui éclate (la trace recule) : un petit « plic » aigu et sec. */
+    fun burst(): ShortArray {
+        val out = samples(0.07)
+        val noise = Noise(11)
+        val band = BandPass(0.35)
+        for (i in out.indices) {
+            val t = i / RATE.toDouble()
+            out[i] = band.process(noise.next(), 3200.0 - 1400.0 * (t / 0.07)) * 6.0 * exp(-t / 0.014) + sin(TWO_PI * 2100.0 * t) * exp(-t / 0.007) * 0.5
         }
         return pcm(out, 0.4)
     }

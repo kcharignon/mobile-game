@@ -14,6 +14,10 @@ et on ne « perd » jamais : une faute coûte une étoile, jamais la partie.
 |---|---|
 | ![Petite rue](docs/screenshots/54-route-jeu.png) | ![Grande route](docs/screenshots/55-route-grande-route.png) |
 
+| Poisson Perdu : tracer le chemin | Poisson Perdu : le poisson rentre chez lui | Poisson Perdu : les abysses |
+|---|---|---|
+| ![Poisson Perdu](docs/screenshots/64-labyrinthe-jeu.png) | ![Victoire](docs/screenshots/67-labyrinthe-victoire.png) | ![Abysses](docs/screenshots/68-labyrinthe-abysses.png) |
+
 ## Les jeux
 
 ### Parking Malin
@@ -34,6 +38,12 @@ Chaque champignon touché joue la note suivante d'une petite mélodie.
 En paysage. Un poussin doit **traverser la route** : un toucher le fait sauter vers l'avant, un geste du doigt le fait sauter de côté ou en arrière.
 Il faut regarder passer les voitures, les scooters, les tracteurs, les bus, les ambulances et même les trains, et choisir son moment.
 Des routes de plus en plus larges sur 48 niveaux. Écrasé, le poussin perd quelques points et repart du dernier refuge.
+
+### Poisson Perdu
+
+Un petit poisson-clown est perdu dans un récif de corail. Il faut **poser le doigt sur lui et tracer le chemin** jusqu'à sa maison, une anémone qui brille : la trace suit les couloirs et ne traverse jamais un mur,
+et si l'on se trompe on repasse le doigt sur son chemin pour reculer. À l'arrivée, le poisson suit le chemin tracé. 100 niveaux fabriqués à l'avance, dix décors (lagon, épave, banquise, volcan, abysses…),
+de 4×5 à 11×16 cases, des boucles et même une maison au milieu du labyrinthe. Pas de chronomètre : les impasses ne coûtent que des étoiles, et un indice est toujours gratuit. Chaque case de la trace joue un petit « bloup » de plus en plus aigu quand on se rapproche de la sortie.
 
 ### Et ensuite
 

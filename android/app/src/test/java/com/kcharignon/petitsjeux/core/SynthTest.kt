@@ -28,6 +28,9 @@ class SynthTest {
             "toc" to Synth.bonk(),
             "saut" to Synth.hop(),
             "cloche" to Synth.crossingBell(),
+            "bloup-grave" to Synth.bloop(Synth.BLOOP_HZ.first()),
+            "bloup-aigu" to Synth.bloop(Synth.BLOOP_HZ.last()),
+            "bulle-eclate" to Synth.burst(),
         )
     }
 
@@ -98,6 +101,15 @@ class SynthTest {
         assertTrue(zeroCrossings(hop, 0.05, 0.075) > zeroCrossings(hop, 0.005, 0.03))
         // la cloche du passage à niveau est aiguë (mi6 / sol6 : plus de 1 300 Hz), bien au-dessus d'un saut de 480 Hz au départ
         assertTrue(zeroCrossings(sounds.getValue("cloche"), 0.0, 0.15) / 2 > 1000)
+    }
+
+    @Test
+    fun theBloopsRiseWithTheirIndexSoTheChildHearsGettingCloser() {
+        val z = Synth.BLOOP_HZ.map { zeroCrossings(Synth.bloop(it), 0.01, 0.08) }
+        for (i in 1 until z.size) assertTrue("le bloup $i doit être plus aigu que le précédent : $z", z[i] > z[i - 1])
+        assertEquals(8, Synth.BLOOP_HZ.size)
+        assertTrue(seconds(sounds.getValue("bloup-grave")) < 0.2)
+        assertTrue(seconds(sounds.getValue("bulle-eclate")) < 0.12)
     }
 
     @Test
