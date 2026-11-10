@@ -42,8 +42,9 @@ clean: ## Remove the built APKs and the Gradle cache volume
 ## —— Design 🎨 ——————————————————————————————————————————————————————————————
 .PHONY: design
 
-design: ## Regenerate mockups, vehicles (SVG sheet + generated VehicleArt.kt) and the app icon (PNG: node tools/design/render.js, needs Playwright)
+design: ## Regenerate mockups, reef mockups, vehicles (SVG sheet + generated VehicleArt.kt) and the app icon (PNG: node tools/design/render.js, needs Playwright)
 	@node tools/design/make-design.js
+	@node tools/design/make-recif.js
 	@node tools/design/make-vehicles.js
 	@node tools/design/make-icon.js
 

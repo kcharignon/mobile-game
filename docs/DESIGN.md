@@ -222,6 +222,30 @@ Le poussin est jaune, vu du dessus, bec en avant ; il bat des ailes et grossit a
 
 Le moteur (`games/road/engine`) est du Kotlin pur piloté par une horloge en millisecondes : tout ce qui roule (`Stream`, `TrainLine`) est une **fonction pure du temps** (flux périodique de véhicules : aucune simulation, aucun hasard pendant la partie), `Crossing` est la traversée (sauts, points, écrasements, retour au refuge), `Planner` est le robot, `RoadLevels` génère les 48 niveaux. Le moteur avance par pas de 20 ms au plus pour qu'aucun véhicule ne « traverse » le poussin sans le toucher. La sauvegarde (`games.road`) garde le meilleur score et les étoiles de chaque niveau, le nombre d'écrasements et de traversées.
 
+## Poisson Perdu : le prochain jeu (maquettes, pas encore codé)
+
+Un labyrinthe vu du dessus où l'on **trace le chemin au doigt** jusqu'à la sortie : un poisson-clown perdu retrouve son anémone à travers un récif de corail.
+100 niveaux (10 mondes de 10, de 4×5 à 11×16 cases), fabriqués à l'avance par un outil puis rangés dans un fichier. Analyse, règles, étoiles, plan : [issue #22](https://github.com/kcharignon/mobile-game/issues/22).
+Les maquettes sont la référence visuelle à valider **avant** d'écrire le Kotlin (`node tools/design/make-recif.js`, dessin dans `tools/design/recif.js`).
+
+| Écran | Maquette |
+|---|---|
+| Planche de style (poisson, anémone, murs, trace, décors) | [`10-recif-planche-style.png`](design/10-recif-planche-style.png) |
+| Les dix mondes : le même niveau en dix palettes | [`11-recif-dix-mondes.png`](design/11-recif-dix-mondes.png) |
+| Accueil : la carte du jeu à côté de celle de Parking Malin | [`12-recif-accueil.png`](design/12-recif-accueil.png) |
+| Choix du niveau (dix mondes de dix niveaux) | [`13-recif-niveaux.png`](design/13-recif-niveaux.png) |
+| Jeu, trace en cours, et indice | [`14-recif-jeu.png`](design/14-recif-jeu.png), [`15-recif-jeu-indice.png`](design/15-recif-jeu-indice.png) |
+| Victoire | [`16-recif-victoire.png`](design/16-recif-victoire.png) |
+
+Ce que les maquettes ont tranché (et qui précise l'issue) :
+
+- **La trace est un ruban d'eau bleu** (contour `#1F6FB5`, cœur `#5DB8F2`) jalonné de bulles blanches, et non une ligne blanche : du blanc sur le sol turquoise très pâle ne se voyait pas. Il devient **doré** quand le niveau est fini sans aucune impasse. Dans les abysses (sol sombre), il est blanc et jaune pâle.
+- **L'indice** montre les 5 prochaines cases du bon chemin par des pastilles jaunes de plus en plus petites, bien distinctes du ruban bleu.
+- **Le poisson est dessiné vu du dessus** (nez vers le haut, comme les voitures et le poussin), il pivote vers là où il va et reste à l'entrée pendant le tracé ; à la victoire il rejoint l'anémone. L'anémone brille et projette un faisceau de lumière par l'ouverture de la sortie : on la repère d'un coup d'œil même dans un grand labyrinthe.
+- **Les murs** sont des coraux épais à bouts ronds (0,26 case), avec des têtes de corail aux jonctions, et un **contour obligatoire** : `tools/design/recif.js` vérifie que chaque couleur de mur de chaque monde contraste **au moins 3:1** avec le sol (le plus faible : 3,64:1, la banquise). Ce même contrôle sera repris en test Kotlin sur les palettes.
+- **Les petits objets du décor** (coquillage, étoile de mer, algues…) ne se posent **qu'au fond des impasses**, à 70 % d'opacité et plus petits : jamais sur la solution (ils la révéleraient), et jamais assez voyants pour passer pour quelque chose à ramasser.
+- **Écran de jeu** : fond marin pleine page aux couleurs du monde, bandeau et boutons dans les zones sûres, labyrinthe centré et entièrement visible. **Victoire** : panneau en bas, pour que la trace dorée et l'arrivée du poisson restent visibles.
+
 ## Progression du joueur (« l'évolution »)
 
 - **Étoiles** cumulées (somme des meilleures notes) → **rang**, affiché partout où le joueur apparaît :

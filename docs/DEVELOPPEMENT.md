@@ -28,7 +28,7 @@ android/app/src/main/java/com/kcharignon/petitsjeux/
   games/road       Poussin Traverse : engine/ (véhicules, traversée, robot de preuve, 48 niveaux), ui/ (route, véhicules, poussin, écrans en paysage), progression
 android/app/src/test/    tests Kotlin ; screenshots/ = interface rendue par Robolectric (sans téléphone)
 docs/                    DESIGN.md, maquettes (design/), captures du README (screenshots/)
-tools/design/            générateurs (Node, sans dépendance) : maquettes, icône, et les véhicules (vehicles.js -> VehicleArt.kt généré + aperçu)
+tools/design/            générateurs (Node, sans dépendance) : maquettes, icône, les véhicules (vehicles.js -> VehicleArt.kt généré + aperçu), et le récif de Poisson Perdu (recif.js, make-recif.js)
 .github/                 workflows : tests et APK de débogage, publication signée
 ```
 
