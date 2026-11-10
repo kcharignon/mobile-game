@@ -15,7 +15,9 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -117,6 +119,51 @@ class MazeScreenshotsTest {
 
     @Test
     fun theMenuForANewPlayer() = show("60-labyrinthe-menu") { MazeMenuScreen(MazeProgress(), onPlay = {}, onBack = {}) }
+
+    @Test
+    fun theMenuAfterJumpingAheadResumesFromTheFurthestLevel() {
+        // 1 à 13 réussis, puis un saut au niveau 40 : on reprend au 41 ; les niveaux laissés derrière sont gris mais jouables
+        val jumped = someProgress.withResult(40, 3, 0)
+        assertEquals(41, jumped.currentLevel)
+        show("70-labyrinthe-menu-saut") { MazeMenuScreen(jumped, onPlay = {}, onBack = {}) }
+        rule.onNodeWithTag("level-41").assertExists()
+    }
+
+/**
+     * Fait défiler la liste des mondes jusqu'au niveau [levelTag]. L'horloge du test est rendue automatique le temps du défilement (le menu n'a aucune animation infinie :
+     * l'attente d'inactivité de `performScrollToNode` ne finirait jamais avec une horloge arrêtée à la main), puis arrêtée de nouveau.
+     */
+    private fun scrollListTo(listTag: String, levelTag: String) {
+        rule.mainClock.autoAdvance = true
+        rule.onNodeWithTag(listTag).performScrollToNode(hasTestTag(levelTag))
+        rule.waitForIdle()
+        rule.mainClock.autoAdvance = false
+    }
+
+    @Test
+    fun anyLevelCanBeOpenedFromTheStartEvenInTheLastWorld() {
+        val player = Profile.create(0, "Léa", Avatar.CAT, now = 1L)!!
+        val store = InMemoryProfileStore(listOf(player))
+        rule.mainClock.autoAdvance = false
+        rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, MazeProgress.GAME_ID)) }
+        rule.mainClock.advanceTimeBy(300)
+        // on saute au niveau 97 sans rien avoir fait avant (un niveau du milieu du dernier monde : pas d'introduction)
+        scrollListTo("worlds", "level-97")
+        rule.mainClock.advanceTimeBy(100)
+        rule.onNodeWithTag("level-97").performClick()
+        play(300)
+        assertTrue(rule.onAllNodesWithText("Niveau 97").fetchSemanticsNodes().isNotEmpty())
+        val l = level(97)
+        assertEquals("1 cases, tête ${l.start.x},${l.start.y}, 0 impasses", trail())
+        // on le réussit : la reprise se fait au niveau suivant, et le niveau 1 n'a jamais été fait
+        drag(l, l.solution)
+        play(5000)
+        assertTrue(finished())
+        val saved = MazeProgress.fromJson(store.load(0)!!.gameSave(MazeProgress.GAME_ID))
+        assertEquals(3, saved.starsOf(97))
+        assertEquals(98, saved.currentLevel)
+        assertTrue(!saved.isDone(1))
+    }
 
     @Test
     fun theMenuWithSomeProgress() {

@@ -17,6 +17,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.geometry.Offset
@@ -345,6 +347,42 @@ class RoadScreenshotsTest {
         assertEquals(3, feedback.hops)
         assertEquals("une graine : la première note de la mélodie", listOf(0), feedback.picks)
         assertEquals("un camion écrase le poussin : klaxon de camion", listOf(3), feedback.horns)
+    }
+
+/**
+     * Fait défiler la liste des mondes jusqu'au niveau [levelTag]. L'horloge du test est rendue automatique le temps du défilement (le menu n'a aucune animation infinie :
+     * l'attente d'inactivité de `performScrollToNode` ne finirait jamais avec une horloge arrêtée à la main), puis arrêtée de nouveau.
+     */
+    private fun scrollListTo(listTag: String, levelTag: String) {
+        rule.mainClock.autoAdvance = true
+        rule.onNodeWithTag(listTag).performScrollToNode(hasTestTag(levelTag))
+        rule.waitForIdle()
+        rule.mainClock.autoAdvance = false
+    }
+
+    @Test
+    fun anyLevelCanBeOpenedFromTheStartEvenTheTrainWorld() {
+        // tous les niveaux sont jouables : on saute au niveau 31 (le premier du passage à niveau) sans avoir fini les précédents
+        val store = InMemoryProfileStore(listOf(Profile.create(0, "Léa", Avatar.CAT, now = 1L)!!))
+        rule.mainClock.autoAdvance = false
+        rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, "road")) }
+        rule.mainClock.advanceTimeBy(300)
+        scrollListTo("worlds", "level-31")
+        rule.mainClock.advanceTimeBy(100)
+        rule.onNodeWithTag("level-31").performClick()
+        var guard = 0
+        while (rule.onAllNodesWithTag("road").fetchSemanticsNodes().isEmpty() && guard++ < 200) {
+            Thread.sleep(25)
+            rule.mainClock.advanceTimeByFrame()
+        }
+        assertTrue("la route est prête", guard < 200)
+        rule.onNodeWithText("Nouveau : Un train passe : écoute la cloche !").assertExists()
+        start()
+        play(300)
+        tapWorld()
+        play(300)
+        // et ce niveau-là se joue et se sauvegarde comme les autres : ici on s'arrête, la partie est vérifiée plus haut
+        assertTrue(chick().startsWith("ligne "))
     }
 
     @Test

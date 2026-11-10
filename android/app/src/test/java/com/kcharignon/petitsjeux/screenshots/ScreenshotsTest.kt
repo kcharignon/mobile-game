@@ -659,6 +659,17 @@ class ScreenshotsTest {
     }
 
     @Test
+    fun aLevelFarAheadCanBePlayedFromTheStartWithoutFinishingTheOnesBefore() {
+        // tous les niveaux sont jouables : un enfant qui trouve le jeu trop simple saute en avant, et on reprend à partir de là
+        val store = InMemoryProfileStore(listOf(profile(0, "Léa", Avatar.CAT)))
+        playLevelFromTheMenu(store, 12)
+        val saved = ParkingProgress.fromJson(store.load(0)!!.gameSave(ParkingProgress.GAME_ID))
+        assertEquals(3, saved.starsOf(12))
+        assertEquals("on reprendra au niveau suivant le plus loin atteint", 13, saved.currentLevel)
+        assertTrue(!saved.isDone(1) && !saved.isDone(11))
+    }
+
+    @Test
     fun theLevelIsSavedTheMomentTheLastCarLeavesEvenIfWeQuitDuringItsAnimation() {
         val store = InMemoryProfileStore(listOf(profile(0, "Léa", Avatar.CAT)))
         playFirstLevelFromTheMenu(store, mistakes = 0, settleAtEnd = false)

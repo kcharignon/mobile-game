@@ -11,24 +11,44 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RoadProgressTest {
+
+    @Test
+    fun everyLevelCanBePlayedFromTheStartAndJumpingAheadMovesTheRestartingPoint() {
+        var p = RoadProgress()
+        for (n in 1..5) p = p.withResult(n, 3, 100, 0)
+        assertEquals(6, p.currentLevel)
+        assertEquals("Niveau 6", RoadMiniGame.progressLabel(p.toJson()))
+        // il trouve le jeu trop simple : il saute au niveau 30 sans avoir fini ceux d'avant, et le réussit
+        p = p.withResult(30, 3, 100, 0)
+        assertEquals("on reprend au niveau le plus loin atteint, plus un", 31, p.currentLevel)
+        assertEquals("Niveau 31", RoadMiniGame.progressLabel(p.toJson()))
+        assertTrue(p.isDone(30))
+        assertFalse("les niveaux laissés derrière restent à faire", p.isDone(10))
+        assertFalse(p.allDone)
+        // rejouer un niveau plus ancien, ou en réussir un autre en chemin, ne fait pas reculer le point de reprise
+        p = p.withResult(3, 3, 100, 0)
+        assertEquals(31, p.currentLevel)
+        p = p.withResult(7, 3, 100, 0)
+        assertEquals(31, p.currentLevel)
+    }
+
     @Test
     fun aNewPlayerStartsAtLevelOne() {
         val p = RoadProgress()
         assertEquals(0, p.totalStars)
         assertEquals(1, p.currentLevel)
-        assertTrue(p.isUnlocked(1))
-        assertFalse(p.isUnlocked(2))
+        assertFalse(p.isDone(1))
         assertFalse(p.allDone)
     }
 
     @Test
-    fun finishingALevelUnlocksTheNextAndKeepsTheBest() {
+    fun finishingALevelMovesTheStartingPointAndKeepsTheBest() {
         val p = RoadProgress().withResult(1, earnedStars = 2, score = 70, hitsNow = 1)
         assertEquals(2, p.starsOf(1))
         assertEquals(70, p.bestOf(1))
         assertEquals(2, p.currentLevel)
-        assertTrue(p.isUnlocked(2))
-        assertFalse(p.isUnlocked(3))
+        assertTrue(p.isDone(1))
+        assertFalse(p.isDone(2))
         // un rejeu moins bon ne baisse rien ; un meilleur remonte
         val worse = p.withResult(1, earnedStars = 1, score = 40, hitsNow = 3)
         assertEquals(2, worse.starsOf(1))

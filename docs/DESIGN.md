@@ -142,7 +142,7 @@ Un test vérifie les 180 niveaux en suivant les indices sans faute, et un autre 
 La **difficulté** vient du nombre de « vagues » de sorties (la longueur de la plus longue suite de dépendances) et du peu de véhicules libres au départ ; dans les derniers mondes, on cherche aussi des **pièges**
 (un coup qui paraît bon mais mène à l'impasse).
 
-Le niveau suivant se débloque quand le précédent est réussi.
+**Tous les niveaux sont jouables dès le début** : les niveaux pas encore réussis sont gris (avec leur numéro, sans cadenas), et un enfant qui trouve le jeu trop simple peut sauter en avant. « Niveau suivant » enchaîne depuis le niveau qu'on vient de finir ; en revenant dans le jeu, le menu s'ouvre sur **le niveau le plus loin réussi + 1** (en orange, avec la carte de l'accueil qui dit « Niveau N »). Les niveaux laissés derrière restent à faire, et réussir un niveau plus ancien ne fait pas reculer le point de reprise.
 
 ## Champis Magiques : règles
 
@@ -189,7 +189,7 @@ Un jeu d'attention et d'adresse, **où l'on ne perd jamais** : un poussin traver
 - **Collisions indulgentes** (comme dans Parking Malin) : le poussin se dessine sur 0,32 case de rayon mais n'est touché que sur 0,22, et chaque véhicule est raccourci de 0,08 case à chaque bout : s'ils se frôlent, ça passe. Pendant un saut le poussin compte dans sa ligne de départ pour la première moitié, puis dans la suivante.
 - **Les étoiles** : 1 dès l'arrivée (on ne perd jamais), 2 à 50 % du score maximum, 3 à 80 %. Le maximum d'un niveau = toutes les lignes + toutes les graines + l'arrivée. Elles comptent pour le rang, comme celles des autres jeux (jusqu'à 144 : 48 niveaux × 3).
 - **Les graines** (dorées, trois grains) donnent une raison de se décaler et de prendre un petit risque. Elles sont posées par le robot (voir plus bas) **le long d'un chemin sans aucune touche** : on peut toujours toutes les ramasser, donc les 3 étoiles sont toujours possibles. Chaque graine ramassée joue la note suivante de la petite mélodie de Champis Magiques.
-- Le niveau suivant se débloque quand le précédent est réussi.
+- **Tous les niveaux sont jouables dès le début** : les niveaux pas encore réussis sont gris (avec leur numéro, sans cadenas), et un enfant qui trouve le jeu trop simple peut sauter en avant. « Niveau suivant » enchaîne depuis le niveau qu'on vient de finir ; en revenant dans le jeu, le menu s'ouvre sur **le niveau le plus loin réussi + 1** (en orange, avec la carte de l'accueil qui dit « Niveau N »). Les niveaux laissés derrière restent à faire, et réussir un niveau plus ancien ne fait pas reculer le point de reprise.
 
 ### Les 48 niveaux
 
@@ -239,7 +239,7 @@ Un labyrinthe vu du dessus, **entièrement visible** (ni défilement ni zoom : o
 ### Impasses, étoiles, indice
 
 - **Impasse** : chaque série de pas qui **s'éloigne de la sortie** (par le chemin le plus court) en compte **une**, quelle que soit sa longueur. Dans une grille, deux cases voisines diffèrent toujours d'exactement 1 en distance à la sortie, donc la règle est sans ambiguïté, **avec ou sans boucle** (un plus court chemin existe toujours et ne compte aucune impasse : les 3 étoiles sont toujours possibles). Se ré-engager dans l'impasse après être revenu à l'embranchement en compte une de plus.
-- **Étoiles** : 0 impasse = 3 ★, 1 ou 2 = 2 ★, 3 ou plus = 1 ★ (on gagne toujours au moins une étoile). Un niveau déjà réussi garde sa meilleure note ; le suivant se débloque quand le précédent est réussi.
+- **Étoiles** : 0 impasse = 3 ★, 1 ou 2 = 2 ★, 3 ou plus = 1 ★ (on gagne toujours au moins une étoile). Un niveau déjà réussi garde sa meilleure note. **Tous les niveaux sont jouables dès le début** : les niveaux pas encore réussis sont gris (avec leur numéro, sans cadenas), et un enfant qui trouve le jeu trop simple peut sauter en avant. « Niveau suivant » enchaîne depuis le niveau qu'on vient de finir ; en revenant dans le jeu, le menu s'ouvre sur **le niveau le plus loin réussi + 1** (en orange, avec la carte de l'accueil qui dit « Niveau N »). Les niveaux laissés derrière restent à faire, et réussir un niveau plus ancien ne fait pas reculer le point de reprise.
 - **Indice** (gratuit, jamais une étoile en moins) : si la trace est sur le bon chemin, 5 pastilles jaunes de plus en plus petites montrent les prochaines cases ; si elle est dans une impasse, elles montrent le **chemin du retour** jusqu'à l'embranchement. **Recommencer** efface la trace et remet les impasses à zéro.
 - **Le son « chaud-froid »** : chaque case gagnée joue un petit « bloup » de bulle, **plus aigu quand la trace se rapproche de la sortie** (8 hauteurs de la gamme pentatonique de do, calculées sur la distance à la sortie), plus grave quand elle s'en éloigne. L'enfant entend s'il est sur la bonne voie sans qu'un mot le lui dise. Une bulle qui éclate en reculant, un « toc » au fond d'une impasse. Ni musique de fond, ni vibration à chaque case. Jamais écouté sur un téléphone.
 - Rejeté : des perles à ramasser (sur le bon chemin elles donnent la réponse, dans les impasses elles punissent l'enfant curieux), des étoiles selon le temps (pas de chronomètre dans l'appli) ou selon les murs touchés (un doigt qui dérive n'est pas une faute).
@@ -353,7 +353,7 @@ Ce que les maquettes ont tranché : la trace est **bleue** (le blanc ne se voyai
 - **Fond** jaune soleil dégradé (comme l'icône de référence), grands cercles clairs en filigrane.
 - **Typographie** : Fredoka (graisse 500-700), arrondie et lisible ; titres blancs cernés d'encre.
 - **Panneaux** crème à « marche » (ombre pleine en dessous), **boutons** épais à reflet : vert = action principale, bleu = secondaire,
-  orange = indice, gris = verrouillé.
+  orange = indice, gris = inactif ou pas encore réussi (un niveau gris reste jouable).
 - **Voitures** vues de dessus, **toit, pare-brise, phares, feux, roues** ; une **tranche sombre** est toujours dessinée vers le bas de l'écran
   (même quand la voiture tourne) pour donner du volume sans 3D. 9 couleurs (vert, orange, cyan, bleu, rose, jaune, violet, beige, rouge).
 - **Plateau** d'asphalte à damier discret, petits traits de parking, **plots** orange et panneau **P** autour.

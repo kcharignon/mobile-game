@@ -19,14 +19,17 @@ data class MazeProgress(
 
     val levelsDone: Int get() = stars.size
 
-    /** Le premier niveau pas encore réussi (le dernier niveau si tout est réussi) : c'est là que le joueur reprend. */
+    /**
+     * Le niveau où le joueur reprend : le plus loin qu'il ait réussi, plus un (le niveau 1 s'il n'a rien fait, le dernier niveau s'il est au bout).
+     * **Tous les niveaux sont jouables dès le début** : s'il trouve le jeu trop simple, il saute en avant et reprend à partir de là ; ceux qu'il a laissés derrière restent à faire.
+     */
     val currentLevel: Int
-        get() = (1..MazeWorlds.LEVEL_COUNT).firstOrNull { it !in stars } ?: MazeWorlds.LEVEL_COUNT
+        get() = ((stars.keys.maxOrNull() ?: 0) + 1).coerceAtMost(MazeWorlds.LEVEL_COUNT)
 
     val allDone: Boolean get() = (1..MazeWorlds.LEVEL_COUNT).all { it in stars }
 
-    /** Un niveau se débloque quand le précédent est réussi. */
-    fun isUnlocked(level: Int): Boolean = level in 1..MazeWorlds.LEVEL_COUNT && level <= currentLevel
+    /** Ce niveau a-t-il déjà été réussi (au moins une étoile) ? */
+    fun isDone(level: Int): Boolean = level in stars
 
     fun starsOf(level: Int): Int = stars[level] ?: 0
 

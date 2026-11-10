@@ -209,9 +209,9 @@ function niveaux() {
     const y0 = 166 + wi * 204;
     const locked = w === 2;
     const done = stars[w] ? stars[w].reduce((a, c) => a + c, 0) : 0;
-    b += text(40, y0 + 12, `Monde ${w + 1} · ${pal.name}`, { size: 16, weight: 600, anchor: 'start', fill: locked ? '#7B8196' : T.inkSoft });
-    // les trois couleurs de corail du monde, à droite du titre
-    pal.walls.forEach((c, k) => { b += `<circle cx="${262 + k * 15}" cy="${y0 + 7}" r="5.5" fill="${locked ? '#C9CDD8' : c}"/>`; });
+    b += text(40, y0 + 12, `Monde ${w + 1} · ${pal.name}`, { size: 16, weight: 600, anchor: 'start', fill: T.inkSoft });
+    // les trois couleurs de corail du monde, à droite du titre (un monde se montre toujours en couleurs : on peut y sauter)
+    pal.walls.forEach((c, k) => { b += `<circle cx="${262 + k * 15}" cy="${y0 + 7}" r="5.5" fill="${c}"/>`; });
     if (!locked) b += star(324, y0 + 6, 9) + text(338, y0 + 12, `${done}`, { size: 15, weight: 700, anchor: 'start', fill: T.starDark });
     for (let i = 0; i < 10; i++) {
       const n = w * 10 + i + 1;
@@ -225,8 +225,8 @@ function niveaux() {
       const dark = isLocked ? '#B9BECE' : isCur ? '#D68A00' : T.greenDark;
       b += `<rect x="${x}" y="${y + 5}" width="54" height="44" rx="16" fill="${dark}"/><rect x="${x}" y="${y}" width="54" height="44" rx="16" fill="${fill}"/>`;
       b += `<rect x="${x + 10}" y="${y + 4}" width="34" height="9" rx="4.5" fill="#fff" opacity="0.28"/>`;
-      if (isLocked) b += icons.lock(x + 27, y + 19, 0.8);
-      else b += text(x + 27, y + 31, String(n), { size: 24, weight: 700, fill: '#fff' });
+      // tous les niveaux sont jouables : un niveau pas encore réussi est gris, avec son numéro (pas de cadenas)
+      b += text(x + 27, y + 31, String(n), { size: 24, weight: 700, fill: isLocked ? '#7B8196' : '#fff' });
       if (!isLocked) {
         const k = isCur ? 0 : stars[w][i];
         for (let j = 0; j < 3; j++) b += star(x + 11 + j * 16, y + 61 - (j === 1 ? 3 : 0), 6.5, j < k);

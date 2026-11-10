@@ -13,20 +13,40 @@ class MazeProgressTest {
         assertEquals(0, p.totalStars)
         assertEquals(0, p.levelsDone)
         assertEquals(1, p.currentLevel)
-        assertTrue(p.isUnlocked(1))
-        assertFalse(p.isUnlocked(2))
+        assertFalse(p.isDone(1))
         assertFalse(p.allDone)
     }
 
     @Test
-    fun aLevelUnlocksWhenThePreviousOneIsDone() {
+    fun finishingALevelMovesTheStartingPointToTheNextOne() {
         val p = MazeProgress().withResult(1, 3, 0).withResult(2, 2, 1)
         assertEquals(3, p.currentLevel)
-        assertTrue(p.isUnlocked(3))
-        assertFalse(p.isUnlocked(4))
+        assertTrue(p.isDone(1) && p.isDone(2))
+        assertFalse(p.isDone(3))
         assertEquals(5, p.totalStars)
         assertEquals(1, p.detours)
         assertEquals(2, p.played)
+    }
+
+
+    @Test
+    fun everyLevelCanBePlayedFromTheStartAndJumpingAheadMovesTheRestartingPoint() {
+        var p = MazeProgress()
+        for (n in 1..10) p = p.withResult(n, 3, 0)
+        assertEquals(11, p.currentLevel)
+        assertEquals("Niveau 11", MazeMiniGame.progressLabel(p.toJson()))
+        // il trouve le jeu trop simple : il saute au niveau 40 sans avoir fini ceux d'avant, et le réussit
+        p = p.withResult(40, 3, 0)
+        assertEquals("on reprend au niveau le plus loin atteint, plus un", 41, p.currentLevel)
+        assertEquals("Niveau 41", MazeMiniGame.progressLabel(p.toJson()))
+        assertTrue(p.isDone(40))
+        assertFalse("les niveaux laissés derrière restent à faire", p.isDone(15))
+        assertFalse(p.allDone)
+        // rejouer un niveau plus ancien, ou en réussir un autre en chemin, ne fait pas reculer le point de reprise
+        p = p.withResult(3, 3, 0)
+        assertEquals(41, p.currentLevel)
+        p = p.withResult(12, 3, 0)
+        assertEquals(41, p.currentLevel)
     }
 
     @Test
