@@ -57,9 +57,9 @@ object MushroomMiniGame : MiniGame {
 
     @Composable
     override fun Content(profile: Profile, onProfileChange: (Profile) -> Unit, onExit: () -> Unit) {
-        // null = le choix de la difficulté ; sinon l'indice de la difficulté en cours
-        var playing by rememberSaveable { mutableStateOf<Int?>(null) }
         val progress = MushroomProgress.fromJson(profile.gameSave(id))
+        // null = le choix de la difficulté ; sinon l'indice de la difficulté en cours. À l'ouverture : directement la plus élevée déjà jouée.
+        var playing by rememberSaveable { mutableStateOf<Int?>(progress.launchDifficulty.index) }
         val difficulty = playing?.let { Difficulty.of(it) }
         if (difficulty == null) {
             ShroomMenuScreen(progress, onPlay = { playing = it.index }, onBack = onExit)

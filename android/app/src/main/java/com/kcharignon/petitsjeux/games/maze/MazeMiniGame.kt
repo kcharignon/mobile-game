@@ -58,9 +58,9 @@ object MazeMiniGame : MiniGame {
     @Composable
     override fun Content(profile: Profile, onProfileChange: (Profile) -> Unit, onExit: () -> Unit) {
         val levels = MazeData.levels(LocalContext.current)
-        // null = le choix du niveau ; sinon le numéro du niveau en cours
-        var playing by rememberSaveable { mutableStateOf<Int?>(null) }
         val progress = MazeProgress.fromJson(profile.gameSave(id))
+        // null = le choix du niveau ; sinon le numéro du niveau en cours. À l'ouverture : directement le prochain niveau à faire.
+        var playing by rememberSaveable { mutableStateOf(progress.launchLevel) }
         val n = playing
         if (n == null) {
             MazeMenuScreen(progress, onPlay = { playing = it }, onBack = onExit)

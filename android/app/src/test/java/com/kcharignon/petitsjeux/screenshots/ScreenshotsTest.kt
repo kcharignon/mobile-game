@@ -20,6 +20,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -313,7 +314,13 @@ class ScreenshotsTest {
         rule.onRoot().captureRoboImage("../../docs/screenshots/09-jeu-pouet.png")
     }
 
-    /** Joue le niveau [index] depuis le menu des niveaux (les précédents doivent être réussis). Renvoie les sens utilisés pour gagner. */
+    /** Le geste « retour » d'Android (ou la flèche de retour) : depuis un niveau, on revient à la grille des niveaux. */
+    private fun pressBack() {
+        rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
+        rule.mainClock.advanceTimeBy(300)
+    }
+
+    /** Ouvre le jeu et joue le niveau [index] : celui que le jeu lance tout seul, ou un autre choisi dans la grille. Renvoie les sens utilisés pour gagner. */
     private fun playLevelFromTheMenu(
         store: InMemoryProfileStore,
         index: Int,
@@ -326,8 +333,13 @@ class ScreenshotsTest {
         rule.mainClock.autoAdvance = false
         rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, ParkingProgress.GAME_ID)) }
         rule.mainClock.advanceTimeBy(300)
-        rule.onNodeWithTag("level-$index").performClick()
-        rule.mainClock.advanceTimeBy(300)
+        // à l'ouverture le jeu lance tout seul le prochain niveau à faire ; pour un autre niveau, on revient à la grille et on le choisit
+        val opensOn = ParkingProgress.fromJson(store.load(0)!!.gameSave(ParkingProgress.GAME_ID)).launchLevel
+        if (opensOn != index) {
+            pressBack()
+            rule.onNodeWithTag("level-$index").performClick()
+            rule.mainClock.advanceTimeBy(300)
+        }
 
         val level = LevelGenerator.level(index)
         val game = ParkingGame(level)
@@ -656,6 +668,21 @@ class ScreenshotsTest {
         assertEquals(2, saved.currentLevel)
         assertEquals(LevelGenerator.level(1).cars.size, saved.carsFreed)
         assertEquals(1, saved.played)
+    }
+
+    @Test
+    fun openingTheGameLandsOnTheNextLevelAndTheBackArrowShowsTheGrid() {
+        // un enfant qui a fini 10 niveaux : en touchant la carte du jeu il arrive directement sur le niveau 11, sans grille à parcourir
+        val store = InMemoryProfileStore(listOf(profile(0, "Léa", Avatar.CAT, levels = 10)))
+        rule.mainClock.autoAdvance = false
+        rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, ParkingProgress.GAME_ID)) }
+        rule.mainClock.advanceTimeBy(300)
+        rule.onNodeWithTag("board").assertExists()
+        assertTrue(rule.onAllNodesWithTag("level-11").fetchSemanticsNodes().isEmpty())
+        // la flèche de retour ramène à la grille, où tous les niveaux sont là
+        pressBack()
+        rule.onNodeWithTag("level-11").assertExists()
+        rule.onNodeWithTag("level-1").assertExists()
     }
 
     @Test

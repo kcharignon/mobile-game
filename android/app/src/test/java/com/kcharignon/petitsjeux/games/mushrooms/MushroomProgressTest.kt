@@ -74,4 +74,21 @@ class MushroomProgressTest {
         assertEquals(0, MushroomMiniGame.stars(null))
         assertEquals("mushrooms", MushroomMiniGame.id)
     }
+
+    @Test
+    fun openingTheGameLaunchesTheHighestDifficultyAlreadyPlayedNotTheHighestUnlocked() {
+        assertEquals("jamais joué : la première", Difficulty.EASY, MushroomProgress().launchDifficulty)
+        // 2 étoiles sur EASY débloquent MEDIUM, mais l'enfant ne l'a pas encore essayé : on relance EASY
+        var p = MushroomProgress().withResult(Difficulty.EASY, Difficulty.EASY.twoStars, 15, 6)
+        assertTrue(p.isUnlocked(Difficulty.MEDIUM))
+        assertEquals(Difficulty.EASY, p.launchDifficulty)
+        // il a joué MEDIUM sans réussir à débloquer HARD : on relance MEDIUM
+        p = p.withResult(Difficulty.MEDIUM, 100, 5, 1)
+        assertFalse(p.isUnlocked(Difficulty.HARD))
+        assertEquals(Difficulty.MEDIUM, p.launchDifficulty)
+        // il a joué HARD : on relance HARD, même si EXPERT est débloqué sans avoir été essayé
+        p = p.withResult(Difficulty.MEDIUM, Difficulty.MEDIUM.twoStars, 20, 8).withResult(Difficulty.HARD, Difficulty.HARD.twoStars, 25, 9)
+        assertTrue(p.isUnlocked(Difficulty.EXPERT))
+        assertEquals(Difficulty.HARD, p.launchDifficulty)
+    }
 }

@@ -92,4 +92,17 @@ class ParkingProgressTest {
         assertFalse(p.isDone(Worlds.LEVEL_COUNT + 1))
         assertEquals(3 * Worlds.LEVEL_COUNT, p.totalStars)
     }
+
+    @Test
+    fun openingTheGameLaunchesTheNextLevelToDoAndTheGridOnlyWhenEverythingIsDone() {
+        assertEquals("un nouveau joueur arrive direct sur le niveau 1", 1, ParkingProgress().launchLevel)
+        var p = ParkingProgress()
+        for (n in 1..10) p = p.withResult(n, 3, 1, 0)
+        assertEquals(11, p.launchLevel)
+        // après un saut en avant, on reprend au plus loin atteint
+        p = p.withResult(40, 3, 1, 0)
+        assertEquals(41, p.launchLevel)
+        for (level in 1..Worlds.LEVEL_COUNT) p = p.withResult(level, 3, 1, 0)
+        assertEquals("tout est réussi : plus de suivant, on montre la grille", null, p.launchLevel)
+    }
 }

@@ -29,6 +29,12 @@ data class MushroomProgress(
     /** La première difficulté est ouverte ; les autres demandent 2 étoiles sur la précédente. */
     fun isUnlocked(d: Difficulty): Boolean = d.previous?.let { stars(it) >= 2 } ?: true
 
+    /**
+     * La difficulté à lancer tout de suite quand l'enfant ouvre le jeu, sans passer par le choix : la plus élevée **déjà jouée**
+     * (pas la plus haute débloquée, qu'il n'a peut-être pas encore essayée) ; la première s'il n'a jamais joué.
+     */
+    val launchDifficulty: Difficulty get() = Difficulty.entries.lastOrNull { hasPlayed(it) } ?: Difficulty.entries.first()
+
     /** Le meilleur score de toutes les difficultés (0 si jamais joué). */
     val topScore: Int get() = best.values.maxOrNull() ?: 0
 
