@@ -243,10 +243,8 @@ class MushroomsScreenshotsTest {
         rule.mainClock.autoAdvance = false
         rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, "mushrooms")) }
         rule.mainClock.advanceTimeBy(300)
-        // seule la première difficulté est ouverte
-        rule.onNodeWithTag("difficulty-1").assertExists()
-        rule.onNodeWithTag("difficulty-0").performClick()
-        rule.mainClock.advanceTimeBy(300)
+        // le jeu s'ouvre tout de suite sur la première difficulté (jamais rien joué) : pas de choix à faire
+        assertTrue(rule.onAllNodesWithTag("difficulty-1").fetchSemanticsNodes().isEmpty())
         rule.onNodeWithText("C'est parti !").performClick()
         playToTheEnd(Difficulty.EASY, delayMs = 150)
         rule.mainClock.advanceTimeBy(2500)

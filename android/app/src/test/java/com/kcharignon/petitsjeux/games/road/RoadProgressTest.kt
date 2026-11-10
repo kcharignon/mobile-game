@@ -3,6 +3,7 @@ package com.kcharignon.petitsjeux.games.road
 import com.kcharignon.petitsjeux.core.Games
 import com.kcharignon.petitsjeux.core.save.Avatar
 import com.kcharignon.petitsjeux.core.save.Profile
+import com.kcharignon.petitsjeux.games.road.engine.RoadWorlds
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -98,5 +99,17 @@ class RoadProgressTest {
         // les étoiles du jeu comptent pour le rang du joueur, avec celles des autres
         val player = Profile.create(0, "Léa", Avatar.CAT, now = 1L)!!.withGameSave("road", save)
         assertEquals(5, Games.totalStars(player))
+    }
+
+    @Test
+    fun openingTheGameLaunchesTheNextLevelToDoAndTheGridOnlyWhenEverythingIsDone() {
+        assertEquals("un nouveau joueur arrive direct sur le niveau 1", 1, RoadProgress().launchLevel)
+        var p = RoadProgress()
+        for (n in 1..5) p = p.withResult(n, 3, 100, 0)
+        assertEquals(6, p.launchLevel)
+        p = p.withResult(30, 3, 100, 0)
+        assertEquals(31, p.launchLevel)
+        for (n in 1..RoadWorlds.LEVEL_COUNT) p = p.withResult(n, 3, 100, 0)
+        assertEquals("tout est réussi : plus de suivant, on montre la grille", null, p.launchLevel)
     }
 }

@@ -28,6 +28,12 @@ data class MazeProgress(
 
     val allDone: Boolean get() = (1..MazeWorlds.LEVEL_COUNT).all { it in stars }
 
+    /**
+     * Le niveau à lancer tout de suite quand l'enfant ouvre le jeu : le suivant à faire ([currentLevel]), sans passer par la grille des niveaux
+     * (choisir parmi plein de tuiles n'est pas intuitif pour un enfant). `null` quand tout est réussi : il n'y a plus de « suivant », on montre alors la grille pour qu'il rejoue ce qu'il veut.
+     */
+    val launchLevel: Int? get() = if (allDone) null else currentLevel
+
     /** Ce niveau a-t-il déjà été réussi (au moins une étoile) ? */
     fun isDone(level: Int): Boolean = level in stars
 

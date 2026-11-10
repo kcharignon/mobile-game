@@ -1,5 +1,6 @@
 package com.kcharignon.petitsjeux.games.road
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -60,9 +61,9 @@ object RoadMiniGame : MiniGame {
     override fun Content(profile: Profile, onProfileChange: (Profile) -> Unit, onExit: () -> Unit) {
         // tout le jeu, menu compris, est en paysage ; en sortant, l'appli retrouve son portrait
         LockLandscape()
-        // null = le choix du niveau ; sinon le numéro du niveau en cours
-        var playing by rememberSaveable { mutableStateOf<Int?>(null) }
         val progress = RoadProgress.fromJson(profile.gameSave(id))
+        // null = le choix du niveau ; sinon le numéro du niveau en cours. À l'ouverture : directement le prochain niveau à faire.
+        var playing by rememberSaveable { mutableStateOf(progress.launchLevel) }
         val n = playing
         if (n == null) {
             RoadMenuScreen(progress, onPlay = { playing = it }, onBack = onExit)
@@ -89,6 +90,8 @@ private fun LevelHost(
     }
     val ready = level
     if (ready == null) {
+        // même pendant ce court instant, « retour » ramène à la grille des niveaux (et ne quitte pas l'appli)
+        BackHandler(onBack = onMenu)
         Box(Modifier.fillMaxSize().background(Pj.Sun), contentAlignment = Alignment.Center) {
             PjText("Je prépare la route…", size = 26.sp, weight = FontWeight.Bold, color = Pj.Ink)
         }

@@ -61,9 +61,9 @@ object ParkingMiniGame : MiniGame {
 
     @Composable
     override fun Content(profile: Profile, onProfileChange: (Profile) -> Unit, onExit: () -> Unit) {
-        // null = le choix du niveau ; sinon le numéro du niveau en cours
-        var playing by rememberSaveable { mutableStateOf<Int?>(null) }
         val progress = ParkingProgress.fromJson(profile.gameSave(id))
+        // null = le choix du niveau ; sinon le numéro du niveau en cours. À l'ouverture : directement le prochain niveau à faire.
+        var playing by rememberSaveable { mutableStateOf(progress.launchLevel) }
         val level = playing
         if (level == null) {
             LevelSelectScreen(progress, onPlay = { playing = it }, onBack = onExit)

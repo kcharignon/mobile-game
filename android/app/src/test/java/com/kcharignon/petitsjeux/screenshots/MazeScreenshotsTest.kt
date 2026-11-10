@@ -147,6 +147,9 @@ class MazeScreenshotsTest {
         rule.mainClock.autoAdvance = false
         rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, MazeProgress.GAME_ID)) }
         rule.mainClock.advanceTimeBy(300)
+        // le jeu s'ouvre sur le niveau 1 ; la flèche de retour ramène à la grille
+        rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
+        rule.mainClock.advanceTimeBy(300)
         // on saute au niveau 97 sans rien avoir fait avant (un niveau du milieu du dernier monde : pas d'introduction)
         scrollListTo("worlds", "level-97")
         rule.mainClock.advanceTimeBy(100)
@@ -424,10 +427,9 @@ class MazeScreenshotsTest {
         rule.mainClock.autoAdvance = false
         rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, MazeProgress.GAME_ID)) }
         rule.mainClock.advanceTimeBy(300)
-        // seul le niveau 1 est ouvert
-        rule.onNodeWithTag("level-1").assertExists()
-        rule.onNodeWithTag("level-1").performClick()
-        play(300)
+        // le jeu s'ouvre tout de suite sur le niveau 1 : pas de grille de niveaux à parcourir
+        assertTrue(rule.onAllNodesWithTag("level-1").fetchSemanticsNodes().isEmpty())
+        assertTrue(rule.onAllNodesWithText("Niveau 1").fetchSemanticsNodes().isNotEmpty())
         rule.onNodeWithText("C'est parti !").performClick()
         play(100)
         val l = level(1)

@@ -367,6 +367,9 @@ class RoadScreenshotsTest {
         rule.mainClock.autoAdvance = false
         rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, "road")) }
         rule.mainClock.advanceTimeBy(300)
+        // le jeu s'ouvre sur le niveau 1 : la flèche de retour (même pendant que la route se prépare) ramène à la grille
+        rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
+        rule.mainClock.advanceTimeBy(300)
         scrollListTo("worlds", "level-31")
         rule.mainClock.advanceTimeBy(100)
         rule.onNodeWithTag("level-31").performClick()
@@ -408,9 +411,8 @@ class RoadScreenshotsTest {
         rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, "road")) }
         rule.mainClock.advanceTimeBy(300)
         assertEquals(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE, rule.activity.requestedOrientation)
-        // seul le niveau 1 est ouvert
-        rule.onNodeWithTag("level-1").assertExists()
-        rule.onNodeWithTag("level-1").performClick()
+        // le jeu s'ouvre tout de suite sur le niveau 1 : pas de grille de niveaux à parcourir
+        assertTrue(rule.onAllNodesWithTag("level-1").fetchSemanticsNodes().isEmpty())
         // la route se prépare hors du fil principal : on laisse un peu de temps
         var guard = 0
         while (rule.onAllNodesWithTag("road").fetchSemanticsNodes().isEmpty() && guard++ < 200) {

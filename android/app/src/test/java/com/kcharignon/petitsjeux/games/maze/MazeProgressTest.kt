@@ -90,4 +90,16 @@ class MazeProgressTest {
         assertEquals(300, p.totalStars)
         assertEquals(100, p.currentLevel)
     }
+
+    @Test
+    fun openingTheGameLaunchesTheNextLevelToDoAndTheGridOnlyWhenEverythingIsDone() {
+        assertEquals("un nouveau joueur arrive direct sur le niveau 1", 1, MazeProgress().launchLevel)
+        var p = MazeProgress()
+        for (n in 1..10) p = p.withResult(n, 3, 0)
+        assertEquals(11, p.launchLevel)
+        p = p.withResult(40, 3, 0)
+        assertEquals(41, p.launchLevel)
+        for (n in 1..100) p = p.withResult(n, 3, 0)
+        assertEquals("tout est réussi : plus de suivant, on montre la grille", null, p.launchLevel)
+    }
 }
