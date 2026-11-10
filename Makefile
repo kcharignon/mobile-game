@@ -40,13 +40,16 @@ clean: ## Remove the built APKs and the Gradle cache volume
 	@$(DOCKER_COMPOSE) --profile android down --volumes --remove-orphans
 
 ## —— Design 🎨 ——————————————————————————————————————————————————————————————
-.PHONY: design
+.PHONY: design mazes
 
 design: ## Regenerate mockups, reef mockups, vehicles (SVG sheet + generated VehicleArt.kt) and the app icon (PNG: node tools/design/render.js, needs Playwright)
 	@node tools/design/make-design.js
 	@node tools/design/make-recif.js
 	@node tools/design/make-vehicles.js
 	@node tools/design/make-icon.js
+
+mazes: ## Regenerate the 100 Poisson Perdu levels (android/app/src/main/res/raw/maze_levels.json) and their contact sheet docs/design/20-labyrinthes-planche (deterministic; published levels never change)
+	@node tools/mazes/make-mazes.js
 
 ## —— Aide ———————————————————————————————————————————————————————————————————
 .PHONY: help
