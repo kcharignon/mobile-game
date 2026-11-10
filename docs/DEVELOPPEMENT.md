@@ -8,6 +8,7 @@ make android-test          # tests Kotlin : règles, solveurs, solubilité des 1
 make android-screenshots   # rend les écrans en PNG (Robolectric, sans téléphone) dans docs/screenshots/ et joue de vrais parcours
 make android-release-selftest  # prouve la chaîne de publication signée avec une clé jetable
 make design                # régénère les maquettes SVG (PNG : node tools/design/render.js, demande Playwright)
+make mazes                 # régénère les 100 niveaux de Poisson Perdu (res/raw/maze_levels.json) et leur planche-contact ; `node tools/mazes/make-mazes.js --check` vérifie le fichier
 make help                  # toutes les commandes
 ```
 
@@ -25,9 +26,11 @@ android/app/src/main/java/com/kcharignon/petitsjeux/
   core/          MiniGame (contrat d'un jeu), registre des jeux, navigation, sons et vibrations
   games/parking  Parking Malin : engine/ (règles pures), ui/ (plateau, voitures, animations), progression
   games/mushrooms  Champis Magiques : engine/ (difficultés, score, partie, forêt), ui/ (forêt, champignons, écrans), progression
+  games/maze       Poisson Perdu : engine/ (niveaux lus du fichier, partie, indice), ui/ (récif, tracé au doigt, écrans), progression
   games/road       Poussin Traverse : engine/ (véhicules, traversée, robot de preuve, 48 niveaux), ui/ (route, véhicules, poussin, écrans en paysage), progression
 android/app/src/test/    tests Kotlin ; screenshots/ = interface rendue par Robolectric (sans téléphone)
 docs/                    DESIGN.md, maquettes (design/), captures du README (screenshots/)
+tools/mazes/             l'outil qui fabrique à l'avance les 100 niveaux de Poisson Perdu (make-mazes.js, déterministe)
 tools/design/            générateurs (Node, sans dépendance) : maquettes, icône, les véhicules (vehicles.js -> VehicleArt.kt généré + aperçu), et le récif de Poisson Perdu (recif.js, make-recif.js)
 .github/                 workflows : tests et APK de débogage, publication signée
 ```
