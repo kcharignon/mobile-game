@@ -216,11 +216,10 @@ class ParkingGameTest {
     @Test
     fun walkingIntoTheTrapOnlyCostsAFault() {
         val game = ParkingGame(trap)
-        assertFalse(game.mustSmashACrate)
+        assertFalse(game.faultAhead)
         game.tap(0, Move.FORWARD)
         game.finishMotion(0)
-        assertTrue("une caisse mal placée : il faudra l'écraser", game.mustSmashACrate)
-        assertFalse("mais ce n'est plus une impasse", game.isStuck)
+        assertTrue("une caisse mal placée : il faudra l'écraser", game.faultAhead)
         // l'indice propose le véhicule qui écrase la caisse, et on gagne avec une faute
         val hint = game.hint()!!
         assertEquals(1, hint.car.id)
@@ -251,7 +250,7 @@ class ParkingGameTest {
         val game = ParkingGame(trap)
         game.tap(0, Move.BACKWARD)
         game.finishMotion(0)
-        assertFalse(game.mustSmashACrate)
+        assertFalse(game.faultAhead)
         assertTrue(game.tap(1, Move.FORWARD) is TapResult.Exited)
         assertTrue(game.isWon)
         assertEquals(0, game.bumps)

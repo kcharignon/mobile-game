@@ -35,7 +35,7 @@ class LevelGeneratorTest {
             val game = ParkingGame(level)
             var guard = 0
             while (!game.isWon) {
-                assertFalse("niveau ${level.index} : impasse alors que l'on suit les indices", game.isStuck)
+                assertFalse("niveau ${level.index} : impasse alors que l'on suit les indices", game.faultAhead)
                 val hint = game.hint() ?: error("niveau ${level.index} : aucun coup alors qu'il reste ${game.carsLeft} véhicules")
                 assertTrue(game.tap(hint.car.id, hint.move) is TapResult.Exited)
                 game.finishMotion(hint.car.id)
@@ -227,6 +227,34 @@ class LevelGeneratorTest {
     }
 
     @Test
+    fun theGatesSitBetweenOrdinaryCellsAndNeverCutAVehicle() {
+        for (level in all.filter { it.gates.isNotEmpty() }) {
+            val floorCells = (level.cones + level.oils + level.oneWays.map { it.cell } + level.belts.map { it.cell } + level.portals.flatMap { listOf(it.a, it.b) }).toSet()
+            for (g in level.gates) {
+                assertTrue("niveau ${level.index} : une barrière sur une case du sol ($g)", g.a !in floorCells && g.b !in floorCells)
+                for (car in level.cars) assertTrue("niveau ${level.index} : une barrière coupe un véhicule", car.cells.zipWithNext().none { (x, y) -> g.separates(x, y) })
+            }
+            assertEquals("niveau ${level.index} : deux barrières au même endroit", level.gates.size, level.gates.map { setOf(it.a, it.b) }.toSet().size)
+        }
+    }
+
+    @Test
+    fun noGateCanKeepAPlayerFromFinishing() {
+        // même en jouant n'importe comment (klaxons devant les barrières compris) on arrive toujours au bout : klaxonner devant une barrière baissée la lève
+        val rng = java.util.Random(7)
+        for (level in all.filter { it.gates.isNotEmpty() }) {
+            val game = ParkingGame(level)
+            var steps = 0
+            while (!game.isWon) {
+                val car = game.cars[rng.nextInt(game.cars.size)]
+                game.tap(car.id, Move.entries[rng.nextInt(2)])
+                game.finishMotion(car.id)
+                assertTrue("niveau ${level.index} : pas fini après $steps coups au hasard", ++steps < 5000)
+            }
+        }
+    }
+
+    @Test
     fun aCrateInTheWrongPlaceNeverEndsTheGame() {
         // n'importe quel ordre de coups, même le pire : on arrive toujours au bout, avec au plus une faute par caisse (qu'un véhicule écrase en passant)
         val rng = java.util.Random(42)
@@ -314,7 +342,7 @@ class LevelGeneratorTest {
                 for (a in level.oneWays) append(";o").append(a.cell.col).append(',').append(a.cell.row).append(',').append(a.dir.ordinal)
                 for (a in level.belts) append(";b").append(a.cell.col).append(',').append(a.cell.row).append(',').append(a.dir.ordinal)
                 for (p in level.portals) append(";t").append(p.a.col).append(',').append(p.a.row).append(',').append(p.b.col).append(',').append(p.b.row)
-                for (g in level.gates) append(";g").append(g.cell.col).append(',').append(g.cell.row).append(',').append(if (g.startsOpen) 1 else 0)
+                for (g in level.gates) append(";g").append(g.a.col).append(',').append(g.a.row).append(',').append(g.b.col).append(',').append(g.b.row).append(',').append(if (g.startsOpen) 1 else 0)
             }
             for (ch in text) {
                 hash = hash xor ch.code.toLong()
@@ -338,6 +366,13 @@ class LevelGeneratorTest {
     }
 
     @Test
+    fun theFirstHundredAndSixtyLevelsNeverChange() {
+        // les niveaux 101 à 160 (sens uniques, tapis, téléporteurs) n'ont pas changé quand le péage a été refait : seuls les niveaux 161 à 180 ont changé
+        val hash = digest(all.take(160))
+        assertEquals("empreinte des niveaux 1 à 160 : ${java.lang.Long.toHexString(hash)}", EXPECTED_DIGEST_160, hash)
+    }
+
+    @Test
     fun levelsNeverChange() {
         val hash = digest(all)
         assertEquals("empreinte des niveaux : ${java.lang.Long.toHexString(hash)}", EXPECTED_DIGEST, hash)
@@ -350,6 +385,7 @@ class LevelGeneratorTest {
         // les 100 premiers niveaux sont ceux de la version 0.5.0 : ils ne doivent jamais changer
         val EXPECTED_DIGEST_80 = -5748582831935537625L
         val EXPECTED_DIGEST_100 = 8486057663845578176L
-        val EXPECTED_DIGEST = 2960005120528354096L
+        val EXPECTED_DIGEST_160 = 6567483966081877099L
+        val EXPECTED_DIGEST = 3205762888392071957L
     }
 }

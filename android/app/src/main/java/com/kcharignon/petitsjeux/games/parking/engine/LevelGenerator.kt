@@ -20,7 +20,7 @@ import kotlin.math.roundToInt
  * | 101-120 | 10x11 | des sens uniques : on ne les franchit que dans le sens de la flèche |
  * | 121-140 | 10x12 | des tapis roulants : ils poussent d'une case de côté le véhicule qui les traverse |
  * | 141-160 | 11x12 | des téléporteurs : on entre par une case, on ressort par l'autre |
- * | 161-180 | 11x13 | des barrières qui s'ouvrent et se ferment à chaque véhicule qui sort |
+ * | 161-180 | 11x13 | des barrières de péage entre deux cases, qui se lèvent et se baissent à chaque véhicule qui sort |
  *
  * Plots, murs, pick-up, taches, sens uniques, tapis, téléporteurs et barrières : **1 au début de leur mécanique, puis de plus en plus**. Les premiers niveaux
  * de chaque monde sont plus simples (moins de véhicules) pour découvrir la nouveauté : 55 %, puis 75 %, puis 90 % du nombre normal.
@@ -44,7 +44,7 @@ object LevelGenerator {
     /**
      * Réglages d'un niveau. [longShare] : part de véhicules de 3 cases ou plus ; [busShare] : part de ceux-ci qui font 4 cases ;
      * [cones] : plots de chantier ; [walls] : sorties murées ; [carriers] : pick-up qui laissent tomber une caisse ; [oils] : taches d'huile ;
-     * [oneWays] : sens uniques ; [belts] : tapis roulants ; [portals] : paires de téléporteurs ; [gates] : barrières.
+     * [oneWays] : sens uniques ; [belts] : tapis roulants ; [portals] : paires de téléporteurs ; [gates] : barrières de péage (posées entre deux cases : elles ne prennent aucune case).
      */
     data class Params(
         val cols: Int,
@@ -62,8 +62,8 @@ object LevelGenerator {
         val gates: Int,
         val wantedDepth: Int,
     ) {
-        /** Cases du sol qui ne peuvent pas porter de véhicule. */
-        val floorCells: Int get() = cones + oils + oneWays + belts + 2 * portals + gates
+        /** Cases du sol qui ne peuvent pas porter de véhicule (les barrières sont entre deux cases : elles n'en prennent aucune). */
+        val floorCells: Int get() = cones + oils + oneWays + belts + 2 * portals
     }
 
     /** Facteur de douceur des premiers niveaux d'un monde (la nouveauté arrive) : 3 niveaux à 55 %, 3 à 75 %, 3 à 90 %, puis 100 %. */
@@ -101,7 +101,7 @@ object LevelGenerator {
 
         // Remplissage visé : monte avec la progression, et un peu à l'intérieur de chaque monde.
         val density = if (late == 0) 0.36 + 0.34 * overall + 0.10 * (positionInWorld - 0.5) else 0.70 + 0.05 * late / 80.0 + 0.10 * (positionInWorld - 0.5)
-        val floorCells = cones + oils + oneWays + belts + 2 * portals + gates
+        val floorCells = cones + oils + oneWays + belts + 2 * portals
         val area = cols * rows - floorCells
         val averageLength = 2.0 + longShare * 1.2
         val cars = maxOf(3, (intro * density * area / averageLength).roundToInt())
@@ -174,7 +174,7 @@ object LevelGenerator {
         val coneSet = cones.toSet()
         // les taches d'huile : d'autres cases au hasard (jamais sous un plot ni sous un véhicule : on les voit, et on roule dessus)
         val oils = allCells.drop(p.cones).take(p.oils)
-        // sens uniques, tapis roulants, téléporteurs, barrières : encore d'autres cases (le tirage ne sert que s'il y en a : les anciens niveaux ne changent pas)
+        // sens uniques, tapis roulants, téléporteurs : encore d'autres cases (le tirage ne sert que s'il y en a : les anciens niveaux ne changent pas)
         var next = p.cones + p.oils
         val oneWays = allCells.drop(next).take(p.oneWays).map { Arrow(it, Dir.entries[rng.nextInt(4)]) }
         next += p.oneWays
@@ -182,7 +182,18 @@ object LevelGenerator {
         next += p.belts
         val portals = (0 until p.portals).map { Portal(allCells[next + 2 * it], allCells[next + 2 * it + 1]) }
         next += 2 * p.portals
-        val gates = allCells.drop(next).take(p.gates).map { Gate(it, rng.nextInt(2) == 0) }
+        // les barrières de péage : de petits murs entre deux cases voisines ordinaires, tirés seulement s'il y en a (les anciens niveaux ne changent pas)
+        val gates = if (p.gates == 0) emptyList() else {
+            val taken = coneSet + oils.toSet() + oneWays.map { it.cell } + belts.map { it.cell } + portals.flatMap { listOf(it.a, it.b) }
+            val between = ArrayList<Pair<Cell, Cell>>()
+            for (r in 0 until p.rows) for (c in 0 until p.cols) {
+                val here = Cell(c, r)
+                if (c + 1 < p.cols && here !in taken && Cell(c + 1, r) !in taken) between += here to Cell(c + 1, r)
+                if (r + 1 < p.rows && here !in taken && Cell(c, r + 1) !in taken) between += here to Cell(c, r + 1)
+            }
+            rng.shuffle(between)
+            between.take(p.gates).map { (a, b) -> Gate(a, b, rng.nextInt(2) == 0) }
+        }
         // le sol sans les barrières, pour les vérifications qui ne regardent pas l'ordre des sorties (les barrières, elles, sont vérifiées par l'analyse)
         val plainFloor = Floor(
             oils = oils.toSet(),
@@ -190,7 +201,7 @@ object LevelGenerator {
             belts = belts.associate { it.cell to it.dir },
             portals = portals.flatMap { listOf(it.a to it.b, it.b to it.a) }.toMap(),
         )
-        val blockedForCars = coneSet + oils.toSet() + oneWays.map { it.cell } + belts.map { it.cell } + portals.flatMap { listOf(it.a, it.b) } + gates.map { it.cell }
+        val blockedForCars = coneSet + oils.toSet() + oneWays.map { it.cell } + belts.map { it.cell } + portals.flatMap { listOf(it.a, it.b) }
 
         val maxLength = if (p.busShare > 0) 4 else 3
         val poses = ArrayList<Car>()
@@ -199,7 +210,8 @@ object LevelGenerator {
             val colsFit = p.cols - if (dir.horizontal) len - 1 else 0
             for (row in 0 until rowsFit) for (col in 0 until colsFit) {
                 val pose = Car(0, col, row, len, dir, 0)
-                if (pose.cells.none { it in blockedForCars }) poses += pose
+                // jamais sur une case du sol, ni à cheval sur une barrière (elle couperait le véhicule en deux)
+                if (pose.cells.none { it in blockedForCars } && gates.none { g -> pose.cells.zipWithNext().any { (x, y) -> g.separates(x, y) } }) poses += pose
             }
         }
         rng.shuffle(poses)

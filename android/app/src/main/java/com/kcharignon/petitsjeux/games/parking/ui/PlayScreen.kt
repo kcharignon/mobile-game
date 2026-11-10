@@ -186,7 +186,7 @@ fun levelCaption(index: Int): String? = when (index) {
     101 -> "Nouveau : un plus grand parking, et des sens uniques : on ne passe que dans le sens de la flèche !"
     121 -> "Nouveau : un plus grand parking, et des tapis roulants : ils te poussent d'une case sur le côté !"
     141 -> "Nouveau : un plus grand parking, et des téléporteurs : entre par un, ressors par l'autre de la même couleur !"
-    161 -> "Nouveau : un plus grand parking, et des barrières : elles s'ouvrent ou se ferment chaque fois qu'un véhicule sort !"
+    161 -> "Nouveau : un plus grand parking, et des barrières de péage : elles se lèvent ou se baissent chaque fois qu'un véhicule sort !"
     else -> null
 }
 
@@ -229,6 +229,9 @@ private fun PlayBoard(
     }
     val crates = remember { mutableStateMapOf<Cell, CrateVisual>() }
     var carsLeft by remember { mutableIntStateOf(game.carsLeft) }
+    // les barrières de péage : combien de fois elles ont changé, et à quelle hauteur est chaque bras (1 = levé, 0 = baissé)
+    var gateTurns by remember { mutableIntStateOf(0) }
+    val gateLift = remember { level.gates.map { Animatable(if (it.startsOpen) 1f else 0f) } }
     var bumps by remember { mutableIntStateOf(0) }
     var won by remember { mutableStateOf(false) }
     var finished by remember { mutableStateOf(false) }
@@ -241,6 +244,9 @@ private fun PlayBoard(
     val feedback = LocalFeedback.current
     val theme = remember(level.index) { BoardTheme.of(level.world) }
 
+    LaunchedEffect(gateTurns) {
+        level.gates.forEachIndexed { i, gate -> launch { gateLift[i].animateTo(if (gate.isOpen(gateTurns)) 1f else 0f, tween(520)) } }
+    }
     LaunchedEffect(hint) {
         if (hint != null) {
             delay(4000)
@@ -276,6 +282,7 @@ private fun PlayBoard(
                 carsLeft = game.carsLeft
                 feedback.exit()
                 bumps = game.bumps
+                gateTurns = game.gateTurns
                 smashCrates(result.smashed)
                 // Le niveau est réussi (et sauvegardé) dès que le dernier véhicule est parti : quitter pendant son animation ne perd rien.
                 if (game.isWon && !finished) {
@@ -302,6 +309,7 @@ private fun PlayBoard(
             }
             is TapResult.Bumped -> {
                 bumps = game.bumps
+                gateTurns = game.gateTurns
                 feedback.bump(car.len)
                 smashCrates(result.smashed)
                 val path = MotionPath(car, move, result.trip)
@@ -420,11 +428,6 @@ private fun PlayBoard(
                         val tl = g.cellTopLeft(end.col, end.row)
                         drawPortal(tl.x + g.s / 2, tl.y + g.s / 2, g.s, PortalColors[k % PortalColors.size], floorPhase)
                     }
-                    // barrières : elles changent à chaque véhicule qui sort (carsLeft change à ce moment-là)
-                    if (carsLeft >= 0) for (gate in level.gates) {
-                        val tl = g.cellTopLeft(gate.cell.col, gate.cell.row)
-                        drawGate(tl.x + g.s / 2, tl.y + g.s / 2, g.s, game.isOpen(gate))
-                    }
                     // caisses tombées : sous les véhicules (le camion qui part passe par-dessus)
                     for ((cell, crate) in crates) {
                         val tl = g.cellTopLeft(cell.col, cell.row)
@@ -444,6 +447,11 @@ private fun PlayBoard(
                             flash = v.flash.value,
                             alpha = v.alpha(car.len) * pose.third,
                         )
+                    }
+                    // barrières de péage : posées entre deux cases, au-dessus des véhicules ; leur bras se lève ou se baisse à chaque véhicule qui sort
+                    for ((i, gate) in level.gates.withIndex()) {
+                        val (foot, tip) = gateEnds(g, gate)
+                        drawGate(foot, tip, g.s, gateLift[i].value, floorPhase)
                     }
                     hint?.let { h ->
                         val car = h.car

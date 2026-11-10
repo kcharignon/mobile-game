@@ -192,48 +192,122 @@ class FloorTest {
         assertEquals(listOf(Cell(3, 0), Cell(0, 0)), route.cells)
     }
 
-    // ---- barrières
+    // ---- barrières de péage (entre deux cases)
+
+    private val gate = Gate(Cell(3, 1), Cell(4, 1), startsOpen = false)
 
     private val gateLevel = Level(
         161, 8, 3,
         listOf(car(0, 0, 0, 2, Dir.RIGHT), car(1, 0, 2, 2, Dir.RIGHT), car(2, 0, 1, 2, Dir.RIGHT)), // 0 et 1 : libres ; 2 : passe par la barrière
         walls = listOf(Wall(Cell(0, 1), Dir.LEFT)), // le véhicule 2 ne peut pas sortir en marche arrière : il doit passer par la barrière
-        gates = listOf(Gate(Cell(4, 1), startsOpen = false)),
+        gates = listOf(gate),
     )
 
     @Test
     fun aGateChangesWithEveryVehicleThatLeavesTheBoard() {
-        val gate = gateLevel.gates[0]
         assertFalse(gate.isOpen(0))
         assertTrue(gate.isOpen(1))
         assertFalse(gate.isOpen(2))
-        assertTrue(Gate(Cell(0, 0), startsOpen = true).isOpen(0))
+        assertTrue(Gate(Cell(0, 0), Cell(1, 0), startsOpen = true).isOpen(0))
         val game = ParkingGame(gateLevel)
         assertFalse(game.isOpen(gate))
         game.tap(0)
         assertTrue(game.isOpen(gate))
         game.tap(1)
         assertFalse(game.isOpen(gate))
+        assertEquals(2, game.exited)
+        assertEquals(0, game.bumps)
     }
 
     @Test
-    fun aClosedGateBlocksLikeAnObstacle() {
+    fun aGateSitsBetweenTwoCellsAndOnlyStopsWhoCrossesIt() {
+        assertTrue(gate.separates(Cell(3, 1), Cell(4, 1)))
+        assertTrue(gate.separates(Cell(4, 1), Cell(3, 1)))
+        assertFalse(gate.separates(Cell(3, 0), Cell(4, 0)))
+        assertFalse(gate.separates(Cell(3, 1), Cell(3, 2)))
+        assertTrue(gate.vertical)
+        assertFalse(Gate(Cell(2, 2), Cell(2, 3), true).vertical)
+        // la ligne 1 est barrée entre les colonnes 3 et 4 : les lignes 0 et 2 ne le sont pas, et la case de chaque côté reste libre
+        val game = ParkingGame(gateLevel)
+        assertTrue(game.canMove(gateLevel.cars[0], Move.FORWARD))
+        assertTrue(game.canMove(gateLevel.cars[1], Move.FORWARD))
+        assertFalse(game.canMove(gateLevel.cars[2], Move.FORWARD))
+    }
+
+    @Test
+    fun aLoweredGateStopsTheVehicleRightBeforeIt() {
         val game = ParkingGame(gateLevel)
         val result = game.tap(2) as TapResult.Bumped
-        assertEquals(Blocker.Obstacle(Cell(4, 1), ObstacleKind.GATE), result.blocker)
-        assertEquals(2, result.freeCells) // (2,1) et (3,1) puis la barrière
-        game.finishMotion(2)
-        game.tap(0) // un autre véhicule sort : la barrière s'ouvre
+        assertEquals(Blocker.ClosedGate(gate), result.blocker)
+        assertEquals(2, result.freeCells) // (2,1) et (3,1), puis la barrière
+        assertEquals(1, game.bumps)
+    }
+
+    @Test
+    fun aRaisedGateLetsEveryoneThrough() {
+        val game = ParkingGame(gateLevel)
+        game.tap(0) // un autre véhicule sort : la barrière se lève
         game.finishMotion(0)
         assertTrue(game.tap(2) is TapResult.Exited)
+        assertEquals(0, game.bumps)
+    }
+
+    @Test
+    fun honkingInFrontOfALoweredGateRaisesItSoYouAreNeverStuck() {
+        val game = ParkingGame(gateLevel)
+        game.tap(0)
+        game.finishMotion(0)
+        game.tap(1) // mauvais ordre : la barrière est de nouveau baissée et le véhicule 2 reste seul
+        game.finishMotion(1)
+        assertFalse(game.isOpen(gate))
+        assertTrue("sans faute, il n'y a plus de solution", game.faultAhead)
+        // l'indice montre le véhicule bloqué : il klaxonne (une faute) et la barrière se lève
+        val hint = game.hint()!!
+        assertEquals(2, hint.car.id)
+        val bump = game.tap(2, hint.move) as TapResult.Bumped
+        assertEquals(Blocker.ClosedGate(gate), bump.blocker)
+        game.finishMotion(2)
+        assertTrue(game.isOpen(gate))
+        assertEquals(1, game.bumps)
+        assertTrue(game.tap(2) is TapResult.Exited)
+        assertTrue(game.isWon)
+        assertEquals(2, game.stars)
+    }
+
+    @Test
+    fun aVehicleThatJumpsThroughATeleporterDoesNotCrossTheGatesBetweenItsTwoPlaces() {
+        // le téléporteur de (1,1) ressort en (6,1) : la barrière baissée entre (3,1) et (4,1) est sautée
+        val level = Level(
+            161, 8, 3,
+            listOf(car(0, 0, 1, 1 + 1, Dir.RIGHT)),
+            portals = listOf(Portal(Cell(2, 1), Cell(6, 1))),
+            gates = listOf(gate),
+        )
+        val route = level.cars[0].route(8, 3, Move.FORWARD, level.floor)
+        assertTrue(Entry.JUMP in route.entries)
+        assertTrue(ParkingGame(level).canMove(level.cars[0], Move.FORWARD))
+    }
+
+    @Test
+    fun aGateOnTheSideOfABeltPushStopsTheVehicleBeingPushed() {
+        // le tapis en (2,1) pousse vers le bas : la barrière entre (2,1) et (2,2) barre ce côté
+        val level = Level(
+            161, 6, 4,
+            listOf(car(0, 0, 1, 2, Dir.RIGHT)),
+            belts = listOf(Arrow(Cell(2, 1), Dir.DOWN)),
+            gates = listOf(Gate(Cell(2, 1), Cell(2, 2), startsOpen = false)),
+        )
+        val result = ParkingGame(level).tap(0) as TapResult.Bumped
+        assertEquals(Blocker.ClosedGate(level.gates[0]), result.blocker)
+        assertEquals(1, result.freeCells) // le tapis (2,1) est atteint, la poussée est arrêtée
     }
 
     @Test
     fun theSolverKnowsTheGatesParityMatters() {
-        assertTrue(Solver.canFinish(gateLevel)) // 0, puis 2 (barrière ouverte), puis 1
+        assertTrue(Solver.canFinish(gateLevel)) // 0, puis 2 (barrière levée), puis 1
         assertEquals(1, Solver.analyse(gateLevel).gateBlocks)
-        // seul : la barrière ne s'ouvrira jamais
-        val alone = Level(161, 8, 3, listOf(car(0, 0, 1, 2, Dir.RIGHT)), walls = listOf(Wall(Cell(0, 1), Dir.LEFT)), gates = listOf(Gate(Cell(4, 1), startsOpen = false)))
+        // seul : la barrière ne se lèvera jamais sans faute
+        val alone = Level(161, 8, 3, listOf(car(0, 0, 1, 2, Dir.RIGHT)), walls = listOf(Wall(Cell(0, 1), Dir.LEFT)), gates = listOf(gate))
         assertFalse(Solver.canFinish(alone))
         assertFalse(Solver.analyse(alone).solvable)
     }
@@ -243,21 +317,10 @@ class FloorTest {
         val game = ParkingGame(gateLevel)
         game.tap(0)
         game.finishMotion(0)
-        // il reste 1 (libre) et 2 (barrière ouverte maintenant) : si 1 sortait d'abord, la barrière serait fermée pour toujours
+        // il reste 1 (libre) et 2 (barrière levée maintenant) : si 1 sortait d'abord, la barrière serait baissée pour toujours
         val hint = game.hint()!!
         assertEquals(2, hint.car.id)
-        assertFalse(game.isStuck)
-    }
-
-    @Test
-    fun walkingIntoAGateTrapIsDetectedAsStuck() {
-        val game = ParkingGame(gateLevel)
-        game.tap(0)
-        game.finishMotion(0)
-        game.tap(1) // mauvais ordre : un nombre pair de sorties, la barrière est fermée et le véhicule 2 reste seul
-        game.finishMotion(1)
-        assertTrue(game.isStuck)
-        assertNull(game.hint())
+        assertFalse(game.faultAhead)
     }
 
     @Test
@@ -279,7 +342,13 @@ class FloorTest {
         assertTrue(runCatching { Level(1, 5, 5, cars, belts = listOf(Arrow(Cell(1, 0), Dir.UP))) }.isFailure) // sous la voiture
         assertTrue(runCatching { Level(1, 5, 5, cars, oneWays = listOf(Arrow(Cell(3, 3), Dir.UP)), belts = listOf(Arrow(Cell(3, 3), Dir.DOWN))) }.isFailure)
         assertTrue(runCatching { Level(1, 5, 5, cars, portals = listOf(Portal(Cell(3, 3), Cell(3, 3)))) }.isFailure)
-        assertTrue(runCatching { Level(1, 5, 5, cars, gates = listOf(Gate(Cell(9, 3), true))) }.isFailure)
-        assertTrue(runCatching { Level(1, 5, 5, cars, portals = listOf(Portal(Cell(3, 3), Cell(4, 4))), gates = listOf(Gate(Cell(2, 2), true))) }.isSuccess)
+        // une barrière est entre deux cases voisines de la grille, jamais au milieu d'un véhicule garé
+        assertTrue(runCatching { Level(1, 5, 5, cars, gates = listOf(Gate(Cell(4, 3), Cell(5, 3), true))) }.isFailure) // hors de la grille
+        assertTrue(runCatching { Level(1, 5, 5, cars, gates = listOf(Gate(Cell(0, 0), Cell(1, 0), true))) }.isFailure) // couperait le véhicule en deux
+        assertTrue(runCatching { Gate(Cell(0, 0), Cell(2, 0), true) }.isFailure) // pas voisines
+        assertTrue(runCatching { Level(1, 5, 5, cars, gates = listOf(Gate(Cell(3, 3), Cell(4, 3), true), Gate(Cell(4, 3), Cell(3, 3), false))) }.isFailure) // deux fois la même
+        assertTrue(runCatching { Level(1, 5, 5, cars, portals = listOf(Portal(Cell(3, 3), Cell(4, 4))), gates = listOf(Gate(Cell(2, 2), Cell(2, 3), true))) }.isSuccess)
+        // une barrière peut longer un véhicule garé, ou être entre deux véhicules
+        assertTrue(runCatching { Level(1, 5, 5, cars, gates = listOf(Gate(Cell(1, 0), Cell(2, 0), true), Gate(Cell(0, 0), Cell(0, 1), true))) }.isSuccess)
     }
 }

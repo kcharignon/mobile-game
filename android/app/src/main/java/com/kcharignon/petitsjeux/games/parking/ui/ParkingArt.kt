@@ -21,8 +21,10 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import com.kcharignon.petitsjeux.core.ui.Pj
 import com.kcharignon.petitsjeux.games.parking.engine.Car
 import com.kcharignon.petitsjeux.games.parking.engine.Dir
+import com.kcharignon.petitsjeux.games.parking.engine.Gate
 import com.kcharignon.petitsjeux.games.parking.engine.Wall
 import kotlin.math.PI
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -388,44 +390,78 @@ fun DrawScope.drawPortal(cx: Float, cy: Float, s: Float, color: Color, phase: Fl
 }
 
 /**
- * Une **barrière** au sol, centrée en ([cx], [cy]) : fermée, un bloc rayé rouge et blanc avec un feu rouge ; ouverte, un contour vert discret avec un feu vert.
- * Elle change à chaque véhicule qui sort du parking.
+ * Où est posée une barrière de péage, sur l'arête **entre ses deux cases** : le pied (avec son poteau et son feu, à un bout de l'arête) et le bout du bras
+ * quand il est baissé (à l'autre bout). Le pied est d'un côté ou de l'autre selon la barrière, pour que le décor ne soit pas trop régulier.
  */
-fun DrawScope.drawGate(cx: Float, cy: Float, s: Float, open: Boolean) {
-    val half = 0.42f * s
-    if (open) {
-        drawRoundRect(Color(0xFF3FBF6B).copy(alpha = 0.22f), Offset(cx - half, cy - half), Size(2 * half, 2 * half), CornerRadius(0.14f * s))
-        drawRoundRect(Color(0xFF3FBF6B), Offset(cx - half, cy - half), Size(2 * half, 2 * half), CornerRadius(0.14f * s), style = Stroke(0.045f * s))
-        // les deux poteaux de chaque côté : la barrière est relevée
-        for (sx in listOf(-1f, 1f)) drawRoundRect(Color(0xFFE8E8E8), Offset(cx + sx * half * 0.78f - 0.04f * s, cy - 0.30f * s), Size(0.08f * s, 0.60f * s), CornerRadius(0.03f * s))
-        drawCircle(Color(0xFF3FD07A), 0.09f * s, Offset(cx, cy))
-        drawCircle(Color.White.copy(alpha = 0.7f), 0.03f * s, Offset(cx - 0.025f * s, cy - 0.03f * s))
+fun gateEnds(g: BoardGeometry, gate: Gate): Pair<Offset, Offset> {
+    val first = if (gate.a.row < gate.b.row || (gate.a.row == gate.b.row && gate.a.col < gate.b.col)) gate.a else gate.b
+    val second = if (first == gate.a) gate.b else gate.a
+    val tl = g.cellTopLeft(first.col, first.row)
+    val footFirst = (first.col + first.row) % 2 == 0
+    val (start, end) = if (gate.vertical) {
+        // deux cases côte à côte : l'arête est verticale, sur le bord gauche de la seconde
+        val x = g.cellTopLeft(second.col, second.row).x
+        Offset(x, tl.y) to Offset(x, tl.y + g.s)
     } else {
-        drawRoundRect(Color.Black.copy(alpha = 0.25f), Offset(cx - half, cy - half + 0.05f * s), Size(2 * half, 2 * half), CornerRadius(0.14f * s))
-        val body = Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(cx - half, cy - half, cx + half, cy + half, CornerRadius(0.14f * s))) }
-        drawPath(body, Color.White)
-        clipPath(body) {
-            val stripe = 0.20f * s
-            var x = cx - half - 2 * half
-            var odd = false
-            while (x < cx + half + 2 * half) {
-                if (odd) {
-                    val p = Path().apply {
-                        moveTo(x, cy + half)
-                        lineTo(x + stripe, cy + half)
-                        lineTo(x + stripe + 2 * half, cy - half)
-                        lineTo(x + 2 * half, cy - half)
-                        close()
-                    }
-                    drawPath(p, Color(0xFFE23B3B))
-                }
-                odd = !odd
-                x += stripe
+        // deux cases l'une sur l'autre : l'arête est horizontale, sur le bord haut de la seconde
+        val y = g.cellTopLeft(second.col, second.row).y
+        Offset(tl.x, y) to Offset(tl.x + g.s, y)
+    }
+    return if (footFirst) start to end else end to start
+}
+
+/**
+ * Une barrière de péage, comme celle d'un passage à niveau : son bras rayé rouge et blanc part d'un poteau et **barre l'arête** entre deux cases quand il est
+ * baissé ([lift] = 0), puis **se lève** ([lift] = 1) : vu de dessus, le bras qui pointe vers le haut ne laisse qu'un court moignon. Le feu du poteau est rouge
+ * quand c'est fermé, vert quand c'est ouvert, et clignote tant que le bras bouge ([phase] de 0 à 1 fait pulser le feu).
+ */
+fun DrawScope.drawGate(foot: Offset, tip: Offset, s: Float, lift: Float, phase: Float) {
+    val l = lift.coerceIn(0f, 1f)
+    val dx = tip.x - foot.x
+    val dy = tip.y - foot.y
+    val full = kotlin.math.sqrt(dx * dx + dy * dy)
+    val degrees = (atan2(dy, dx) * 180f / PI.toFloat())
+    val closed = l < 0.02f
+    val up = l > 0.98f
+    val length = full * (1f - 0.86f * l)
+    val thick = s * (0.16f + 0.05f * l)
+
+    // le passage ouvert : une ligne verte en pointillés au sol, qui s'efface quand le bras se baisse dessus
+    rotate(degrees, foot) {
+        val dash = s * 0.12f
+        var x = 0f
+        while (x < full) {
+            val w = minOf(dash, full - x)
+            drawRect(Color(0xFF3FD07A).copy(alpha = 0.9f * l), Offset(foot.x + x, foot.y - s * 0.03f), Size(w, s * 0.06f))
+            x += dash * 2f
+        }
+        // l'ombre du bras : collée au sol quand il est baissé, de plus en plus décalée quand il se lève
+        drawRoundRect(
+            Color.Black.copy(alpha = 0.22f),
+            Offset(foot.x, foot.y - thick / 2 + s * (0.03f + 0.10f * l)), Size(length, thick), CornerRadius(thick * 0.45f),
+        )
+        // le bras : des bandes rouges et blanches, de plus en plus serrées quand il se lève
+        val arm = Path().apply { addRoundRect(androidx.compose.ui.geometry.RoundRect(foot.x, foot.y - thick / 2, foot.x + length, foot.y + thick / 2, CornerRadius(thick * 0.45f))) }
+        clipPath(arm) {
+            drawRect(Color.White, Offset(foot.x, foot.y - thick / 2), Size(length, thick))
+            val stripes = 6
+            for (k in 0 until stripes step 2) {
+                drawRect(Color(0xFFE23B3B), Offset(foot.x + length * k / stripes, foot.y - thick / 2), Size(length / stripes, thick))
             }
         }
-        drawRoundRect(Color(0xFF8A1F1F), Offset(cx - half, cy - half), Size(2 * half, 2 * half), CornerRadius(0.14f * s), style = Stroke(0.04f * s))
-        drawCircle(Color(0xFF8A1F1F), 0.13f * s, Offset(cx, cy))
-        drawCircle(Color(0xFFFF4040), 0.10f * s, Offset(cx, cy))
-        drawCircle(Color.White.copy(alpha = 0.7f), 0.035f * s, Offset(cx - 0.03f * s, cy - 0.035f * s))
+        drawRoundRect(Color(0xFF8A1F1F), Offset(foot.x, foot.y - thick / 2), Size(length, thick), CornerRadius(thick * 0.45f), style = Stroke(s * 0.025f))
+        // le bout du bras, qui se rapproche de nous quand il se lève
+        if (l > 0.1f) drawCircle(Color(0xFFE23B3B), thick * (0.35f + 0.25f * l), Offset(foot.x + length, foot.y))
     }
+
+    // le poteau et son feu
+    val post = s * 0.27f
+    drawRoundRect(Color.Black.copy(alpha = 0.25f), Offset(foot.x - post / 2, foot.y - post / 2 + s * 0.04f), Size(post, post), CornerRadius(post * 0.3f))
+    drawRoundRect(Color(0xFF4A5068), Offset(foot.x - post / 2, foot.y - post / 2), Size(post, post), CornerRadius(post * 0.3f))
+    drawRoundRect(Color(0xFFE8E8F0), Offset(foot.x - post / 2, foot.y - post / 2), Size(post, post), CornerRadius(post * 0.3f), style = Stroke(s * 0.02f))
+    val pulse = if (closed || up) 1f else 0.55f + 0.45f * kotlin.math.abs(kotlin.math.sin(phase * PI.toFloat() * 4f))
+    val lamp = if (up) Color(0xFF3FD07A) else Color(0xFFFF4040)
+    drawCircle(lamp.copy(alpha = 0.35f * pulse), post * 0.62f, foot)
+    drawCircle(lamp.copy(alpha = pulse), post * 0.32f, foot)
+    drawCircle(Color.White.copy(alpha = 0.7f * pulse), post * 0.11f, Offset(foot.x - post * 0.09f, foot.y - post * 0.1f))
 }

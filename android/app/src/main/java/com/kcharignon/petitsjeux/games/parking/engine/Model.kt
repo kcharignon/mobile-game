@@ -52,6 +52,7 @@ data class Stop(val cell: Cell, val kind: ObstacleKind)
  * - [directions] : le sens où il repart de chaque case, après un éventuel virage ;
  * - [headings] : le sens de marche en arrivant sur chaque case (un tapis ne le change pas : le véhicule glisse de côté sans tourner) ;
  * - [entries] : comment il est arrivé sur chaque case ;
+ * - [origins] : la case d'où il part pour arriver sur chacune (le nez du véhicule pour la première) : c'est entre les deux qu'une barrière peut se trouver ;
  * - [finalDirection] : le sens où il quitte le plateau, [finalHeading] : le sens de marche à ce moment-là ;
  * - [exit] : le bord par où il sortirait (un mur peut le fermer), ou `null` s'il est arrêté ;
  * - [stop] : ce qui l'arrête (un sens interdit, ou un tour en rond), ou `null`.
@@ -61,6 +62,7 @@ class Route(
     val directions: List<Dir>,
     val headings: List<Dir>,
     val entries: List<Entry>,
+    val origins: List<Cell>,
     val finalDirection: Dir,
     val finalHeading: Dir,
     val exit: Wall?,
@@ -72,7 +74,7 @@ class Route(
     /** Les [n] premières cases seulement (un véhicule qui s'arrête devant un obstacle), puis il continue dans le sens où il roulait ([startDirection] s'il n'a pas avancé). */
     fun take(n: Int, startDirection: Dir): Route {
         val dir = if (n == 0) startDirection else directions[n - 1]
-        return Route(cells.take(n), directions.take(n), headings.take(n), entries.take(n), dir, dir, null, null)
+        return Route(cells.take(n), directions.take(n), headings.take(n), entries.take(n), origins.take(n), dir, dir, null, null)
     }
 }
 
@@ -144,13 +146,15 @@ data class Car(
         val directions = ArrayList<Dir>()
         val headings = ArrayList<Dir>()
         val entries = ArrayList<Entry>()
+        val origins = ArrayList<Cell>()
         val own = this.cells.toHashSet()
         val arrived = HashSet<Pair<Cell, Dir>>()
         fun inGrid(c: Cell) = c.col in 0 until cols && c.row in 0 until rows
-        fun end(exit: Wall?, stop: Stop?, geometric: Dir, heading: Dir) = Route(cells, directions, headings, entries, geometric, heading, exit, stop)
+        fun end(exit: Wall?, stop: Stop?, geometric: Dir, heading: Dir) = Route(cells, directions, headings, entries, origins, geometric, heading, exit, stop)
         fun enter(c: Cell, how: Entry) {
             cells += c
             entries += how
+            origins += cell
             headings += d
             directions += d
             cell = c
@@ -215,12 +219,23 @@ data class Arrow(val cell: Cell, val dir: Dir)
 data class Portal(val a: Cell, val b: Cell)
 
 /**
- * Une barrière : fermée ou ouverte, **elle change à chaque véhicule qui sort du parking** (qu'il passe par elle ou non). Fermée, elle bloque la case comme un plot.
- * [startsOpen] : ouverte au début (avant que le premier véhicule sorte) ?
+ * Une barrière de péage, posée **entre deux cases voisines** ([a] et [b]) comme un petit mur : baissée (fermée), on ne passe pas d'une case à l'autre ;
+ * levée (ouverte), on passe. **Elle se lève ou se baisse à chaque véhicule qui sort du parking** (qu'il passe par elle ou non) ; un véhicule qui klaxonne devant
+ * une barrière baissée la fait aussi changer (c'est une faute, mais on n'est jamais bloqué pour de bon). [startsOpen] : levée au début ?
  */
-data class Gate(val cell: Cell, val startsOpen: Boolean) {
-    /** Ouverte quand [exits] véhicules sont déjà sortis ? */
-    fun isOpen(exits: Int): Boolean = startsOpen == (exits % 2 == 0)
+data class Gate(val a: Cell, val b: Cell, val startsOpen: Boolean) {
+    init {
+        require(Math.abs(a.col - b.col) + Math.abs(a.row - b.row) == 1) { "une barrière sépare deux cases voisines : $a et $b" }
+    }
+
+    /** Levée quand le sol a changé [turns] fois (véhicules sortis, plus klaxons devant une barrière) ? */
+    fun isOpen(turns: Int): Boolean = startsOpen == (turns % 2 == 0)
+
+    /** Aller de [from] à [to] (deux cases voisines) traverse-t-il cette barrière ? */
+    fun separates(from: Cell, to: Cell): Boolean = (from == a && to == b) || (from == b && to == a)
+
+    /** La barrière est-elle posée entre deux cases côte à côte (donc dessinée à la verticale) ? */
+    val vertical: Boolean get() = a.row == b.row
 }
 
 /**
@@ -286,7 +301,15 @@ data class Level(
         oneWays.forEach { place(it.cell, "un sens unique") }
         belts.forEach { place(it.cell, "un tapis roulant") }
         portals.forEach { place(it.a, "un téléporteur"); place(it.b, "un téléporteur") }
-        gates.forEach { place(it.cell, "une barrière") }
+        val gateEdges = HashSet<Pair<Cell, Cell>>()
+        for (gate in gates) {
+            require(inGrid(gate.a) && inGrid(gate.b)) { "une barrière sort de la grille : $gate" }
+            val key = if (gate.a.row < gate.b.row || (gate.a.row == gate.b.row && gate.a.col < gate.b.col)) gate.a to gate.b else gate.b to gate.a
+            require(gateEdges.add(key)) { "deux barrières au même endroit : $gate" }
+        }
+        for (car in cars) for ((x, y) in car.cells.zipWithNext()) {
+            require(gates.none { it.separates(x, y) }) { "une barrière couperait le véhicule ${car.id} en deux" }
+        }
         val edges = HashSet<Wall>()
         for (wall in walls) {
             require(inGrid(wall.cell) && isOutside(wall)) { "un mur doit être sur le bord du parking : $wall" }
