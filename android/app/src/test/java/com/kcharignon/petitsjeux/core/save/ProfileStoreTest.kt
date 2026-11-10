@@ -171,7 +171,9 @@ class RanksTest {
         assertEquals("Roi de la route", Ranks.of(400).name)
         assertEquals("Légende absolue", Ranks.of(540).name)
         assertEquals("Légende absolue", Ranks.of(695).name)
-        assertEquals("Super champion", Ranks.of(696).name)
+        assertEquals("Grand explorateur", Ranks.of(696).name)
+        assertEquals("Grand explorateur", Ranks.of(995).name)
+        assertEquals("Super champion", Ranks.of(996).name)
         assertEquals("Super champion", Ranks.of(9999).name)
     }
 
@@ -179,10 +181,11 @@ class RanksTest {
     fun progressTowardsTheNextRank() {
         assertEquals(0f, Ranks.progress(0), 0.001f)
         assertEquals(0.5f, Ranks.progress(5), 0.001f)
-        assertEquals(1f, Ranks.progress(700), 0.001f)
+        assertEquals(1f, Ranks.progress(1000), 0.001f)
         assertEquals(100, Ranks.next(99)!!.minStars)
         assertEquals(696, Ranks.next(540)!!.minStars)
-        assertNull(Ranks.next(696))
+        assertEquals(996, Ranks.next(696)!!.minStars)
+        assertNull(Ranks.next(996))
     }
 
     @Test

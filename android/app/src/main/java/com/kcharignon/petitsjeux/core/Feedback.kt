@@ -51,6 +51,15 @@ interface Feedback {
 
     /** Les feux d'une voie ferrée se mettent à clignoter : la cloche du passage à niveau sonne. */
     fun bell()
+
+    /**
+     * Une case de plus à la trace de Poisson Perdu : un « bloup » de hauteur [pitch] (de 0, grave, à 7, aigu). L'appli le fait monter quand la trace se rapproche de la sortie
+     * et descendre quand elle s'en éloigne : l'enfant entend s'il est sur la bonne voie, sans un mot.
+     */
+    fun bloop(pitch: Int) {}
+
+    /** La trace recule : les bulles de la partie effacée éclatent. */
+    fun burst() {}
 }
 
 object NoFeedback : Feedback {
@@ -66,6 +75,8 @@ object NoFeedback : Feedback {
     override fun bonk() = Unit
     override fun hop() = Unit
     override fun bell() = Unit
+    override fun bloop(pitch: Int) = Unit
+    override fun burst() = Unit
 }
 
 val LocalFeedback = compositionLocalOf<Feedback> { NoFeedback }
@@ -92,6 +103,8 @@ class AndroidFeedback(private val context: Context, private val soundOn: () -> B
     @Volatile private var bonk: Sound? = null
     @Volatile private var hop: Sound? = null
     @Volatile private var bell: Sound? = null
+    private val blops = AtomicReferenceArray<Sound>(Synth.BLOOP_HZ.size)
+    @Volatile private var burst: Sound? = null
     @Volatile private var win: Sound? = null
     @Volatile private var tap: Sound? = null
     @Volatile private var hint: Sound? = null
@@ -111,6 +124,8 @@ class AndroidFeedback(private val context: Context, private val soundOn: () -> B
                 bonk = Sound(Synth.bonk(), Synth.RATE)
                 hop = Sound(Synth.hop(), Synth.RATE)
                 bell = Sound(Synth.crossingBell(), Synth.RATE)
+                for ((k, hz) in Synth.BLOOP_HZ.withIndex()) blops.set(k, Sound(Synth.bloop(hz), Synth.RATE))
+                burst = Sound(Synth.burst(), Synth.RATE)
                 win =Sound(Synth.fanfare(), Synth.RATE)
             }
             runCatching {
@@ -170,6 +185,10 @@ class AndroidFeedback(private val context: Context, private val soundOn: () -> B
     override fun hop() = play { hop }
 
     override fun bell() = play { bell }
+
+    override fun bloop(pitch: Int) = play { blops.get(pitch.coerceIn(0, blops.length() - 1)) }
+
+    override fun burst() = play { burst }
 
     private fun buzz(ms: Long) {
         if (!vibrationOn()) return
