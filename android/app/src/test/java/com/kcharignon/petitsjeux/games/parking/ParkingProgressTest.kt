@@ -12,17 +12,16 @@ class ParkingProgressTest {
     fun aNewPlayerStartsAtLevelOne() {
         val p = ParkingProgress()
         assertEquals(1, p.currentLevel)
-        assertTrue(p.isUnlocked(1))
-        assertFalse(p.isUnlocked(2))
+        assertFalse(p.isDone(1))
         assertEquals(0, p.totalStars)
     }
 
     @Test
-    fun finishingALevelUnlocksTheNextOne() {
+    fun finishingALevelMovesTheStartingPointToTheNextOne() {
         val p = ParkingProgress().withResult(1, 3, freed = 3, faults = 0).withResult(2, 1, freed = 4, faults = 5)
         assertEquals(3, p.currentLevel)
-        assertTrue(p.isUnlocked(3))
-        assertFalse(p.isUnlocked(4))
+        assertTrue(p.isDone(1) && p.isDone(2))
+        assertFalse(p.isDone(3))
         assertEquals(4, p.totalStars)
         assertEquals(7, p.carsFreed)
         assertEquals(5, p.bumps)
@@ -62,14 +61,35 @@ class ParkingProgressTest {
         assertEquals(4, p.played)
     }
 
+
+    @Test
+    fun everyLevelCanBePlayedFromTheStartAndJumpingAheadMovesTheRestartingPoint() {
+        var p = ParkingProgress()
+        for (n in 1..10) p = p.withResult(n, 3, 1, 0)
+        assertEquals(11, p.currentLevel)
+        assertEquals("Niveau 11", ParkingMiniGame.progressLabel(p.toJson()))
+        // il trouve le jeu trop simple : il saute au niveau 40 sans avoir fini ceux d'avant, et le réussit
+        p = p.withResult(40, 3, 1, 0)
+        assertEquals("on reprend au niveau le plus loin atteint, plus un", 41, p.currentLevel)
+        assertEquals("Niveau 41", ParkingMiniGame.progressLabel(p.toJson()))
+        assertTrue(p.isDone(40))
+        assertFalse("les niveaux laissés derrière restent à faire", p.isDone(15))
+        assertFalse(p.allDone)
+        // rejouer un niveau plus ancien, ou en réussir un autre en chemin, ne fait pas reculer le point de reprise
+        p = p.withResult(3, 3, 1, 0)
+        assertEquals(41, p.currentLevel)
+        p = p.withResult(12, 3, 1, 0)
+        assertEquals(41, p.currentLevel)
+    }
+
     @Test
     fun finishingEverythingStopsAtTheLastLevel() {
         var p = ParkingProgress()
         for (level in 1..Worlds.LEVEL_COUNT) p = p.withResult(level, 3, 1, 0)
         assertTrue(p.allDone)
         assertEquals(Worlds.LEVEL_COUNT, p.currentLevel)
-        assertTrue(p.isUnlocked(Worlds.LEVEL_COUNT))
-        assertFalse(p.isUnlocked(Worlds.LEVEL_COUNT + 1))
+        assertTrue(p.isDone(Worlds.LEVEL_COUNT))
+        assertFalse(p.isDone(Worlds.LEVEL_COUNT + 1))
         assertEquals(3 * Worlds.LEVEL_COUNT, p.totalStars)
     }
 }

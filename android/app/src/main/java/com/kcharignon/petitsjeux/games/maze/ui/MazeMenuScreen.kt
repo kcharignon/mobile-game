@@ -41,7 +41,6 @@ import com.kcharignon.petitsjeux.core.ui.Backdrop
 import com.kcharignon.petitsjeux.core.ui.IconKind
 import com.kcharignon.petitsjeux.core.ui.Panel
 import com.kcharignon.petitsjeux.core.ui.Pj
-import com.kcharignon.petitsjeux.core.ui.PjIcon
 import com.kcharignon.petitsjeux.core.ui.PjText
 import com.kcharignon.petitsjeux.core.ui.RoundIconButton
 import com.kcharignon.petitsjeux.core.ui.StarPill
@@ -50,7 +49,7 @@ import com.kcharignon.petitsjeux.core.ui.withTapSound
 import com.kcharignon.petitsjeux.games.maze.MazeProgress
 import com.kcharignon.petitsjeux.games.maze.engine.MazeWorlds
 
-/** Le choix du niveau : un monde par bloc (ses 10 niveaux sur deux rangées de 5, avec leurs étoiles) ; les suivants sont verrouillés. */
+/** Le choix du niveau : un monde par bloc (ses 10 niveaux sur deux rangées de 5, avec leurs étoiles). Tous sont jouables ; ceux qu'on n'a pas encore réussis sont gris. */
 @Composable
 fun MazeMenuScreen(progress: MazeProgress, onPlay: (Int) -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val current = progress.currentLevel
@@ -88,16 +87,17 @@ fun MazeMenuScreen(progress: MazeProgress, onPlay: (Int) -> Unit, onBack: () -> 
 private fun WorldBlock(world: Int, progress: MazeProgress, current: Int, onPlay: (Int) -> Unit) {
     val first = MazeWorlds.firstLevel(world)
     val theme = MazeTheme.of(world)
-    val reached = progress.isUnlocked(first)
+    // les mondes se montrent toujours en couleurs (on peut y sauter) ; leurs étoiles apparaissent dès qu'on y a joué ou qu'on y est arrivé
+    val reached = first <= current
     val got = (first until first + MazeWorlds.LEVELS_PER_WORLD).sumOf { progress.starsOf(it) }
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            PjText("Monde ${world + 1} · ${MazeWorlds.names[world]}", Modifier.weight(1f), size = 16.sp, color = if (reached) Pj.InkSoft else Pj.GrayText, maxLines = 1)
+            PjText("Monde ${world + 1} · ${MazeWorlds.names[world]}", Modifier.weight(1f), size = 16.sp, color = Pj.InkSoft, maxLines = 1)
             // les trois couleurs de corail du monde
             Row(Modifier.padding(end = 10.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                for (c in theme.walls) Box(Modifier.size(11.dp).background(if (reached) c else Pj.Gray, CircleShape))
+                for (c in theme.walls) Box(Modifier.size(11.dp).background(c, CircleShape))
             }
-            if (reached) PjText("$got / ${MazeWorlds.LEVELS_PER_WORLD * 3}", size = 14.sp, weight = FontWeight.Medium, color = Pj.StarDark)
+            if (reached || got > 0) PjText("$got / ${MazeWorlds.LEVELS_PER_WORLD * 3}", size = 14.sp, weight = FontWeight.Medium, color = Pj.StarDark)
         }
         for (row in 0 until 2) {
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -112,30 +112,29 @@ private fun WorldBlock(world: Int, progress: MazeProgress, current: Int, onPlay:
 
 @Composable
 private fun LevelCell(level: Int, progress: MazeProgress, current: Int, onPlay: (Int) -> Unit) {
-    val unlocked = progress.isUnlocked(level)
-    val isCurrent = level == current && !progress.allDone
+    val done = progress.isDone(level)
+    val isCurrent = level == current && !done
     val face = when {
-        !unlocked -> Pj.Gray
         isCurrent -> Pj.Orange
-        else -> Pj.Green
+        done -> Pj.Green
+        else -> Pj.Gray
     }
     val edge = when {
-        !unlocked -> Pj.GrayDark
         isCurrent -> Pj.OrangeDark
-        else -> Pj.GreenDark
+        done -> Pj.GreenDark
+        else -> Pj.GrayDark
     }
     Column(
         Modifier
             .fillMaxWidth()
             .testTag("level-$level")
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, enabled = unlocked, onClick = withTapSound { onPlay(level) }),
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = withTapSound { onPlay(level) }),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(Modifier.fillMaxWidth().height(54.dp)) {
             Box(Modifier.fillMaxWidth().height(48.dp).padding(top = 5.dp).background(edge, RoundedCornerShape(17.dp)))
             Box(Modifier.fillMaxWidth().height(48.dp).background(face, RoundedCornerShape(17.dp)), contentAlignment = Alignment.Center) {
-                if (unlocked) PjText("$level", size = 24.sp, weight = FontWeight.Bold, color = Color.White)
-                else PjIcon(IconKind.LOCK, size = 20.dp, tint = Pj.GrayText)
+                PjText("$level", size = 24.sp, weight = FontWeight.Bold, color = if (done || isCurrent) Color.White else Pj.GrayText)
             }
             if (isCurrent) {
                 Canvas(Modifier.fillMaxSize()) {
@@ -146,7 +145,7 @@ private fun LevelCell(level: Int, progress: MazeProgress, current: Int, onPlay: 
                 }
             }
         }
-        if (unlocked) Stars(filled = progress.starsOf(level), star = 12.dp, gap = 1.dp, modifier = Modifier.padding(top = 2.dp))
+        if (done || isCurrent) Stars(filled = progress.starsOf(level), star = 12.dp, gap = 1.dp, modifier = Modifier.padding(top = 2.dp))
         else Box(Modifier.size(1.dp, 16.dp))
     }
 }

@@ -223,8 +223,8 @@ function niveaux() {
     const dark = locked ? '#B9BECE' : isCur ? '#D68A00' : T.greenDark;
     b += `<rect x="${x}" y="${y + 5}" width="68" height="54" rx="19" fill="${dark}"/><rect x="${x}" y="${y}" width="68" height="54" rx="19" fill="${fill}"/>`;
     b += `<rect x="${x + 12}" y="${y + 5}" width="44" height="11" rx="5.5" fill="#fff" opacity="0.28"/>`;
-    if (locked) b += icons.lock(x + 34, y + 24, 0.9);
-    else b += text(x + 34, y + 37, String(n), { size: 28, weight: 700, fill: '#fff' });
+    // tous les niveaux sont jouables : un niveau pas encore réussi est gris, avec son numéro (pas de cadenas)
+    b += text(x + 34, y + 37, String(n), { size: 28, weight: 700, fill: locked ? '#7B8196' : '#fff' });
     if (!locked) {
       const k = isCur ? 0 : stars[i];
       for (let j = 0; j < 3; j++) b += star(x + 14 + j * 20, y + 72 - (j === 1 ? 3 : 0), 8, j < k);

@@ -40,7 +40,6 @@ import com.kcharignon.petitsjeux.core.ui.Backdrop
 import com.kcharignon.petitsjeux.core.ui.IconKind
 import com.kcharignon.petitsjeux.core.ui.Panel
 import com.kcharignon.petitsjeux.core.ui.Pj
-import com.kcharignon.petitsjeux.core.ui.PjIcon
 import com.kcharignon.petitsjeux.core.ui.PjText
 import com.kcharignon.petitsjeux.core.ui.RoundIconButton
 import com.kcharignon.petitsjeux.core.ui.StarPill
@@ -49,7 +48,7 @@ import com.kcharignon.petitsjeux.core.ui.withTapSound
 import com.kcharignon.petitsjeux.games.road.RoadProgress
 import com.kcharignon.petitsjeux.games.road.engine.RoadWorlds
 
-/** Le choix du niveau (en paysage) : un monde par ligne, ses 6 niveaux côte à côte avec leurs étoiles ; les suivants sont verrouillés. */
+/** Le choix du niveau (en paysage) : un monde par ligne, ses 6 niveaux côte à côte avec leurs étoiles. Tous sont jouables ; ceux qu'on n'a pas encore réussis sont gris. */
 @Composable
 fun RoadMenuScreen(progress: RoadProgress, onPlay: (Int) -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val current = progress.currentLevel
@@ -103,30 +102,29 @@ private fun WorldRow(world: Int, progress: RoadProgress, current: Int, onPlay: (
 
 @Composable
 private fun LevelCell(level: Int, progress: RoadProgress, current: Int, onPlay: (Int) -> Unit) {
-    val unlocked = progress.isUnlocked(level)
-    val isCurrent = level == current && !progress.allDone
+    val done = progress.isDone(level)
+    val isCurrent = level == current && !done
     val face = when {
-        !unlocked -> Pj.Gray
         isCurrent -> Pj.Orange
-        else -> Pj.Green
+        done -> Pj.Green
+        else -> Pj.Gray
     }
     val edge = when {
-        !unlocked -> Pj.GrayDark
         isCurrent -> Pj.OrangeDark
-        else -> Pj.GreenDark
+        done -> Pj.GreenDark
+        else -> Pj.GrayDark
     }
     Column(
         Modifier
             .fillMaxWidth()
             .testTag("level-$level")
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, enabled = unlocked, onClick = withTapSound { onPlay(level) }),
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = withTapSound { onPlay(level) }),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(Modifier.fillMaxWidth().height(54.dp)) {
             Box(Modifier.fillMaxWidth().height(48.dp).padding(top = 5.dp).background(edge, RoundedCornerShape(17.dp)))
             Box(Modifier.fillMaxWidth().height(48.dp).background(face, RoundedCornerShape(17.dp)), contentAlignment = Alignment.Center) {
-                if (unlocked) PjText("$level", size = 26.sp, weight = FontWeight.Bold, color = Color.White)
-                else PjIcon(IconKind.LOCK, size = 22.dp, tint = Pj.GrayText)
+                PjText("$level", size = 26.sp, weight = FontWeight.Bold, color = if (done || isCurrent) Color.White else Pj.GrayText)
             }
             if (isCurrent) {
                 Canvas(Modifier.fillMaxSize()) {
@@ -137,7 +135,7 @@ private fun LevelCell(level: Int, progress: RoadProgress, current: Int, onPlay: 
                 }
             }
         }
-        if (unlocked) Stars(filled = progress.starsOf(level), star = 13.dp, gap = 1.dp, modifier = Modifier.padding(top = 2.dp))
+        if (done || isCurrent) Stars(filled = progress.starsOf(level), star = 13.dp, gap = 1.dp, modifier = Modifier.padding(top = 2.dp))
         else Box(Modifier.size(1.dp, 16.dp))
     }
 }
