@@ -22,6 +22,9 @@ import com.kcharignon.petitsjeux.core.ui.Pj
 import com.kcharignon.petitsjeux.games.parking.engine.Car
 import com.kcharignon.petitsjeux.games.parking.engine.Dir
 import com.kcharignon.petitsjeux.games.parking.engine.Wall
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * Les dessins de Parking Malin : plateau, plots, panneau P, et le tracé d'un véhicule. Les véhicules eux-mêmes (voitures, camions, bus) sont dans
@@ -208,9 +211,16 @@ fun DrawScope.drawBoardDecor(g: BoardGeometry) {
     drawCone(slab.right - g.s * 0.1f, slab.bottom + g.s * 0.62f, g.s * 0.5f)
 }
 
-/** Une caisse en bois tombée sur la case centrée en ([cx], [cy]) : [appear] (0 à 1) la fait arriver de haut en rebondissant. */
-fun DrawScope.drawCrate(cx: Float, cy: Float, s: Float, appear: Float) {
+/**
+ * Une caisse en bois tombée sur la case centrée en ([cx], [cy]) : [appear] (0 à 1) la fait arriver de haut en rebondissant ;
+ * [smash] (0 à 1) la fait éclater en morceaux quand un véhicule roule dessus.
+ */
+fun DrawScope.drawCrate(cx: Float, cy: Float, s: Float, appear: Float, smash: Float = 0f) {
     if (appear <= 0.01f) return
+    if (smash > 0.01f) {
+        drawBrokenCrate(cx, cy, s, smash.coerceAtMost(1f))
+        return
+    }
     val scale = 1f + (1f - appear.coerceAtMost(1f)) * 0.5f
     val w = s * 0.72f * scale
     val lift = (1f - appear.coerceAtMost(1f)) * s * 0.5f
@@ -225,6 +235,26 @@ fun DrawScope.drawCrate(cx: Float, cy: Float, s: Float, appear: Float) {
     drawLine(Color(0xFF8C6535).copy(alpha = a), Offset(x + w * 0.1f, y + w * 0.5f), Offset(x + w * 0.9f, y + w * 0.5f), s * 0.04f, StrokeCap.Round)
     drawLine(Color(0xFF8C6535).copy(alpha = a), Offset(x + w * 0.5f, y + w * 0.1f), Offset(x + w * 0.5f, y + w * 0.9f), s * 0.04f, StrokeCap.Round)
     drawRoundRect(Color(0xFFF2D49B).copy(alpha = 0.6f * a), Offset(x + w * 0.1f, y + w * 0.08f), Size(w * 0.5f, w * 0.1f), CornerRadius(w * 0.05f))
+}
+
+/** Une caisse qui éclate : cinq planches qui s'envolent et tournent en s'effaçant, un nuage de poussière. */
+private fun DrawScope.drawBrokenCrate(cx: Float, cy: Float, s: Float, smash: Float) {
+    val fade = 1f - smash
+    val wood = Color(0xFFD9AE70)
+    val edge = Color(0xFF8C6535)
+    drawCircle(Color(0xFFF2E6CC).copy(alpha = 0.55f * fade), s * (0.25f + 0.4f * smash), Offset(cx, cy))
+    for (k in 0 until 5) {
+        val angle = (k * 72f + 25f) * (PI.toFloat() / 180f)
+        val dist = s * (0.1f + 0.5f * smash)
+        val px = cx + cos(angle) * dist
+        val py = cy + sin(angle) * dist - s * 0.18f * sin(smash * PI.toFloat())
+        val w = s * 0.26f
+        val h = s * 0.09f
+        rotate(k * 72f + smash * 260f, Offset(px, py)) {
+            drawRoundRect(edge.copy(alpha = fade), Offset(px - w / 2, py - h / 2 + s * 0.02f), Size(w, h), CornerRadius(h * 0.3f))
+            drawRoundRect(wood.copy(alpha = fade), Offset(px - w / 2, py - h / 2), Size(w, h), CornerRadius(h * 0.3f))
+        }
+    }
 }
 
 /** Un chevron (V) qui montre le sens : [degrees] = rotation d'un chevron qui regarde vers le haut. */

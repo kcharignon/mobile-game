@@ -80,6 +80,7 @@ import com.kcharignon.petitsjeux.games.parking.engine.Level
 import com.kcharignon.petitsjeux.games.parking.engine.Move
 import com.kcharignon.petitsjeux.games.parking.engine.MotionSource
 import com.kcharignon.petitsjeux.games.parking.engine.ParkingGame
+import com.kcharignon.petitsjeux.games.parking.engine.Smash
 import com.kcharignon.petitsjeux.games.parking.engine.TapResult
 import com.kcharignon.petitsjeux.games.parking.engine.Worlds
 import com.kcharignon.petitsjeux.games.parking.engine.starsForBumps
@@ -154,9 +155,12 @@ class CarVisual {
     fun alpha(len: Int): Float = (1f - ((progress.value - fadeFrom) / (len + 1f)).coerceIn(0f, 1f))
 }
 
-/** Une caisse qui vient de tomber : elle apparaît en rebondissant sur la case que la queue du camion occupait. */
+/** Une caisse qui vient de tomber : elle apparaît en rebondissant sur la case que la queue du camion occupait, puis éclate si un véhicule roule dessus. */
 class CrateVisual {
     val appear = Animatable(0f)
+
+    /** 0 = entière, 1 = éclatée (un véhicule vient de rouler dessus). */
+    val smash = Animatable(0f)
 }
 
 /** Pause entre la sortie du dernier véhicule et la fenêtre de victoire. */
@@ -177,7 +181,7 @@ fun levelCaption(index: Int): String? = when (index) {
     3 -> "Glisse-le dans le sens que tu veux : avant ou arrière."
     21 -> "Nouveau : un plus grand parking, et des plots de chantier qui bloquent le passage !"
     41 -> "Nouveau : un plus grand parking, et des murs qui ferment certaines sorties !"
-    61 -> "Nouveau : un plus grand parking, et un pick-up qui laisse tomber une caisse derrière lui. Elle bloque la case !"
+    61 -> "Nouveau : un plus grand parking, et un pick-up qui laisse tomber une caisse derrière lui. Si un véhicule roule dessus, il la casse : c'est une faute !"
     81 -> "Nouveau : un plus grand parking, et des taches d'huile : on y tourne à droite en avançant, à gauche en reculant !"
     101 -> "Nouveau : un plus grand parking, et des sens uniques : on ne passe que dans le sens de la flèche !"
     121 -> "Nouveau : un plus grand parking, et des tapis roulants : ils te poussent d'une case sur le côté !"
@@ -227,7 +231,6 @@ private fun PlayBoard(
     var carsLeft by remember { mutableIntStateOf(game.carsLeft) }
     var bumps by remember { mutableIntStateOf(0) }
     var won by remember { mutableStateOf(false) }
-    var stuck by remember { mutableStateOf(false) }
     var finished by remember { mutableStateOf(false) }
     var hint by remember { mutableStateOf<Hint?>(null) }
     var honk by remember { mutableStateOf<Honk?>(null) }
@@ -250,8 +253,21 @@ private fun PlayBoard(
         if (honk?.token == shown.token) honk = null
     }
 
+    /** Un véhicule roule sur des caisses : chacune éclate quand il arrive sur sa case (c'est une faute, déjà comptée par le moteur). */
+    fun smashCrates(smashed: List<Smash>) {
+        for (s in smashed) {
+            val crate = crates[s.cell] ?: continue
+            scope.launch {
+                delay((sqrt((s.index + 0.5f) / EXIT_ACCELERATION) * 1000f).toLong())
+                feedback.bonk()
+                crate.smash.animateTo(1f, tween(280))
+                if (crates[s.cell] === crate) crates.remove(s.cell)
+            }
+        }
+    }
+
     fun act(car: Car, move: Move) {
-        if (won || stuck || visuals.getValue(car.id).bumping) return
+        if (won || visuals.getValue(car.id).bumping) return
         hint = null
         touched = true
         when (val result = game.tap(car.id, move)) {
@@ -259,13 +275,15 @@ private fun PlayBoard(
             is TapResult.Exited -> {
                 carsLeft = game.carsLeft
                 feedback.exit()
+                bumps = game.bumps
+                smashCrates(result.smashed)
                 // Le niveau est réussi (et sauvegardé) dès que le dernier véhicule est parti : quitter pendant son animation ne perd rien.
                 if (game.isWon && !finished) {
                     finished = true
                     onFinished(game.bumps)
                 }
                 result.dropped?.let { cell ->
-                    // la caisse tombe sur la case que la queue du camion occupait, et la bloque pour de bon
+                    // la caisse tombe sur la case que la queue du camion occupait ; le prochain véhicule qui y passe la casse (une faute)
                     val crate = CrateVisual()
                     crates[cell] = crate
                     scope.launch { crate.appear.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 260f)) }
@@ -279,16 +297,13 @@ private fun PlayBoard(
                         delay(WIN_DELAY_MS)
                         won = true
                         feedback.win()
-                    } else if (!game.isWon && result.dropped != null && game.isStuck) {
-                        // la caisse a fermé le dernier passage : plus aucun coup ne permet de tout faire sortir
-                        delay(500)
-                        stuck = true
                     }
                 }
             }
             is TapResult.Bumped -> {
                 bumps = game.bumps
                 feedback.bump(car.len)
+                smashCrates(result.smashed)
                 val path = MotionPath(car, move, result.trip)
                 visuals.getValue(car.id).begin(path)
                 visuals.getValue(car.id).startBump()
@@ -310,8 +325,6 @@ private fun PlayBoard(
         overlay = {
             if (won) {
                 WinCard(level, game.stars, level.cars.size, game.bumps, hasNext, onNext, onReplay = onRestart, onLevels)
-            } else if (stuck) {
-                StuckCard(onRestart, onLevels)
             }
         },
     ) {
@@ -415,7 +428,7 @@ private fun PlayBoard(
                     // caisses tombées : sous les véhicules (le camion qui part passe par-dessus)
                     for ((cell, crate) in crates) {
                         val tl = g.cellTopLeft(cell.col, cell.row)
-                        drawCrate(tl.x + g.s / 2, tl.y + g.s / 2, g.s, crate.appear.value)
+                        drawCrate(tl.x + g.s / 2, tl.y + g.s / 2, g.s, crate.appear.value, crate.smash.value)
                     }
                     // les véhicules qui roulent passent par-dessus les autres
                     val order = level.cars.filterNot { visuals.getValue(it.id).gone }.sortedBy { if (abs(visuals.getValue(it.id).progress.value) > 0.01f) 1 else 0 }
@@ -482,7 +495,7 @@ private fun PlayBoard(
                     PjText("$carsLeft", size = 28.sp, weight = FontWeight.Bold)
                 }
                 ChunkyButton(
-                    "Indice", onClick = { if (!won && !stuck) { hint = game.hint(); if (hint != null) feedback.hint() } },
+                    "Indice", onClick = { if (!won) { hint = game.hint(); if (hint != null) feedback.hint() } },
                     Modifier.weight(1f), color = Pj.Orange, dark = Pj.OrangeDark, height = 58.dp, fontSize = 24.sp,
                     leading = { PjIcon(IconKind.BULB, size = 24.dp) },
                 )
@@ -518,28 +531,6 @@ private fun carPose(g: BoardGeometry, car: Car, v: CarVisual): Triple<Offset, Fl
 private fun noseCenter(g: BoardGeometry, path: MotionPath, cells: Float): Offset {
     val pose = path.noseAt(cells)
     return Offset(g.origin.x + pose.col * g.s, g.origin.y + pose.row * g.s)
-}
-
-/** Plus aucun coup possible (une caisse mal placée a fermé le dernier passage) : on propose de recommencer, sans punition. */
-@Composable
-fun StuckCard(onRestart: () -> Unit, onLevels: () -> Unit) {
-    Modal(onDismiss = null) {
-        Panel(
-            Modifier.padding(horizontal = 36.dp).fillMaxWidth().consumeTaps(),
-            corner = 38.dp, ledge = 8.dp,
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 28.dp, vertical = 24.dp),
-        ) {
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                PjText("Oups, bloqué !", size = 36.sp, weight = FontWeight.Bold, color = Pj.RedDark)
-                PjText(
-                    "La caisse est tombée au mauvais endroit : plus personne ne peut sortir. Essaie dans un autre ordre !",
-                    Modifier.padding(top = 10.dp), size = 18.sp, weight = FontWeight.Medium, align = TextAlign.Center,
-                )
-                ChunkyButton("Recommencer", onRestart, Modifier.padding(top = 18.dp).fillMaxWidth(), height = 62.dp, fontSize = 26.sp)
-                ChunkyButton("Niveaux", onLevels, Modifier.padding(top = 12.dp).fillMaxWidth(), color = Pj.Slate, dark = Pj.SlateDark, height = 46.dp, fontSize = 18.sp)
-            }
-        }
-    }
 }
 
 /** La fenêtre de victoire : confettis, étoiles qui s'allument une à une, puis les trois boutons. */

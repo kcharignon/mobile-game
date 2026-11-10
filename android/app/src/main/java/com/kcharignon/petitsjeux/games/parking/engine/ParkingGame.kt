@@ -5,7 +5,7 @@ import kotlin.math.floor
 import kotlin.math.sqrt
 
 /**
- * Ce qui bloque un véhicule : un autre véhicule (même s'il roule), un plot de chantier, une caisse tombée, une barrière fermée, un sens interdit,
+ * Ce qui bloque un véhicule : un autre véhicule (même s'il roule), un plot de chantier, une barrière fermée, un sens interdit,
  * un mur à la sortie ou un tour en rond (huile, tapis, téléporteur).
  */
 sealed interface Blocker {
@@ -17,15 +17,19 @@ sealed interface Blocker {
     data class Barrier(val wall: Wall) : Blocker
 }
 
-enum class ObstacleKind { CONE, CRATE, OIL, ONEWAY, GATE }
+enum class ObstacleKind { CONE, OIL, ONEWAY, GATE }
+
+/** Une caisse tombée que le véhicule écrase en passant : sa case, et l'indice de cette case dans le trajet (0 = la première case devant lui). */
+data class Smash(val cell: Cell, val index: Int)
 
 /** Ce qui se passe quand on glisse (ou touche) un véhicule. */
 sealed interface TapResult {
     /**
      * La voie est libre : le véhicule sort en suivant son [trip] (cases traversées, avec les virages, les poussées et les sauts) puis continue dans le sens
      * [finalDirection]. [dropped] : la case où un camion à caisse la laisse tomber en partant (celle que sa queue occupait), sinon `null`.
+     * [smashed] : les caisses tombées qu'il écrase en passant : il continue sa route, mais chacune est une faute.
      */
-    data class Exited(val car: Car, val move: Move, val trip: Route, val dropped: Cell? = null) : TapResult {
+    data class Exited(val car: Car, val move: Move, val trip: Route, val dropped: Cell? = null, val smashed: List<Smash> = emptyList()) : TapResult {
         /** Les cases traversées avant le bord du plateau. */
         val route: List<Cell> get() = trip.cells
         val finalDirection: Dir get() = trip.finalDirection
@@ -37,8 +41,9 @@ sealed interface TapResult {
     /**
      * Quelque chose bloque : le véhicule avance de [freeCells] cases (son [trip] : ces cases, avec les virages) dans le sens [direction],
      * klaxonne et revient. C'est une faute.
+     * [smashed] : les caisses tombées qu'il a écrasées sur ces [freeCells] cases (une faute de plus pour chacune).
      */
-    data class Bumped(val car: Car, val move: Move, val blocker: Blocker, val freeCells: Int, val trip: Route) : TapResult {
+    data class Bumped(val car: Car, val move: Move, val blocker: Blocker, val freeCells: Int, val trip: Route, val smashed: List<Smash> = emptyList()) : TapResult {
         val route: List<Cell> get() = trip.cells
         val direction: Dir get() = trip.finalDirection
     }
@@ -175,7 +180,6 @@ class ParkingGame(val level: Level) {
     private fun firstBlock(car: Car, route: Route): Pair<Int, Blocker>? {
         val fixed = HashMap<Cell, Blocker>()
         for (cone in level.cones) fixed[cone] = Blocker.Obstacle(cone, ObstacleKind.CONE)
-        for (crate in fallenCrates) fixed[crate] = Blocker.Obstacle(crate, ObstacleKind.CRATE)
         for (gate in level.gates) if (!isOpen(gate)) fixed[gate.cell] = Blocker.Obstacle(gate.cell, ObstacleKind.GATE)
         // un véhicule immobile occupe ses cases ; un véhicule qui rebondit, ce qu'il balaie
         for (other in onBoard.values) if (other.id !in motions) for (cell in other.cells) fixed[cell] = Blocker.Vehicle(other)
@@ -212,35 +216,65 @@ class ParkingGame(val level: Level) {
             bumps++
             val free = block?.first ?: route.cells.size
             val trip = route.take(free, car.directionOf(move))
+            val smashed = smash(trip.cells)
             motions[id] = Motion(car, move, trip.cells, exiting = false)
-            return TapResult.Bumped(car, move, blocker, free, trip)
+            return TapResult.Bumped(car, move, blocker, free, trip, smashed)
         }
         onBoard.remove(id)
         exited++
         motions[id] = Motion(car, move, route.cells, exiting = true)
+        val smashed = smash(route.cells)
         val dropped = if (car.carrier) car.trail(move).also { fallenCrates += it } else null
-        return TapResult.Exited(car, move, route, dropped)
+        return TapResult.Exited(car, move, route, dropped, smashed)
     }
 
-    /** Peut-on encore tout faire sortir depuis cet état ? Faux seulement si une caisse mal placée a fermé le dernier passage. */
+    /**
+     * Les caisses tombées que ce véhicule écraserait en suivant [cells] : une caisse **ne bloque pas** ; le véhicule la détruit et continue sa route, et chaque
+     * caisse détruite est une faute. Une caisse n'est comptée qu'une fois, à la première case où on la rencontre.
+     */
+    private fun smashedBy(cells: List<Cell>): List<Smash> =
+        cells.withIndex().filter { it.value in fallenCrates }.distinctBy { it.value }.map { Smash(it.value, it.index) }
+
+    /** Les caisses que ce véhicule écraserait s'il partait maintenant dans ce sens (aucune si la voie est bloquée par autre chose : il ne roule pas). */
+    fun smashes(car: Car, move: Move): List<Smash> = smashedBy(routeOf(car, move).cells)
+
+    private fun smash(cells: List<Cell>): List<Smash> {
+        val smashed = smashedBy(cells)
+        for (s in smashed) fallenCrates -= s.cell
+        bumps += smashed.size
+        return smashed
+    }
+
+    /**
+     * Une vraie impasse : plus aucun coup ne permet de tout faire sortir, **même en écrasant les caisses** (seules les barrières qui changent à chaque sortie
+     * peuvent encore en créer une). Les caisses mal placées ne sont plus des impasses : le prochain véhicule les écrase, avec une faute.
+     */
     val isStuck: Boolean
+        get() = onBoard.isNotEmpty() && !Solver.canFinish(level.cols, level.rows, level.cones.toSet(), onBoard.values.map { it.copy(carrier = false) }, level.walls, level.floor, exits = exited, optimistic = true)
+
+    /** Une caisse mal placée : on ne peut plus tout faire sortir **sans faute** (il faudra en écraser une). Les indices ne le conseillent jamais. */
+    val mustSmashACrate: Boolean
         get() = onBoard.isNotEmpty() && !Solver.canFinish(level.cols, level.rows, fixedObstacles(), onBoard.values.toList(), level.walls, level.floor, exits = exited, optimistic = true)
 
     /**
      * Un coup qui mène à la solution : un véhicule libre **maintenant**, dans un sens où il peut sortir, qui en débloque le plus d'autres.
-     * Les coups qui conduiraient à une impasse (un camion qui laisserait tomber sa caisse au mauvais endroit) ne sont jamais conseillés.
+     * Un coup qui laisserait une caisse au mauvais endroit (il faudrait ensuite l'écraser : une faute) n'est jamais conseillé tant qu'il existe un coup sans faute ; si une caisse mal placée est déjà tombée, on conseille le coup qui en écrase le moins.
      * `null` si le plateau est vide ou si rien n'est libre pour l'instant (un véhicule qui roule encore barre peut-être le passage).
      */
     fun hint(): Hint? {
         val remaining = onBoard.values.toList()
         val fixed = fixedObstacles()
-        val candidates = remaining.flatMap { car -> Move.entries.filter { canMove(car, it) }.map { Hint(car, it) } }
+        // un coup qui écrase une caisse retire cette caisse (et coûte une faute) : on cherche d'abord un coup sans aucune faute, sinon celui qui en coûte le moins
+        val faults = HashMap<Hint, Int>()
+        val reachable = remaining.flatMap { car -> Move.entries.filter { canMove(car, it) }.map { Hint(car, it) } }
             .filter { h ->
-                val rest = remaining - h.car
-                val crates = if (h.car.carrier) fixed + h.car.trail(h.move) else fixed
-                Solver.canFinish(level.cols, level.rows, crates, rest, level.walls, level.floor, exits = exited + 1, optimistic = true)
+                val smashed = smashes(h.car, h.move).map { it.cell }.toSet()
+                faults[h] = smashed.size
+                val crates = (fixed - smashed).let { if (h.car.carrier) it + h.car.trail(h.move) else it }
+                Solver.canFinish(level.cols, level.rows, crates, remaining - h.car, level.walls, level.floor, exits = exited + 1, optimistic = true)
             }
-        if (candidates.isEmpty()) return null
+        val fewest = reachable.minOfOrNull { faults.getValue(it) } ?: return null
+        val candidates = reachable.filter { faults.getValue(it) == fewest }
         val dependants = candidates.associateWith { h ->
             val cells = h.car.cells.toSet()
             remaining.count { other ->

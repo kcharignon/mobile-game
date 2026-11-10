@@ -91,7 +91,7 @@ data class Cell(val col: Int, val row: Int)
  *
  * (col, row) est la case en haut à gauche de son emprise ; [dir] est le sens du nez ; [color] un indice dans la palette de l'interface.
  * [carrier] : un camion qui transporte une caisse (un pick-up) : en partant, il la laisse tomber sur la case que sa **queue** occupait
- * (toujours la même, jamais au hasard) et elle la bloque pour de bon.
+ * (toujours la même, jamais au hasard). Un véhicule qui passe ensuite sur cette caisse la détruit et continue sa route, mais c'est une faute.
  */
 data class Car(
     val id: Int,

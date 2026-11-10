@@ -227,6 +227,25 @@ class LevelGeneratorTest {
     }
 
     @Test
+    fun aCrateInTheWrongPlaceNeverEndsTheGame() {
+        // n'importe quel ordre de coups, même le pire : on arrive toujours au bout, avec au plus une faute par caisse (qu'un véhicule écrase en passant)
+        val rng = java.util.Random(42)
+        for (level in all.filter { it.index in 61..160 }) {
+            val game = ParkingGame(level)
+            var steps = 0
+            while (!game.isWon) {
+                val moves = game.cars.flatMap { c -> Move.entries.filter { game.canMove(c, it) }.map { c to it } }
+                assertTrue("niveau ${level.index} : plus aucun coup possible", moves.isNotEmpty())
+                val (car, move) = moves[rng.nextInt(moves.size)]
+                assertTrue(game.tap(car.id, move) is TapResult.Exited)
+                game.finishMotion(car.id)
+                assertTrue(++steps <= level.cars.size)
+            }
+            assertTrue("niveau ${level.index} : ${game.bumps} fautes pour ${level.cars.count { it.carrier }} caisses", game.bumps <= level.cars.count { it.carrier })
+        }
+    }
+
+    @Test
     fun cratesAreARealTrapInTheLastLevels() {
         val trapped = all.filter { it.index >= 70 }.count { analyses[it.index - 1].traps >= 1 }
         assertTrue("des niveaux piégés à la fin ($trapped)", trapped >= 6)

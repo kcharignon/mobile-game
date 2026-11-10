@@ -118,7 +118,7 @@ class ParkingGameTest {
     }
 
     @Test
-    fun aFallenCrateBlocksTheCellForGood() {
+    fun aVehicleDrivingOverAFallenCrateSmashesItAndCarriesOnButItIsAFault() {
         // le pick-up part vers la droite et laisse sa caisse en (0,0) ; le véhicule vertical de la colonne 0 la rencontre en montant
         val level = Level(
             181, 5, 3,
@@ -128,9 +128,66 @@ class ParkingGameTest {
         assertTrue(game.tap(0, Move.FORWARD) is TapResult.Exited)
         game.finishMotion(0) // le pick-up a fini de partir : sa caisse reste
         assertEquals(setOf(Cell(0, 0)), game.crates)
+        assertEquals(0, game.bumps)
+        assertEquals(listOf(Smash(Cell(0, 0), 0)), game.smashes(level.cars[1], Move.FORWARD))
+        // la caisse ne bloque pas : le véhicule la détruit, sort, et c'est une faute
+        val exit = game.tap(1, Move.FORWARD) as TapResult.Exited
+        assertEquals(listOf(Smash(Cell(0, 0), 0)), exit.smashed)
+        assertTrue(game.crates.isEmpty())
+        assertEquals(1, game.bumps)
+        assertTrue(game.isWon)
+        assertEquals(2, game.stars)
+    }
+
+    @Test
+    fun everyCrateOnTheRouteIsOneFault() {
+        // deux pick-up laissent leur caisse en (0,0) et (0,1) ; le véhicule vertical du bas les rencontre toutes les deux
+        val level = Level(
+            181, 3, 5,
+            listOf(car(0, 0, 0, 3, Dir.RIGHT, carrier = true), car(1, 0, 1, 3, Dir.RIGHT, carrier = true), car(2, 0, 3, 2, Dir.UP)),
+        )
+        val game = ParkingGame(level)
+        for (id in 0..1) { game.tap(id, Move.FORWARD); game.finishMotion(id) }
+        assertEquals(setOf(Cell(0, 0), Cell(0, 1)), game.crates)
+        val exit = game.tap(2, Move.FORWARD) as TapResult.Exited
+        assertEquals(listOf(Smash(Cell(0, 1), 1), Smash(Cell(0, 0), 2)), exit.smashed)
+        assertEquals(2, game.bumps)
+        assertEquals(2, game.stars)
+        assertTrue(game.crates.isEmpty())
+    }
+
+    @Test
+    fun aVehicleThatBumpsLaterOnStillSmashesTheCratesItDroveOver() {
+        // le véhicule vertical écrase la caisse de (0,1), puis un plot en (0,0) l'arrête : une faute pour le plot, une pour la caisse
+        val level = Level(
+            181, 3, 5,
+            listOf(car(0, 0, 1, 3, Dir.RIGHT, carrier = true), car(1, 0, 3, 2, Dir.UP)),
+            cones = listOf(Cell(0, 0)),
+        )
+        val game = ParkingGame(level)
+        game.tap(0, Move.FORWARD)
+        game.finishMotion(0)
         val bump = game.tap(1, Move.FORWARD) as TapResult.Bumped
-        assertEquals(Blocker.Obstacle(Cell(0, 0), ObstacleKind.CRATE), bump.blocker)
-        assertEquals(0, bump.freeCells)
+        assertEquals(Blocker.Obstacle(Cell(0, 0), ObstacleKind.CONE), bump.blocker)
+        assertEquals(2, bump.freeCells)
+        assertEquals(listOf(Smash(Cell(0, 1), 1)), bump.smashed)
+        assertEquals(2, game.bumps)
+        assertTrue(game.crates.isEmpty())
+    }
+
+    @Test
+    fun aVehicleThatDoesNotGoOverACrateDoesNotTouchIt() {
+        val level = Level(
+            181, 5, 3,
+            listOf(car(0, 0, 0, 3, Dir.RIGHT, carrier = true), car(1, 3, 1, 2, Dir.RIGHT)),
+        )
+        val game = ParkingGame(level)
+        game.tap(0, Move.FORWARD)
+        game.finishMotion(0)
+        assertTrue(game.smashes(level.cars[1], Move.FORWARD).isEmpty())
+        assertTrue((game.tap(1, Move.FORWARD) as TapResult.Exited).smashed.isEmpty())
+        assertEquals(setOf(Cell(0, 0)), game.crates)
+        assertEquals(0, game.bumps)
     }
 
     // Un piège : 3 colonnes x 4 lignes, un plot en (0,3). Le véhicule vertical W (colonne 0, lignes 1-2) ne peut sortir que par le haut,
@@ -157,12 +214,36 @@ class ParkingGameTest {
     }
 
     @Test
-    fun walkingIntoTheTrapIsDetectedAsStuck() {
+    fun walkingIntoTheTrapOnlyCostsAFault() {
         val game = ParkingGame(trap)
-        assertFalse(game.isStuck)
+        assertFalse(game.mustSmashACrate)
         game.tap(0, Move.FORWARD)
-        assertTrue(game.isStuck)
-        assertNull(game.hint())
+        game.finishMotion(0)
+        assertTrue("une caisse mal placée : il faudra l'écraser", game.mustSmashACrate)
+        assertFalse("mais ce n'est plus une impasse", game.isStuck)
+        // l'indice propose le véhicule qui écrase la caisse, et on gagne avec une faute
+        val hint = game.hint()!!
+        assertEquals(1, hint.car.id)
+        assertEquals(Move.FORWARD, hint.move)
+        assertTrue(game.tap(1, Move.FORWARD) is TapResult.Exited)
+        assertTrue(game.isWon)
+        assertEquals(1, game.bumps)
+        assertEquals(2, game.stars)
+    }
+
+    @Test
+    fun theHintAvoidsSmashingACrateWhenAnotherMoveIsFree() {
+        // après la caisse en (0,0), le véhicule vertical peut sortir en haut (en écrasant la caisse : une faute) ou en bas (sans rien casser) : on ne conseille jamais le coup qui casse
+        val level = Level(
+            181, 5, 3,
+            listOf(car(0, 0, 0, 3, Dir.RIGHT, carrier = true), car(1, 0, 1, 2, Dir.UP), car(2, 3, 2, 2, Dir.RIGHT)),
+        )
+        val game = ParkingGame(level)
+        game.tap(0, Move.FORWARD)
+        game.finishMotion(0)
+        val hint = game.hint()!!
+        assertTrue("l'indice ne conseille pas d'écraser la caisse : $hint", game.smashes(hint.car, hint.move).isEmpty())
+        assertEquals(1, game.smashes(level.cars[1], Move.FORWARD).size)
     }
 
     @Test
@@ -170,7 +251,7 @@ class ParkingGameTest {
         val game = ParkingGame(trap)
         game.tap(0, Move.BACKWARD)
         game.finishMotion(0)
-        assertFalse(game.isStuck)
+        assertFalse(game.mustSmashACrate)
         assertTrue(game.tap(1, Move.FORWARD) is TapResult.Exited)
         assertTrue(game.isWon)
         assertEquals(0, game.bumps)
