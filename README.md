@@ -1,3 +1,7 @@
+
+| Cherche et Trouve : trouve le même objet | Cherche et Trouve : bravo | Cherche et Trouve : 14 objets au dernier niveau |
+|---|---|---|
+| ![Cherche et Trouve](docs/screenshots/70-cherche-niveau-1.png) | ![Bravo](docs/screenshots/74-cherche-bravo.png) | ![14 objets](docs/screenshots/71-cherche-niveau-100.png) |
 # Petits Jeux
 
 **Des petits jeux pour les enfants, sur Android. Sans pub, sans compte, sans suivi.**
@@ -17,6 +21,10 @@ et on ne « perd » jamais : une faute coûte une étoile, jamais la partie.
 | Poisson Perdu : tracer le chemin | Poisson Perdu : le poisson rentre chez lui | Poisson Perdu : les abysses |
 |---|---|---|
 | ![Poisson Perdu](docs/screenshots/64-labyrinthe-jeu.png) | ![Victoire](docs/screenshots/67-labyrinthe-victoire.png) | ![Abysses](docs/screenshots/68-labyrinthe-abysses.png) |
+
+| Cherche et Trouve : trouve le même objet | Cherche et Trouve : bravo | Cherche et Trouve : 14 objets au dernier niveau |
+|---|---|---|
+| ![Cherche et Trouve](docs/screenshots/70-cherche-niveau-1.png) | ![Bravo](docs/screenshots/74-cherche-bravo.png) | ![14 objets](docs/screenshots/71-cherche-niveau-100.png) |
 
 ## Les jeux
 
@@ -44,6 +52,12 @@ Des routes de plus en plus larges sur 48 niveaux. Écrasé, le poussin perd quel
 Un petit poisson-clown est perdu dans un récif de corail. Il faut **poser le doigt sur lui et tracer le chemin** jusqu'à sa maison, une anémone qui brille : la trace suit les couloirs et ne traverse jamais un mur,
 et si l'on se trompe on repasse le doigt sur son chemin pour reculer. À l'arrivée, le poisson suit le chemin tracé. 100 niveaux fabriqués à l'avance, dix décors (lagon, épave, banquise, volcan, abysses…),
 de 4×5 à 11×16 cases, des boucles et même une maison au milieu du labyrinthe. Pas de chronomètre : les impasses ne coûtent que des étoiles, et un indice est toujours gratuit. Chaque case de la trace joue un petit « bloup » de plus en plus aigu quand on se rapproche de la sortie.
+
+### Cherche et Trouve
+
+Un **modèle** s'affiche en haut (« Trouve : une pomme ») : il faut **retrouver le même objet** parmi ceux éparpillés sur l'écran. 100 niveaux fabriqués à l'avance, dix décors (chambre, jardin, plage, cuisine, ferme, forêt, ville, ciel, grenier, fête),
+40 objets de toutes les couleurs. Tous les 10 niveaux il y a plus d'objets, de 5 à 14, et les faux ressemblent de plus en plus au modèle (même couleur, même sorte).
+Pas de chronomètre et pas de game over : un mauvais objet pâlit et coûte une étoile, c'est tout. Si l'enfant hésite longtemps, le bon objet se balance doucement.
 
 ### Et ensuite
 

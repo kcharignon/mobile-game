@@ -3,6 +3,7 @@ package com.kcharignon.petitsjeux.core
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.kcharignon.petitsjeux.core.save.Profile
+import com.kcharignon.petitsjeux.games.find.FindMiniGame
 import com.kcharignon.petitsjeux.games.maze.MazeMiniGame
 import com.kcharignon.petitsjeux.games.mushrooms.MushroomMiniGame
 import com.kcharignon.petitsjeux.games.parking.ParkingMiniGame
@@ -38,7 +39,7 @@ interface MiniGame {
 }
 
 object Games {
-    val all: List<MiniGame> = listOf(ParkingMiniGame, MushroomMiniGame, RoadMiniGame, MazeMiniGame)
+    val all: List<MiniGame> = listOf(ParkingMiniGame, MushroomMiniGame, RoadMiniGame, MazeMiniGame, FindMiniGame)
 
     fun byId(id: String): MiniGame? = all.firstOrNull { it.id == id }
 
