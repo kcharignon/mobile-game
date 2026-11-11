@@ -33,7 +33,7 @@ O.objects.forEach((o, i) => {
   const cy = y + 8 + S / 2 + 4;
   body += `<rect x="${x + 4}" y="${y}" width="${CELL_W - 8}" height="${CELL_H - 12}" rx="26" fill="#FFFFFF" fill-opacity="0.55"/>`;
   body += `<g transform="translate(${cx} ${cy})">${O.svgObject(o, S)}</g>`;
-  body += `<text x="${cx}" y="${y + S + 40}" text-anchor="middle" font-family="Fredoka, sans-serif" font-size="${o.label.length > 18 ? 14 : 16}" font-weight="600" fill="#5B6079">${o.label}</text>`;
+  body += `<text x="${cx}" y="${y + S + 40}" text-anchor="middle" font-family="Fredoka, sans-serif" font-size="${o.label.length > 20 ? 12 : o.label.length > 18 ? 14 : 16}" font-weight="600" fill="#5B6079">${o.label}</text>`;
 });
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">

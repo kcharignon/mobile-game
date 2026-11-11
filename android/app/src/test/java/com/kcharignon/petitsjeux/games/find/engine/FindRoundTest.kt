@@ -86,9 +86,10 @@ class FindRoundTest {
             assertTrue("${e.id} n'est jamais à trouver", (asTarget[e.id] ?: 0) >= 20)
             assertTrue("${e.id} n'est jamais un faux", (asFake[e.id] ?: 0) >= 20)
         }
-        // pas de favori : le plus tiré ne l'est pas dix fois plus que le moins tiré
+        // pas de favori : chaque objet sert de cible entre 0,4 et 1,8 fois la moyenne (les couleurs sont différentes entre cibles, donc pas tout à fait uniforme)
         val counts = FindCatalog.all.map { (asTarget[it.id] ?: 0) }
-        assertTrue("répartition des cibles : ${counts.min()} à ${counts.max()}", counts.max() <= counts.min() * 3)
+        val mean = counts.average()
+        assertTrue("répartition des cibles : ${counts.min()} à ${counts.max()} pour une moyenne de $mean", counts.all { it > mean * 0.4 && it < mean * 1.8 })
     }
 
     @Test

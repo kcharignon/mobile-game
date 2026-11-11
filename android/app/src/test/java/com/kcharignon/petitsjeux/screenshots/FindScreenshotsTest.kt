@@ -129,15 +129,26 @@ class FindScreenshotsTest {
         }
     }
 
-    @Test
-    fun everyDifficultyShowsExactlyItsObjects() {
-        for (d in FindDifficulty.entries) {
-            show(null, content = screen(d))
-            val r = round(d)
-            assertEquals("${d.name} : les objets à l'écran", r.ids.toSet(), allObjectsOnScreen().toSet())
-            assertEquals(d.objects, allObjectsOnScreen().size)
-        }
+    private fun assertShowsExactlyItsObjects(d: FindDifficulty) {
+        show(null, content = screen(d))
+        assertEquals("${d.name} : les objets à l'écran", round(d).ids.toSet(), allObjectsOnScreen().toSet())
+        assertEquals(d.objects, allObjectsOnScreen().size)
     }
+
+    @Test
+    fun theFirstDifficultyShowsExactlyFiveObjects() = assertShowsExactlyItsObjects(FindDifficulty.EASY)
+
+    @Test
+    fun theSecondDifficultyShowsExactlyTenObjects() = assertShowsExactlyItsObjects(FindDifficulty.MEDIUM)
+
+    @Test
+    fun theThirdDifficultyShowsExactlyTwentyObjects() = assertShowsExactlyItsObjects(FindDifficulty.HARD)
+
+    @Test
+    fun theFourthDifficultyShowsExactlyFortyObjects() = assertShowsExactlyItsObjects(FindDifficulty.EXPERT)
+
+    @Test
+    fun theLastDifficultyShowsExactlyEightyObjects() = assertShowsExactlyItsObjects(FindDifficulty.MASTER)
 
     @Test
     fun theTargetsAreNamedInTheBannerAndMultipleTargetsGetOneTilePerObject() {
@@ -429,7 +440,8 @@ class FindScreenshotsTest {
         play(300)
         tap(r.targets[1])
         play(2800)
-        assertEquals(listOf("puff", "pick0", "win", "star0", "star1"), log)
+        // une erreur en « Bon œil » reste permise pour 3 étoiles : trois « ding »
+        assertEquals(listOf("puff", "pick0", "win", "star0", "star1", "star2"), log)
     }
 
     companion object {

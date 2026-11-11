@@ -106,7 +106,7 @@ private fun DifficultyCard(d: FindDifficulty, progress: FindProgress, onPlay: ()
                         }
                     } else {
                         PjText(
-                            "Gagne 2 étoiles en « ${d.previous!!.title} » pour débloquer.",
+                            "Gagne 2 étoiles en «\u00A0${d.previous!!.title}\u00A0» pour débloquer.",
                             Modifier.padding(top = 2.dp), size = 13.sp, weight = FontWeight.Medium, color = Pj.GrayText,
                         )
                     }

@@ -20,9 +20,19 @@ data class FindRound(val difficulty: FindDifficulty, val targets: List<String>, 
     val ids: List<String> = targets + others
 
     /** La graine de la mise en page (places, inclinaisons, tailles), tirée de [seed]. */
-    val layoutSeed: Int get() = (seed xor (seed ushr 32)).toInt()
+    val layoutSeed: Int get() = mix(seed xor LAYOUT_SALT).toInt()
 
     companion object {
+        private const val LAYOUT_SALT = 0x5DEECE66DL
+
+        /** Brasse une graine (finaliseur de SplitMix64) : deux graines voisines, comme 41 et 42, donnent des tirages sans rapport entre eux. */
+        private fun mix(z: Long): Long {
+            var x = z + -7046029254386353131L
+            x = (x xor (x ushr 30)) * -4658895280553007687L
+            x = (x xor (x ushr 27)) * -7723592293110705685L
+            return x xor (x ushr 31)
+        }
+
         /**
          * Tire une manche. Les objets à trouver ont des couleurs **toutes différentes** (on les distingue d'un coup d'œil dans le bandeau). Les faux :
          * - Coup d'œil : d'une autre couleur et d'une autre sorte que les cibles, et de couleurs différentes entre eux (rien ne ressemble à rien) ;
@@ -31,7 +41,7 @@ data class FindRound(val difficulty: FindDifficulty, val targets: List<String>, 
          */
         fun generate(difficulty: FindDifficulty, seed: Long, catalog: List<FindEntry> = FindCatalog.all): FindRound {
             require(catalog.size >= difficulty.objects) { "${difficulty.objects} objets demandés, ${catalog.size} au catalogue" }
-            val random = Random(seed)
+            val random = Random(mix(seed))
             val shuffled = catalog.shuffled(random)
             val targets = ArrayList<FindEntry>()
             for (e in shuffled) {
