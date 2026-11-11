@@ -21,6 +21,7 @@ on:
       - android/**
       - tools/design/**
       - tools/mazes/**
+      - tools/find/**
       - .github/workflows/android.yml
       - compose.yaml
       - Makefile
@@ -29,6 +30,7 @@ on:
       - android/**
       - tools/design/**
       - tools/mazes/**
+      - tools/find/**
       - .github/workflows/android.yml
       - compose.yaml
       - Makefile
@@ -65,6 +67,14 @@ jobs:
       # Les niveaux de Poisson Perdu sont fabriqués à l'avance par tools/mazes/make-mazes.js : le fichier livré doit être exactement ce que l'outil produit (personne ne l'édite à la main sans le savoir).
       - name: Les labyrinthes sont ceux de l'outil
         run: node tools/mazes/make-mazes.js --check
+      # Les 40 objets de Cherche et Trouve sont décrits une seule fois (tools/design/objects.js) : le Kotlin et la planche d'aperçu en sont générés.
+      - name: Les objets générés sont à jour
+        run: |
+          node tools/design/make-objects.js
+          git diff --exit-code -- android/app/src/main/java/com/kcharignon/petitsjeux/games/find/ui/FindArt.kt docs/design/objets.svg
+      # Les niveaux de Cherche et Trouve sont fabriqués à l'avance par tools/find/make-levels.js : le fichier livré doit être exactement ce que l'outil produit.
+      - name: Les niveaux de Cherche et Trouve sont ceux de l'outil
+        run: node tools/find/make-levels.js --check
       - name: Tests Kotlin
         run: make android-test ANDROID_BUILD=
       # Joue l'interface sans téléphone (Robolectric) : parcours complets (créer un joueur, finir un niveau, sauvegarde) et captures des écrans.
