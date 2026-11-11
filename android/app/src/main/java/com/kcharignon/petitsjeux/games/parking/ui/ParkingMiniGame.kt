@@ -78,6 +78,7 @@ object ParkingMiniGame : MiniGame {
                 },
                 onNext = { playing = level + 1 },
                 onLevels = { playing = null },
+                onExit = onExit,
             )
         }
     }

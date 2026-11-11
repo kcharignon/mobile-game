@@ -71,6 +71,7 @@ object MazeMiniGame : MiniGame {
                 onFinished = { stars, detours -> onProfileChange(profile.withGameSave(id, progress.withResult(n, stars, detours).toJson())) },
                 onNext = { playing = it },
                 onMenu = { playing = null },
+                onExit = onExit,
             )
         }
     }

@@ -59,6 +59,7 @@ import com.kcharignon.petitsjeux.core.ui.Panel
 import com.kcharignon.petitsjeux.core.ui.Pj
 import com.kcharignon.petitsjeux.core.ui.PjFont
 import com.kcharignon.petitsjeux.core.ui.PjText
+import com.kcharignon.petitsjeux.core.ui.ExitArrow
 import com.kcharignon.petitsjeux.core.ui.RoundIconButton
 import com.kcharignon.petitsjeux.core.ui.Stars
 import com.kcharignon.petitsjeux.core.ui.consumeTaps
@@ -109,12 +110,13 @@ fun RoadPlayScreen(
     onFinished: (score: Int, stars: Int, hits: Int) -> Unit,
     onNext: (Int) -> Unit,
     onMenu: () -> Unit,
+    onExit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var attempt by remember(level.number) { mutableIntStateOf(0) }
-    BackHandler(onBack = onMenu)
+    BackHandler(onBack = onExit)
     key(level.number, attempt) {
-        Run(level, progress, skipIntro = attempt > 0, onFinished, onNext, onMenu, onReplay = { attempt++ }, modifier)
+        Run(level, progress, skipIntro = attempt > 0, onFinished, onNext, onMenu, onExit, onReplay = { attempt++ }, modifier)
     }
 }
 
@@ -126,6 +128,7 @@ private fun Run(
     onFinished: (Int, Int, Int) -> Unit,
     onNext: (Int) -> Unit,
     onMenu: () -> Unit,
+    onExit: () -> Unit,
     onReplay: () -> Unit,
     modifier: Modifier,
 ) {
@@ -334,7 +337,8 @@ private fun Run(
                     Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    RoundIconButton(IconKind.BACK, onClick = onMenu, diameter = 46.dp)
+                    // (pendant l'introduction, la flèche est celle posée au-dessus du voile)
+                    if (phase == Phase.Intro) Box(Modifier.size(46.dp, 50.dp)) else ExitArrow(onExit, Modifier, 46.dp)
                     Pill(Modifier.weight(1f)) {
                         PjText("Niveau ${level.number}", size = 20.sp, weight = FontWeight.Bold, color = Pj.Ink, maxLines = 1)
                         PjText("  ·  ${RoadWorlds.names[level.world]}", size = 15.sp, weight = FontWeight.Medium, color = Pj.InkSoft, maxLines = 1)
@@ -347,6 +351,7 @@ private fun Run(
                         Canvas(Modifier.size(24.dp)) { drawGrain(Offset(size.width / 2, size.height / 2), size.minDimension * 0.34f, 0f) }
                         PjText("${snap.taken}/${level.grains.size}", size = 20.sp, weight = FontWeight.Bold, color = Pj.Ink, maxLines = 1, modifier = Modifier.testTag("grains"))
                     }
+                    RoundIconButton(IconKind.LEVELS, onClick = onMenu, modifier = Modifier.testTag("levels"), color = Pj.Slate, dark = Pj.SlateDark, diameter = 46.dp)
                 }
                 if (showHint && phase == Phase.Playing) {
                     Pill(Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp)) {
@@ -356,7 +361,7 @@ private fun Run(
             }
         }
         when (phase) {
-            Phase.Intro -> IntroCard(level, onStart = { phase = Phase.Playing }, onMenu = onMenu)
+            Phase.Intro -> IntroCard(level, onStart = { phase = Phase.Playing }, onMenu = onMenu, onExit = onExit)
             Phase.Done -> EndCard(level, crossing.score, crossing.hits, crossing.taken.size, bestBefore, onReplay, onMenu, onNext)
             else -> Unit
         }
@@ -379,8 +384,8 @@ private fun introLines(level: RoadLevel): List<String> = buildList {
 }
 
 @Composable
-private fun IntroCard(level: RoadLevel, onStart: () -> Unit, onMenu: () -> Unit) {
-    Modal(onDismiss = null) {
+private fun IntroCard(level: RoadLevel, onStart: () -> Unit, onMenu: () -> Unit, onExit: () -> Unit) {
+    Modal(onDismiss = null, topStart = { ExitArrow(onExit, Modifier.align(Alignment.TopStart).padding(start = 10.dp, top = 6.dp), 46.dp) }) {
         Panel(
             Modifier.padding(horizontal = 20.dp).widthIn(max = 680.dp).fillMaxWidth().consumeTaps(),
             corner = 36.dp, ledge = 8.dp, contentPadding = PaddingValues(horizontal = 24.dp, vertical = 18.dp),
@@ -458,7 +463,7 @@ private fun EndCard(
                     if (hasNext) ChunkyButton("Niveau suivant", { onNext(next) }, Modifier.padding(top = 10.dp).fillMaxWidth(), height = 52.dp, fontSize = 22.sp)
                     Row(Modifier.padding(top = 8.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         ChunkyButton("Rejouer", onReplay, Modifier.weight(1f), color = Pj.Orange, dark = Pj.OrangeDark, height = 44.dp, fontSize = 18.sp)
-                        ChunkyButton("Menu", onMenu, Modifier.weight(1f), color = Pj.Blue, dark = Pj.BlueDark, height = 44.dp, fontSize = 18.sp)
+                        ChunkyButton("Niveaux", onMenu, Modifier.weight(1f), color = Pj.Slate, dark = Pj.SlateDark, height = 44.dp, fontSize = 18.sp)
                     }
                 }
             }

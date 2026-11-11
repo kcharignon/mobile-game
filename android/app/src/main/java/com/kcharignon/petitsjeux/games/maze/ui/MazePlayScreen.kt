@@ -55,6 +55,7 @@ import com.kcharignon.petitsjeux.core.ui.Panel
 import com.kcharignon.petitsjeux.core.ui.Pj
 import com.kcharignon.petitsjeux.core.ui.PjIcon
 import com.kcharignon.petitsjeux.core.ui.PjText
+import com.kcharignon.petitsjeux.core.ui.ExitArrow
 import com.kcharignon.petitsjeux.core.ui.RoundIconButton
 import com.kcharignon.petitsjeux.core.ui.Stars
 import com.kcharignon.petitsjeux.core.ui.consumeTaps
@@ -95,12 +96,13 @@ fun MazePlayScreen(
     onFinished: (stars: Int, detours: Int) -> Unit,
     onNext: (Int) -> Unit,
     onMenu: () -> Unit,
+    onExit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var attempt by remember(level.number) { mutableIntStateOf(0) }
-    BackHandler(onBack = onMenu)
+    BackHandler(onBack = onExit)
     key(level.number, attempt) {
-        Run(level, progress, skipIntro = attempt > 0, onFinished, onNext, onMenu, onReplay = { attempt++ }, modifier)
+        Run(level, progress, skipIntro = attempt > 0, onFinished, onNext, onMenu, onExit, onReplay = { attempt++ }, modifier)
     }
 }
 
@@ -112,6 +114,7 @@ private fun Run(
     onFinished: (Int, Int) -> Unit,
     onNext: (Int) -> Unit,
     onMenu: () -> Unit,
+    onExit: () -> Unit,
     onReplay: () -> Unit,
     modifier: Modifier,
 ) {
@@ -219,7 +222,8 @@ private fun Run(
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).padding(horizontal = 14.dp)) {
             // le haut : retour, niveau et monde, recommencer
             Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                RoundIconButton(IconKind.BACK, onClick = onMenu, diameter = 48.dp)
+                // (pendant l'introduction, la flèche est celle posée au-dessus du voile)
+                if (phase == Phase.Intro) Box(Modifier.size(48.dp, 52.dp)) else ExitArrow(onExit, Modifier, 48.dp)
                 Box(
                     Modifier.weight(1f).height(54.dp).background(Color.White.copy(alpha = 0.94f), RoundedCornerShape(27.dp)),
                     contentAlignment = Alignment.Center,
@@ -229,6 +233,7 @@ private fun Run(
                         PjText(MazeWorlds.names[level.world], size = 13.sp, weight = FontWeight.Medium, color = Pj.InkSoft, maxLines = 1)
                     }
                 }
+                RoundIconButton(IconKind.LEVELS, onClick = onMenu, modifier = Modifier.testTag("levels"), color = Pj.Slate, dark = Pj.SlateDark, diameter = 48.dp)
                 RoundIconButton(IconKind.RESTART, onClick = { restart() }, modifier = Modifier.testTag("restart"), diameter = 48.dp)
             }
             Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.Center) {
@@ -330,7 +335,7 @@ private fun Run(
             }
         }
         when (phase) {
-            Phase.Intro -> IntroCard(level, onStart = { phase = Phase.Playing }, onMenu = onMenu)
+            Phase.Intro -> IntroCard(level, onStart = { phase = Phase.Playing }, onMenu = onMenu, onExit = onExit)
             Phase.Done -> EndPanel(level, play.stars, play.detours, progress, onReplay, onMenu, onNext)
             else -> Unit
         }
@@ -338,9 +343,9 @@ private fun Run(
 }
 
 @Composable
-private fun IntroCard(level: MazeLevel, onStart: () -> Unit, onMenu: () -> Unit) {
+private fun IntroCard(level: MazeLevel, onStart: () -> Unit, onMenu: () -> Unit, onExit: () -> Unit) {
     val theme = MazeTheme.of(level.world)
-    Modal(onDismiss = null) {
+    Modal(onDismiss = null, topStart = { ExitArrow(onExit, Modifier.align(Alignment.TopStart).padding(start = 14.dp, top = 6.dp), 48.dp) }) {
         Panel(
             Modifier.padding(horizontal = 24.dp).widthIn(max = 420.dp).fillMaxWidth().consumeTaps(),
             corner = 36.dp, ledge = 8.dp, contentPadding = PaddingValues(horizontal = 22.dp, vertical = 20.dp),

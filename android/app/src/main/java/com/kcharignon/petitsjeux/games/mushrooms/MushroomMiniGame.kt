@@ -72,6 +72,7 @@ object MushroomMiniGame : MiniGame {
                 },
                 onNextDifficulty = { playing = it.index },
                 onMenu = { playing = null },
+                onExit = onExit,
             )
         }
     }

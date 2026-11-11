@@ -7,6 +7,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -101,20 +102,20 @@ class MushroomsScreenshotsTest {
 
     @Test
     fun theIntroExplainsTheGame() = show("42-champis-intro") {
-        ShroomPlayScreen(Difficulty.EASY, empty, { _, _, _ -> }, {}, {}, seed = 5L)
+        ShroomPlayScreen(Difficulty.EASY, empty, { _, _, _ -> }, {}, {}, {}, seed = 5L)
     }
 
     @Test
     fun theExpertIntroWarnsAboutTheForbiddenColour() {
         show("43-champis-intro-expert") {
-            ShroomPlayScreen(Difficulty.EXPERT, empty, { _, _, _ -> }, {}, {}, seed = 5L)
+            ShroomPlayScreen(Difficulty.EXPERT, empty, { _, _, _ -> }, {}, {}, {}, seed = 5L)
         }
         rule.onNodeWithText("Ne touche pas les champignons violets !").assertExists()
     }
 
     @Test
     fun mushroomsLightUpAndScoreWhenTouched() {
-        show(null) { ShroomPlayScreen(Difficulty.EASY, empty, { _, _, _ -> }, {}, {}, seed = 5L) }
+        show(null) { ShroomPlayScreen(Difficulty.EASY, empty, { _, _, _ -> }, {}, {}, {}, seed = 5L) }
         rule.onNodeWithText("C'est parti !").performClick()
         // rien n'est allumé au tout début, puis ils s'allument
         rule.mainClock.advanceTimeBy(200)
@@ -139,7 +140,7 @@ class MushroomsScreenshotsTest {
 
     @Test
     fun theForbiddenMushroomsOfTheExpertGameGiveNothing() {
-        show(null) { ShroomPlayScreen(Difficulty.EXPERT, empty, { _, _, _ -> }, {}, {}, seed = 8L) }
+        show(null) { ShroomPlayScreen(Difficulty.EXPERT, empty, { _, _, _ -> }, {}, {}, {}, seed = 8L) }
         rule.onNodeWithText("C'est parti !").performClick()
         var guard = 0
         while (litIds(Difficulty.EXPERT, "interdit").isEmpty() && guard++ < 400) rule.mainClock.advanceTimeBy(40)
@@ -157,7 +158,7 @@ class MushroomsScreenshotsTest {
     fun aFullRoundIsPlayedSavedAndNeverLost() {
         var result: Triple<Int, Int, Int>? = null
         var calls = 0
-        show(null) { ShroomPlayScreen(Difficulty.EASY, empty, { s, p, b -> result = Triple(s, p, b); calls++ }, {}, {}, seed = 3L) }
+        show(null) { ShroomPlayScreen(Difficulty.EASY, empty, { s, p, b -> result = Triple(s, p, b); calls++ }, {}, {}, {}, seed = 3L) }
         rule.onNodeWithText("C'est parti !").performClick()
         playToTheEnd(Difficulty.EASY, delayMs = 120)
         rule.mainClock.advanceTimeBy(2500)
@@ -194,7 +195,7 @@ class MushroomsScreenshotsTest {
     @Test
     fun everyTouchedMushroomPlaysTheNextNoteOfTheMelodyAndTheLastOneAChord() {
         val feedback = RecordingFeedback()
-        show(null) { CompositionLocalProvider(LocalFeedback provides feedback) { ShroomPlayScreen(Difficulty.EASY, empty, { _, _, _ -> }, {}, {}, seed = 3L) } }
+        show(null) { CompositionLocalProvider(LocalFeedback provides feedback) { ShroomPlayScreen(Difficulty.EASY, empty, { _, _, _ -> }, {}, {}, {}, seed = 3L) } }
         rule.onNodeWithText("C'est parti !").performClick()
         playToTheEnd(Difficulty.EASY, delayMs = 120)
         // 15 champignons : les 14 premiers jouent les notes 1 à 14 de la mélodie, dans l'ordre ; le dernier, l'accord de do
@@ -206,7 +207,7 @@ class MushroomsScreenshotsTest {
     @Test
     fun aForbiddenMushroomOrAMissedOneDoesNotAdvanceTheMelody() {
         val feedback = RecordingFeedback()
-        show(null) { CompositionLocalProvider(LocalFeedback provides feedback) { ShroomPlayScreen(Difficulty.EXPERT, empty, { _, _, _ -> }, {}, {}, seed = 8L) } }
+        show(null) { CompositionLocalProvider(LocalFeedback provides feedback) { ShroomPlayScreen(Difficulty.EXPERT, empty, { _, _, _ -> }, {}, {}, {}, seed = 8L) } }
         rule.onNodeWithText("C'est parti !").performClick()
         var guard = 0
         while (litIds(Difficulty.EXPERT, "interdit").isEmpty() && guard++ < 400) rule.mainClock.advanceTimeBy(40)
@@ -226,7 +227,7 @@ class MushroomsScreenshotsTest {
     fun aChildWhoNeverTouchesAnythingStillFinishesWithoutLosing() {
         var calls = 0
         var score = -1
-        show(null) { ShroomPlayScreen(Difficulty.HARD, empty, { s, _, _ -> calls++; score = s }, {}, {}, seed = 2L) }
+        show(null) { ShroomPlayScreen(Difficulty.HARD, empty, { s, _, _ -> calls++; score = s }, {}, {}, {}, seed = 2L) }
         rule.onNodeWithText("C'est parti !").performClick()
         var guard = 0
         while (!finished() && guard++ < 2500) rule.mainClock.advanceTimeBy(40)
@@ -234,6 +235,26 @@ class MushroomsScreenshotsTest {
         assertEquals(1, calls)
         assertEquals(0, score)
         rule.onNodeWithText("Bravo !").assertExists() // jamais « perdu »
+    }
+
+    @Test
+    fun theBlueBackArrowGoesHomeAndTheGridButtonShowsTheDifficulties() {
+        val store = InMemoryProfileStore(listOf(Profile.create(0, "Léa", Avatar.CAT, now = 1L)!!))
+        rule.mainClock.autoAdvance = false
+        rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, "mushrooms")) }
+        rule.mainClock.advanceTimeBy(300)
+        // en pleine partie aussi : le bouton en grille mène au choix de la difficulté, la flèche à l'accueil
+        rule.onNodeWithText("C'est parti !").performClick()
+        rule.mainClock.advanceTimeBy(300)
+        rule.onNodeWithTag("levels").performClick()
+        rule.mainClock.advanceTimeBy(300)
+        rule.onNodeWithTag("difficulty-1").assertExists()
+        rule.onNodeWithTag("difficulty-0").performClick()
+        rule.mainClock.advanceTimeBy(300)
+        rule.onNodeWithTag("exit").performClick()
+        rule.mainClock.advanceTimeBy(300)
+        assertTrue("à l'accueil", rule.onAllNodesWithText("Parking Malin").fetchSemanticsNodes().isNotEmpty())
+        assertTrue("pas dans le choix de la difficulté", rule.onAllNodesWithTag("difficulty-1").fetchSemanticsNodes().isEmpty())
     }
 
     @Test
@@ -255,7 +276,7 @@ class MushroomsScreenshotsTest {
         assertEquals(1, saved.played)
         assertTrue(saved.stars(Difficulty.EASY) >= 2)
         // retour au menu : la carte suivante est maintenant ouverte
-        rule.onNodeWithText("Menu").performClick()
+        rule.onNodeWithText("Difficultés").performClick()
         rule.mainClock.advanceTimeBy(300)
         rule.onNodeWithTag("difficulty-1").performClick()
         rule.mainClock.advanceTimeBy(300)

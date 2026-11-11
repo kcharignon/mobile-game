@@ -70,7 +70,7 @@ object RoadMiniGame : MiniGame {
         } else {
             LevelHost(n, progress, onFinished = { level, score, stars, hits ->
                 onProfileChange(profile.withGameSave(id, progress.withResult(level, stars, score, hits).toJson()))
-            }, onNext = { playing = it }, onMenu = { playing = null })
+            }, onNext = { playing = it }, onMenu = { playing = null }, onExit = onExit)
         }
     }
 }
@@ -83,6 +83,7 @@ private fun LevelHost(
     onFinished: (level: Int, score: Int, stars: Int, hits: Int) -> Unit,
     onNext: (Int) -> Unit,
     onMenu: () -> Unit,
+    onExit: () -> Unit,
 ) {
     var level by remember(n) { mutableStateOf<RoadLevel?>(RoadLevels.cached(n)) }
     LaunchedEffect(n) {
@@ -90,8 +91,8 @@ private fun LevelHost(
     }
     val ready = level
     if (ready == null) {
-        // même pendant ce court instant, « retour » ramène à la grille des niveaux (et ne quitte pas l'appli)
-        BackHandler(onBack = onMenu)
+        // même pendant ce court instant, « retour » ramène à l'accueil (au lieu de quitter l'appli)
+        BackHandler(onBack = onExit)
         Box(Modifier.fillMaxSize().background(Pj.Sun), contentAlignment = Alignment.Center) {
             PjText("Je prépare la route…", size = 26.sp, weight = FontWeight.Bold, color = Pj.Ink)
         }
@@ -102,6 +103,7 @@ private fun LevelHost(
             onFinished = { score, stars, hits -> onFinished(ready.number, score, stars, hits) },
             onNext = onNext,
             onMenu = onMenu,
+            onExit = onExit,
         )
     }
 }
