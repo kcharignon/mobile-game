@@ -460,9 +460,11 @@ private fun EndCard(
                         if (stars == 3) "Parfait !" else "Ramasse toutes les graines sans te faire écraser pour 3 étoiles.",
                         Modifier.padding(top = 4.dp), size = 14.sp, weight = FontWeight.Medium, color = Pj.InkSoft, align = TextAlign.Center,
                     )
+                    // le bouton vert passe au niveau suivant ; au dernier niveau, rien au-dessus : il rejoue
                     if (hasNext) ChunkyButton("Niveau suivant", { onNext(next) }, Modifier.padding(top = 10.dp).fillMaxWidth(), height = 52.dp, fontSize = 22.sp)
+                    else ChunkyButton("Rejouer", onReplay, Modifier.padding(top = 10.dp).fillMaxWidth(), height = 52.dp, fontSize = 22.sp)
                     Row(Modifier.padding(top = 8.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        ChunkyButton("Rejouer", onReplay, Modifier.weight(1f), color = Pj.Orange, dark = Pj.OrangeDark, height = 44.dp, fontSize = 18.sp)
+                        if (hasNext) ChunkyButton("Rejouer", onReplay, Modifier.weight(1f), color = Pj.Orange, dark = Pj.OrangeDark, height = 44.dp, fontSize = 18.sp)
                         ChunkyButton("Niveaux", onMenu, Modifier.weight(1f), color = Pj.Slate, dark = Pj.SlateDark, height = 44.dp, fontSize = 18.sp)
                     }
                 }

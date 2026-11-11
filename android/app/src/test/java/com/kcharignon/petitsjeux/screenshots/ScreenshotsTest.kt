@@ -53,6 +53,7 @@ import com.kcharignon.petitsjeux.games.parking.engine.ParkingGame
 import com.kcharignon.petitsjeux.games.parking.engine.Portal
 import com.kcharignon.petitsjeux.games.parking.engine.Solver
 import com.kcharignon.petitsjeux.games.parking.engine.Wall
+import com.kcharignon.petitsjeux.games.parking.engine.Worlds
 import com.kcharignon.petitsjeux.games.parking.ui.BoardGeometry
 import com.kcharignon.petitsjeux.games.parking.ui.LevelSelectScreen
 import com.kcharignon.petitsjeux.games.parking.ui.PlayScreen
@@ -263,6 +264,38 @@ class ScreenshotsTest {
     @Test
     fun win() = show("10-victoire", advanceMs = 1500) {
         Backdrop(overlay = { WinCard(LevelGenerator.level(27), stars = 3, cars = 7, bumps = 0, hasNext = true, onNext = {}, onReplay = {}, onLevels = {}) }) { }
+    }
+
+    @Test
+    fun onTheLastLevelTheGreenButtonReplaysBecauseThereIsNoNextLevel() {
+        var replays = 0
+        var nexts = 0
+        show(null, advanceMs = 1500) {
+            Backdrop(overlay = {
+                WinCard(LevelGenerator.level(Worlds.LEVEL_COUNT), stars = 3, cars = 7, bumps = 0, hasNext = false, onNext = { nexts++ }, onReplay = { replays++ }, onLevels = {})
+            }) { }
+        }
+        rule.onRoot().captureRoboImage("../../docs/screenshots/10-victoire-dernier-niveau.png")
+        assertTrue(rule.onAllNodesWithText("Niveau suivant").fetchSemanticsNodes().isEmpty())
+        // un seul « Rejouer » : le grand bouton vert (pas de doublon dans la rangée du bas)
+        assertEquals(1, rule.onAllNodesWithText("Rejouer").fetchSemanticsNodes().size)
+        rule.onNodeWithText("Niveaux").assertExists()
+        rule.onNodeWithText("Rejouer").performClick()
+        assertEquals(1, replays)
+        assertEquals(0, nexts)
+    }
+
+    @Test
+    fun beforeTheLastLevelTheGreenButtonGoesToTheNextLevelAndReplayIsTheSmallOne() {
+        var nexts = 0
+        show(null, advanceMs = 1500) {
+            Backdrop(overlay = {
+                WinCard(LevelGenerator.level(27), stars = 3, cars = 7, bumps = 0, hasNext = true, onNext = { nexts++ }, onReplay = {}, onLevels = {})
+            }) { }
+        }
+        assertEquals(1, rule.onAllNodesWithText("Rejouer").fetchSemanticsNodes().size)
+        rule.onNodeWithText("Niveau suivant").performClick()
+        assertEquals(1, nexts)
     }
 
     // ---- vrais parcours : on touche et on glisse des véhicules

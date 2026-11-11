@@ -71,7 +71,9 @@ object FindMiniGame : MiniGame {
             FindPlayScreen(
                 difficulty = difficulty,
                 progress = progress,
-                onFinished = { stars, mistakes, found -> onProfileChange(profile.withGameSave(id, progress.withResult(difficulty, stars, mistakes, found).toJson())) },
+                onFinished = { stars, mistakes, found, flawless ->
+                    onProfileChange(profile.withGameSave(id, progress.withResult(difficulty, stars, mistakes, found, flawless).toJson()))
+                },
                 onNextDifficulty = { playing = it.index },
                 onMenu = { playing = null },
                 onExit = onExit,

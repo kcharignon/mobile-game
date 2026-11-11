@@ -9,7 +9,7 @@ import org.junit.Test
 class FindDifficultyTest {
     @Test
     fun objectsAndTargetsGrowAsAskedByTheIssue() {
-        assertEquals(listOf(5, 10, 20, 40, 80), FindDifficulty.entries.map { it.objects })
+        assertEquals(listOf(6, 12, 20, 40, 84), FindDifficulty.entries.map { it.objects })
         assertEquals(listOf(1, 2, 3, 4, 5), FindDifficulty.entries.map { it.targets })
     }
 

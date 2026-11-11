@@ -20,6 +20,7 @@ le Kotlin reprend les mêmes proportions.
 ## Principes
 
 - **Pensé pour un enfant** : gros boutons, peu de texte, jamais de « perdu » : une faute coûte une étoile, pas la partie. Un bouton **Indice** gratuit.
+- **Fin de niveau : le gros bouton vert fait toujours ce qu'on attend.** Jeux à **niveaux prédéfinis** (Parking Malin, Poussin Traverse, Poisson Perdu) : **« Niveau suivant »**, sauf au tout dernier niveau, où il n'y a rien au-dessus : le vert devient **« Rejouer »** (et la rangée du bas ne garde que « Niveaux »). Jeux à **manches aléatoires** (Champis Magiques, Cherche et Trouve) : le vert est **toujours « Rejouer »** (même difficulté, nouvelle manche) ; l'orange **« Difficulté suivante »** apparaît dès que la difficulté d'après est ouverte (y compris à l'instant où la manche vient de l'ouvrir) ; le gris ramène au choix de la difficulté.
 - **Zéro pub, zéro suivi.** Permissions : la vibration (retour tactile, désactivable), et Internet + installation **uniquement pour la mise à jour** de l'appli (voir plus bas).
 - **Portrait** partout, une main, Android 8+ (API 26) ; **sauf Poussin Traverse, qui force le paysage** (voir plus bas).
 - **Rapide** : tout est dessiné par le code (Canvas), pas d'image, pas de son à charger. Les sons sont synthétisés.
@@ -300,7 +301,7 @@ Ce que les maquettes ont tranché : la trace est **bleue** (le blanc ne se voyai
 ## Cherche et Trouve : règles
 
 Des **objets à trouver** en haut (un seul : grand, avec son nom ; plusieurs : une rangée de pastilles qui se cochent) et, dessous, des **objets éparpillés** sur un décor. L'enfant touche ceux qui sont **pareils que le bandeau**.
-Comme Champis Magiques : **cinq difficultés**, des **manches tirées au hasard** à chaque partie, la suivante se débloque avec 2 étoiles sur la précédente.
+Comme Champis Magiques : **cinq difficultés** et des **manches tirées au hasard** à chaque partie. **Mais la suivante ne se débloque pas avec les étoiles** : il faut une manche **parfaite** de la précédente, c'est-à-dire **aucune erreur** et **tout trouvé avant que l'aide se déclenche** (avant que les objets se mettent à bouger). Une difficulté ouverte le reste toujours.
 **Pas de chronomètre, on ne perd jamais** : se tromper ne fait perdre que des étoiles. En portrait, une main. Analyse de la première version : [issue #29](https://github.com/kcharignon/mobile-game/issues/29) ; refonte en manches aléatoires : voir ci-dessous.
 
 ### Les cinq difficultés
@@ -309,17 +310,20 @@ Les règles **s'additionnent** d'une difficulté à la suivante :
 
 | # | Nom | Objets | À trouver | Nouveauté | Étoiles (erreurs permises : ★★★ / ★★) | Aide après |
 |---|---|---|---|---|---|---|
-| 1 | Coup d'œil | 5 | 1 | objets droits, tous différents | 0 / 1 | 8 s |
-| 2 | Bon œil | 10 | 2 | **rotations** : chaque objet est posé dans un sens quelconque | 1 / 3 | 12 s |
+| 1 | Coup d'œil | 6 | 1 | objets droits, tous différents | 0 / 1 | 8 s |
+| 2 | Bon œil | 12 | 2 | **rotations** : chaque objet est posé dans un sens quelconque | 1 / 3 | 12 s |
 | 3 | Œil vif | 20 | 3 | | 2 / 5 | 16 s |
 | 4 | Œil d'aigle | 40 | 4 | **tailles variables** (de 68 % à 100 % de la taille maximale) | 3 / 8 | 20 s |
-| 5 | Super détective | 80 | 5 | | 5 / 12 | 25 s |
+| 5 | Super détective | 84 | 5 | | 5 / 12 | 25 s |
+
+Les nombres d'objets (6, 12, 20, 40, 84) sont choisis pour **remplir une grille sans aucune case vide** : 2×3, 3×4, 4×5, 5×8 et 7×12 en portrait (la grille se retourne en paysage).
 
 - **Un objet à trouver, touché** : il saute de joie, reçoit un halo et une coche, sa pastille se coche en haut. **Un faux** : il secoue la tête et pâlit ; **on ne peut plus le toucher**, donc une manche finit toujours (il ne reste que les bons). La manche est finie quand **tous** les objets à trouver le sont, dans n'importe quel ordre ; la sauvegarde se fait à ce moment-là, avant la fenêtre de bilan.
 - **Étoiles** : au moins une, toujours ; chaque faux touché compte une fois. Chaque difficulté garde sa meilleure note (15 étoiles au total dans tout le jeu).
-- **Aide sans bouton ni pénalité** : après un moment sans rien toucher (plus long quand il y a plus d'objets), un objet à trouver se balance doucement.
+- **Aide sans bouton ni pénalité d'étoile** : après un moment sans rien toucher (plus long quand il y a plus d'objets), un objet à trouver se balance doucement. Elle ne coûte aucune étoile, mais la manche n'est plus **parfaite** : elle n'ouvre pas la difficulté suivante.
+- **Débloquer la suivante** : une manche **parfaite** (aucune erreur, finie avant l'aide) de la difficulté d'avant. Les étoiles, elles, tolèrent des erreurs (« Bon œil » donne 3 ★ avec une erreur) mais n'ouvrent rien. Si la manche rate la règle, la fenêtre de fin la rappelle : « Pour ouvrir « … » : trouve tout sans erreur et avant que les objets bougent. » Le menu dit de même sur les cartes fermées. Une sauvegarde de la 0.13.0 (qui ouvrait à 2 étoiles) garde ses difficultés ouvertes.
 - Coup d'œil : le bandeau dit « Touche le même objet » jusqu'au premier toucher ; plusieurs objets : « Trouve-les tous ! », puis « Encore N à trouver » (pas de fenêtre d'introduction : elle bloquerait les boutons du haut).
-- Ouvrir le jeu lance **la plus haute difficulté déjà jouée** (la première pour un nouveau joueur) ; la flèche bleue ramène à l'accueil, le bouton en grille de tuiles ouvre le choix de la difficulté. « Rejouer » tire une manche nouvelle.
+- Ouvrir le jeu lance **la plus haute difficulté déjà jouée** (la première pour un nouveau joueur) ; la flèche bleue ramène à l'accueil, le bouton en grille de tuiles ouvre le choix de la difficulté. « Rejouer » (le gros bouton vert de la fenêtre de fin) tire une manche nouvelle de la **même** difficulté ; « Difficulté suivante » (orange) monte, quand elle est ouverte.
 
 ### Une manche au hasard : `FindRound`
 
@@ -334,7 +338,7 @@ Décrits une seule fois dans `tools/design/objects.js` (les 40 premiers) et `too
 
 ### Mise en page
 
-Une **grille décalée** (`FindLayout`) : la zone de jeu est découpée en cellules presque carrées (au moins une par objet, les plus grandes possibles), chaque objet va dans une cellule tirée au sort, un peu décalé à l'intérieur. Avec les **rotations**, chaque objet est tourné d'un angle quelconque (0 à 360°) ; avec les **tailles variables**, il a une taille entre 68 % et 100 % de la taille maximale. La **zone de toucher** est le carré de la cellule libre autour de l'objet (1,2 fois la taille maximale), **la même pour tous, même les petits** : elle ne dépend ni de la rotation ni de la taille, deux zones ne se chevauchent jamais et aucune ne sort de la zone de jeu, quelle que soit la taille de l'écran. La même graine donne la même disposition.
+Une **grille décalée** (`FindLayout`) : la zone de jeu est découpée en cellules presque carrées, **une par objet et sans case vide** (la grille pleine la plus grande possible ; pour un nombre d'objets qui n'a pas de bonne grille pleine, la meilleure grille avec un trou), chaque objet va dans une cellule tirée au sort, un peu décalé à l'intérieur. Avec les **rotations**, chaque objet est tourné d'un angle quelconque (0 à 360°) ; avec les **tailles variables**, il a une taille entre 68 % et 100 % de la taille maximale. La **zone de toucher** est le carré de la cellule libre autour de l'objet (1,2 fois la taille maximale), **la même pour tous, même les petits** : elle ne dépend ni de la rotation ni de la taille, deux zones ne se chevauchent jamais et aucune ne sort de la zone de jeu, quelle que soit la taille de l'écran. La même graine donne la même disposition.
 
 ### Dessin et sons
 
@@ -342,9 +346,9 @@ Dix décors pastel de couleur moyenne (lilas, prairie, turquoise, pêche, blé, 
 
 ### Comment c'est fait
 
-`games/find/engine` est du Kotlin pur, sans Android, testé sur la JVM : `FindDifficulty` (les cinq réglages et les étoiles), `FindRound` (le tirage), `FindPlay` (toucher, erreurs, étoiles : une valeur qu'on remplace), `FindLayout`. Sauvegarde : `games.find` = `{"best": {"0": 3, …}, "found": N, "mistakes": N, "played": N}` (indice de difficulté -> meilleure note), tolérante. La première version du jeu (100 niveaux fixes, clé `stars`) est simplement ignorée.
+`games/find/engine` est du Kotlin pur, sans Android, testé sur la JVM : `FindDifficulty` (les cinq réglages et les étoiles), `FindRound` (le tirage), `FindPlay` (toucher, erreurs, étoiles, aide, manche parfaite : une valeur qu'on remplace), `FindLayout`. Sauvegarde : `games.find` = `{"best": {"0": 3, …}, "cleared": [0, …], "found": N, "mistakes": N, "played": N}` (indice de difficulté -> meilleure note ; `cleared` = les difficultés dont une manche a été parfaite, qui ouvrent la suivante), tolérante. La première version du jeu (100 niveaux fixes, clé `stars`) est simplement ignorée.
 
-Tests : le catalogue (120 objets, 9 couleurs, les 40 premiers identifiants inchangés), le tirage (bon nombre d'objets différents, cibles de couleurs différentes, règles de ressemblance des deux premières difficultés, même graine = même manche, chaque objet sort), la mise en page sans chevauchement sur toutes les tailles d'écran et toutes les difficultés, **tous les ordres de touchers** (on finit toujours, avec au moins une étoile), le contraste des dix décors, et à l'écran (Robolectric) les cinq difficultés avec leurs objets, plusieurs objets à trouver dans n'importe quel ordre, 75 erreurs de suite sans game over, le déblocage, l'ouverture directe, la flèche vers l'accueil, l'aide, les sons et la sauvegarde depuis l'appli.
+Tests : le catalogue (120 objets, 9 couleurs, les 40 premiers identifiants inchangés), le tirage (bon nombre d'objets différents, cibles de couleurs différentes, règles de ressemblance des deux premières difficultés, même graine = même manche, chaque objet sort), la mise en page sans chevauchement sur toutes les tailles d'écran et toutes les difficultés, **tous les ordres de touchers** (on finit toujours, avec au moins une étoile), le contraste des dix décors, et à l'écran (Robolectric) les cinq difficultés avec leurs objets, plusieurs objets à trouver dans n'importe quel ordre, 79 erreurs de suite sans game over, le déblocage (parfaite seulement : ni 2 étoiles, ni une manche aidée n'ouvrent), les grilles sans case vide, les boutons de fin, l'ouverture directe, la flèche vers l'accueil, l'aide, les sons et la sauvegarde depuis l'appli.
 
 ## Progression du joueur (« l'évolution »)
 

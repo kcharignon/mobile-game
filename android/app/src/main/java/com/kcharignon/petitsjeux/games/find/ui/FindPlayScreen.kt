@@ -102,15 +102,15 @@ private const val APPEAR_SPREAD_MS = 700L
 /**
  * Une manche : les objets à trouver en haut, les autres éparpillés dessous. **On ne perd jamais** : un faux secoue la tête et pâlit (on risque une étoile),
  * il n'y a ni temps ni limite d'essais. La manche est tirée au hasard ; « Rejouer » en tire une nouvelle.
- * [onFinished] est appelé UNE fois, dès que le dernier objet est trouvé (le joueur est sauvegardé tout de suite), avec les étoiles, les erreurs
- * et le nombre d'objets trouvés ; [progress] est ce que le joueur avait avant la manche (pour le record et le déblocage).
+ * [onFinished] est appelé UNE fois, dès que le dernier objet est trouvé (le joueur est sauvegardé tout de suite), avec les étoiles, les erreurs,
+ * le nombre d'objets trouvés et si la manche a été **parfaite** (aucune erreur, finie avant l'aide : ce qui ouvre la difficulté suivante) ; [progress] est ce que le joueur avait avant la manche (pour le record et le déblocage).
  * La flèche bleue (et le retour d'Android) appelle [onExit] : l'accueil. Le bouton en grille de tuiles appelle [onMenu] : le choix de la difficulté.
  */
 @Composable
 fun FindPlayScreen(
     difficulty: FindDifficulty,
     progress: FindProgress,
-    onFinished: (stars: Int, mistakes: Int, found: Int) -> Unit,
+    onFinished: (stars: Int, mistakes: Int, found: Int, flawless: Boolean) -> Unit,
     onNextDifficulty: (FindDifficulty) -> Unit,
     onMenu: () -> Unit,
     onExit: () -> Unit,
@@ -134,7 +134,7 @@ private fun Round(
     difficulty: FindDifficulty,
     progress: FindProgress,
     roundSeed: Long,
-    onFinished: (Int, Int, Int) -> Unit,
+    onFinished: (Int, Int, Int, Boolean) -> Unit,
     onNextDifficulty: (FindDifficulty) -> Unit,
     onMenu: () -> Unit,
     onExit: () -> Unit,
@@ -164,12 +164,13 @@ private fun Round(
         )
     }
 
-    // l'aide : un objet à trouver se balance si l'enfant n'a rien touché depuis un moment
+    // l'aide : un objet à trouver se balance si l'enfant n'a rien touché depuis un moment (et la manche n'est plus parfaite)
     LaunchedEffect(lastTouch, play.done) {
         nudge = false
         if (!play.done) {
             delay(difficulty.nudgeMs)
             nudge = true
+            play = play.withHelp()
         }
     }
     LaunchedEffect(play.done) {
@@ -189,7 +190,7 @@ private fun Round(
             FindOutcome.WRONG -> feedback.puff()
             FindOutcome.FOUND -> if (t.play.done) {
                 feedback.win()
-                finished(t.play.stars, t.play.mistakes, round.targets.size)
+                finished(t.play.stars, t.play.mistakes, round.targets.size, t.play.flawless)
             } else {
                 feedback.pick(t.play.found.size - 1)
             }
@@ -243,7 +244,7 @@ private fun Round(
         }
         if (showEnd) {
             EndPanel(
-                difficulty, round.targets.map { objects.getValue(it) }, play.stars, play.mistakes, bestBefore, unlockedBefore,
+                difficulty, round.targets.map { objects.getValue(it) }, play.stars, play.mistakes, play.flawless, bestBefore, unlockedBefore,
                 onReplay, onMenu, onNextDifficulty,
             )
         }
@@ -420,13 +421,14 @@ private fun Thing(
 /** Le bilan, en bas de l'écran : la scène et les objets trouvés restent visibles au-dessus. */
 @Composable
 private fun EndPanel(
-    d: FindDifficulty, targets: List<FindObject>, stars: Int, mistakes: Int, bestBefore: Int, unlockedBefore: Set<FindDifficulty>,
+    d: FindDifficulty, targets: List<FindObject>, stars: Int, mistakes: Int, flawless: Boolean, bestBefore: Int, unlockedBefore: Set<FindDifficulty>,
     onReplay: () -> Unit, onMenu: () -> Unit, onNext: (FindDifficulty) -> Unit,
 ) {
     val feedback = LocalFeedback.current
     val next = d.next
-    // la difficulté suivante vient de s'ouvrir avec cette manche
-    val justUnlocked = next != null && stars >= 2 && next !in unlockedBefore
+    // la difficulté suivante vient de s'ouvrir avec cette manche (parfaite : sans erreur, finie avant l'aide) ; elle est proposée dès qu'elle est ouverte
+    val justUnlocked = next != null && flawless && next !in unlockedBefore
+    val canClimb = next != null && (flawless || next in unlockedBefore)
     var shown by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
         for (i in 0 until stars) {
@@ -458,19 +460,20 @@ private fun EndPanel(
                             Modifier.padding(top = 8.dp).fillMaxWidth().background(Color(0xFFE5F7E8), RoundedCornerShape(20.dp)).padding(horizontal = 12.dp, vertical = 8.dp).testTag("unlocked"),
                             contentAlignment = Alignment.Center,
                         ) {
-                            PjText("Nouvelle difficulté débloquée : « ${next.title} » !", size = 16.sp, weight = FontWeight.Bold, color = Pj.GreenDark, align = TextAlign.Center)
+                            PjText("Nouvelle difficulté débloquée\u00A0: «\u00A0${next.title.replace(' ', '\u00A0')}\u00A0» !", size = 16.sp, weight = FontWeight.Bold, color = Pj.GreenDark, align = TextAlign.Center)
                         }
-                        ChunkyButton("Essayer « ${next.title} »", { onNext(next) }, Modifier.padding(top = 10.dp).fillMaxWidth(), height = 54.dp, fontSize = 21.sp)
-                        Row(Modifier.padding(top = 8.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            ChunkyButton("Rejouer", onReplay, Modifier.weight(1f), color = Pj.Orange, dark = Pj.OrangeDark, height = 46.dp, fontSize = 18.sp)
-                            ChunkyButton("Difficultés", onMenu, Modifier.weight(1f), color = Pj.Slate, dark = Pj.SlateDark, height = 46.dp, fontSize = 18.sp)
-                        }
-                    } else {
-                        ChunkyButton("Rejouer", onReplay, Modifier.padding(top = 10.dp).fillMaxWidth(), height = 54.dp, fontSize = 24.sp)
-                        Row(Modifier.padding(top = 8.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            if (next != null && stars >= 2) ChunkyButton("Difficulté suivante", { onNext(next) }, Modifier.weight(1f), color = Pj.Orange, dark = Pj.OrangeDark, height = 46.dp, fontSize = 16.sp)
-                            ChunkyButton("Difficultés", onMenu, Modifier.weight(1f), color = Pj.Slate, dark = Pj.SlateDark, height = 46.dp, fontSize = 18.sp)
-                        }
+                    } else if (next != null && !canClimb) {
+                        // la règle du déblocage, dite au moment où on la rate
+                        PjText(
+                            "Pour ouvrir «\u00A0${next.title}\u00A0» : trouve tout sans erreur et avant que les objets bougent.",
+                            Modifier.padding(top = 6.dp).testTag("locked-hint"), size = 14.sp, weight = FontWeight.Medium, color = Pj.InkSoft, align = TextAlign.Center,
+                        )
+                    }
+                    // le bouton vert rejoue toujours la même difficulté ; l'orange monte d'une difficulté quand elle est ouverte
+                    ChunkyButton("Rejouer", onReplay, Modifier.padding(top = 10.dp).fillMaxWidth(), height = 54.dp, fontSize = 24.sp)
+                    Row(Modifier.padding(top = 8.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (canClimb) ChunkyButton("Difficulté suivante", { onNext(next) }, Modifier.weight(1f), color = Pj.Orange, dark = Pj.OrangeDark, height = 46.dp, fontSize = 16.sp)
+                        ChunkyButton("Difficultés", onMenu, Modifier.weight(1f), color = Pj.Slate, dark = Pj.SlateDark, height = 46.dp, fontSize = 18.sp)
                     }
                 }
             }

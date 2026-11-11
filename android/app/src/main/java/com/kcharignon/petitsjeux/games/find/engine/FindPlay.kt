@@ -17,12 +17,24 @@ enum class FindOutcome {
  * **On ne perd jamais** : un faux pâlit et ne peut plus être touché, donc après au plus `objects - targets` erreurs il ne reste que les bons.
  * Pas de temps, pas de limite d'essais.
  */
-data class FindPlay(val round: FindRound, val wrong: Set<String> = emptySet(), val found: Set<String> = emptySet()) {
+data class FindPlay(
+    val round: FindRound,
+    val wrong: Set<String> = emptySet(),
+    val found: Set<String> = emptySet(),
+    /** L'aide s'est déclenchée (un objet à trouver s'est balancé) : voir [withHelp]. */
+    val helped: Boolean = false,
+) {
     /** Les erreurs de cette manche (chaque faux touché compte une fois). */
     val mistakes: Int get() = wrong.size
 
     /** Les étoiles de cette manche (celles qu'on aura si on finit maintenant ; définitives quand [done]). */
     val stars: Int get() = round.difficulty.stars(mistakes)
+
+    /**
+     * Une manche **parfaite** : aucune erreur, et tout trouvé avant que l'aide se déclenche. C'est ce qui débloque la difficulté suivante
+     * (les étoiles, elles, tolèrent quelques erreurs).
+     */
+    val flawless: Boolean get() = mistakes == 0 && !helped
 
     /** Combien d'objets restent à trouver. */
     val remaining: Int get() = round.targets.size - found.size
@@ -35,6 +47,9 @@ data class FindPlay(val round: FindRound, val wrong: Set<String> = emptySet(), v
 
     /** Cet objet peut-il encore être touché ? */
     fun canTap(id: String): Boolean = !done && id in round.ids && id !in wrong && id !in found
+
+    /** L'aide vient de se déclencher : la manche n'est plus parfaite. Sans effet une fois la manche finie. */
+    fun withHelp(): FindPlay = if (done || helped) this else copy(helped = true)
 
     class Tapped(val play: FindPlay, val outcome: FindOutcome)
 
