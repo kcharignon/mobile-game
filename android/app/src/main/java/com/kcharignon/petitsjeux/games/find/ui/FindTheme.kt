@@ -13,29 +13,29 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
-/** Le motif discret du décor d'un monde (des formes claires et transparentes : jamais un des 40 objets). */
+/** Le motif discret d'un décor (des formes claires et transparentes : jamais un des objets). */
 enum class FindMotif { STARS, DOTS, WAVES, CHECKS, STRIPES, BUBBLES, CLOUDS }
 
 /**
- * Le décor d'un monde : un dégradé de couleurs **moyennes** (ni très claires ni très sombres : les objets blancs comme les objets à contour encre
- * y restent lisibles, voir `FindThemeTest`) et un motif léger. Dix mondes, dix décors.
+ * Un décor : un dégradé de couleurs **moyennes** (ni très claires ni très sombres : les objets blancs comme les objets à contour encre
+ * y restent lisibles, voir `FindThemeTest`) et un motif léger. Dix décors : chaque manche en tire un au hasard.
  */
 class FindTheme(val top: Color, val bottom: Color, val motif: FindMotif, val accent: Color) {
     companion object {
         val all = listOf(
-            FindTheme(Color(0xFFC7B8FF), Color(0xFFA992F5), FindMotif.STARS, Color(0xFF7C5CDB)), // la chambre
-            FindTheme(Color(0xFFB0E39B), Color(0xFF8FD27A), FindMotif.DOTS, Color(0xFF4E9E3D)), // le jardin
-            FindTheme(Color(0xFF86DCEB), Color(0xFF5CC3DC), FindMotif.WAVES, Color(0xFF2A93B0)), // la plage
-            FindTheme(Color(0xFFFFC2A3), Color(0xFFFFA98A), FindMotif.CHECKS, Color(0xFFE0714A)), // la cuisine
-            FindTheme(Color(0xFFF3D08A), Color(0xFFE8B860), FindMotif.STRIPES, Color(0xFFC08A2C)), // la ferme
-            FindTheme(Color(0xFF8FD1B0), Color(0xFF62B993), FindMotif.BUBBLES, Color(0xFF2F8D68)), // la forêt
-            FindTheme(Color(0xFF9DB6E8), Color(0xFF7C98D8), FindMotif.CHECKS, Color(0xFF4D6FC0)), // la ville
-            FindTheme(Color(0xFFA6D8FF), Color(0xFF7FC0F7), FindMotif.CLOUDS, Color(0xFF4A98DD)), // le ciel
-            FindTheme(Color(0xFFD9B99A), Color(0xFFC29C78), FindMotif.STRIPES, Color(0xFF93683F)), // le grenier
-            FindTheme(Color(0xFFFFB3D1), Color(0xFFF58FBA), FindMotif.STARS, Color(0xFFD65A92)), // la fête
+            FindTheme(Color(0xFFC7B8FF), Color(0xFFA992F5), FindMotif.STARS, Color(0xFF7C5CDB)), // lilas
+            FindTheme(Color(0xFFB0E39B), Color(0xFF8FD27A), FindMotif.DOTS, Color(0xFF4E9E3D)), // vert prairie
+            FindTheme(Color(0xFF86DCEB), Color(0xFF5CC3DC), FindMotif.WAVES, Color(0xFF2A93B0)), // turquoise
+            FindTheme(Color(0xFFFFC2A3), Color(0xFFFFA98A), FindMotif.CHECKS, Color(0xFFE0714A)), // pêche
+            FindTheme(Color(0xFFF3D08A), Color(0xFFE8B860), FindMotif.STRIPES, Color(0xFFC08A2C)), // blé
+            FindTheme(Color(0xFF8FD1B0), Color(0xFF62B993), FindMotif.BUBBLES, Color(0xFF2F8D68)), // vert menthe
+            FindTheme(Color(0xFF9DB6E8), Color(0xFF7C98D8), FindMotif.CHECKS, Color(0xFF4D6FC0)), // bleu ardoise
+            FindTheme(Color(0xFFA6D8FF), Color(0xFF7FC0F7), FindMotif.CLOUDS, Color(0xFF4A98DD)), // bleu ciel
+            FindTheme(Color(0xFFD9B99A), Color(0xFFC29C78), FindMotif.STRIPES, Color(0xFF93683F)), // bois clair
+            FindTheme(Color(0xFFFFB3D1), Color(0xFFF58FBA), FindMotif.STARS, Color(0xFFD65A92)), // rose bonbon
         )
 
-        fun of(world: Int): FindTheme = all[world.coerceIn(0, all.lastIndex)]
+        fun of(index: Int): FindTheme = all[index.coerceIn(0, all.lastIndex)]
     }
 }
 
@@ -52,7 +52,7 @@ private fun DrawScope.star(c: Offset, r: Float, color: Color) {
     drawPath(p, color)
 }
 
-/** Le décor d'un monde : dégradé et motif léger, sur toute la zone de dessin. */
+/** Le décor d'une manche : dégradé et motif léger, sur toute la zone de dessin. */
 fun DrawScope.drawFindBackdrop(theme: FindTheme) {
     drawRect(Brush.verticalGradient(listOf(theme.top, theme.bottom)))
     val soft = Color.White.copy(alpha = 0.22f)

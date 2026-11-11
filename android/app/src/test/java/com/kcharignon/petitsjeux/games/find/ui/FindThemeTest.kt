@@ -2,7 +2,6 @@ package com.kcharignon.petitsjeux.games.find.ui
 
 import androidx.compose.ui.graphics.Color
 import com.kcharignon.petitsjeux.core.ui.Pj
-import com.kcharignon.petitsjeux.games.find.engine.FindWorlds
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -20,9 +19,9 @@ class FindThemeTest {
     private fun ratio(a: Color, b: Color): Double = (max(luminance(a), luminance(b)) + 0.05) / (min(luminance(a), luminance(b)) + 0.05)
 
     @Test
-    fun oneBackdropPerWorld() {
-        assertEquals(FindWorlds.COUNT, FindTheme.all.size)
-        assertEquals(FindWorlds.COUNT, FindTheme.all.map { it.top }.toSet().size)
+    fun tenDistinctBackdrops() {
+        assertEquals(10, FindTheme.all.size)
+        assertEquals(10, FindTheme.all.map { it.top }.toSet().size)
         assertEquals(FindTheme.all.last(), FindTheme.of(99))
         assertEquals(FindTheme.all.first(), FindTheme.of(-1))
     }
@@ -30,19 +29,19 @@ class FindThemeTest {
     @Test
     fun whiteObjectsStandOutFromEveryBackdrop() {
         for ((w, t) in FindTheme.all.withIndex()) for (c in listOf(t.top, t.bottom)) {
-            assertTrue("monde ${w + 1} : fond trop clair pour un objet blanc (${ratio(c, Color.White)})", ratio(c, Color.White) >= 1.4)
+            assertTrue("décor ${w + 1} : fond trop clair pour un objet blanc (${ratio(c, Color.White)})", ratio(c, Color.White) >= 1.4)
         }
     }
 
     @Test
     fun theInkOutlineOfEveryObjectStandsOutFromEveryBackdrop() {
         for ((w, t) in FindTheme.all.withIndex()) for (c in listOf(t.top, t.bottom)) {
-            assertTrue("monde ${w + 1} : fond trop sombre pour le contour encre (${ratio(c, Pj.Ink)})", ratio(c, Pj.Ink) >= 3.0)
+            assertTrue("décor ${w + 1} : fond trop sombre pour le contour encre (${ratio(c, Pj.Ink)})", ratio(c, Pj.Ink) >= 3.0)
         }
     }
 
     @Test
     fun theMotifColoursAreDarkerThanTheBackdropSoTheMenuDotsAreVisible() {
-        for ((w, t) in FindTheme.all.withIndex()) assertTrue("monde ${w + 1}", luminance(t.accent) < luminance(t.bottom))
+        for ((w, t) in FindTheme.all.withIndex()) assertTrue("décor ${w + 1}", luminance(t.accent) < luminance(t.bottom))
     }
 }

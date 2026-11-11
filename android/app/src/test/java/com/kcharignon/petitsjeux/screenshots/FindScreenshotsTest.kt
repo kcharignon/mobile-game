@@ -6,14 +6,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import com.kcharignon.petitsjeux.games.find.FindMiniGame
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.snapshots.Snapshot
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -21,6 +21,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.kcharignon.petitsjeux.core.Feedback
 import com.kcharignon.petitsjeux.core.LocalFeedback
@@ -30,14 +31,16 @@ import com.kcharignon.petitsjeux.core.Screen
 import com.kcharignon.petitsjeux.core.save.Avatar
 import com.kcharignon.petitsjeux.core.save.InMemoryProfileStore
 import com.kcharignon.petitsjeux.core.save.Profile
+import com.kcharignon.petitsjeux.games.find.FindMiniGame
 import com.kcharignon.petitsjeux.games.find.FindProgress
-import com.kcharignon.petitsjeux.games.find.engine.FindLevel
-import com.kcharignon.petitsjeux.games.find.engine.FindLevels
+import com.kcharignon.petitsjeux.games.find.engine.FindDifficulty
+import com.kcharignon.petitsjeux.games.find.engine.FindRound
 import com.kcharignon.petitsjeux.games.find.ui.FindMenuScreen
+import com.kcharignon.petitsjeux.games.find.ui.FindObject
 import com.kcharignon.petitsjeux.games.find.ui.FindPlayScreen
-import com.kcharignon.petitsjeux.games.find.ui.NUDGE_AFTER_MS
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -45,9 +48,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import java.io.File
 
-/** Les écrans de Cherche et Trouve en PNG (docs/screenshots, en portrait), et de vrais niveaux joués en touchant les objets. */
+/** Les écrans de Cherche et Trouve en PNG (docs/screenshots, en portrait), et de vraies manches jouées en touchant les objets. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "w390dp-h844dp-port-xhdpi")
@@ -55,10 +57,9 @@ class FindScreenshotsTest {
     @get:Rule
     val rule = createAndroidComposeRule<ComponentActivity>()
 
-    private val levels: List<FindLevel> by lazy { FindLevels.parse(File("src/main/res/raw/find_levels.json").readText()) }
-    private fun level(n: Int) = levels[n - 1]
+    private fun round(d: FindDifficulty, seed: Long = SEED) = FindRound.generate(d, seed)
 
-    private fun show(name: String?, advanceMs: Long = 1400, content: @Composable () -> Unit) {
+    private fun show(name: String?, advanceMs: Long = 1600, content: @Composable () -> Unit) {
         rule.mainClock.autoAdvance = false
         rule.setContent { content() }
         rule.mainClock.advanceTimeBy(advanceMs)
@@ -76,37 +77,50 @@ class FindScreenshotsTest {
     }
 
     private fun screen(
-        l: FindLevel, progress: FindProgress = FindProgress(), onFinished: (Int, Int) -> Unit = { _, _ -> }, onNext: (Int) -> Unit = {},
-    ): @Composable () -> Unit = { FindPlayScreen(l, progress, onFinished, onNext, {}, {}) }
+        d: FindDifficulty, progress: FindProgress = FindProgress(), seed: Long = SEED,
+        onFinished: (Int, Int, Int) -> Unit = { _, _, _ -> }, onNext: (FindDifficulty) -> Unit = {}, onMenu: () -> Unit = {},
+    ): @Composable () -> Unit = { FindPlayScreen(d, progress, onFinished, onNext, onMenu, {}, seed = seed) }
 
     private fun tap(id: String) = rule.onNodeWithTag("obj-$id").performClick()
 
     private fun stateOf(id: String): String? = rule.onNodeWithTag("obj-$id").fetchSemanticsNode().config.getOrNull(SemanticsProperties.StateDescription)
 
+    private fun exists(id: String) = rule.onAllNodesWithTag("obj-$id").fetchSemanticsNodes().isNotEmpty()
+
     private fun ended() = rule.onAllNodesWithTag("end").fetchSemanticsNodes().isNotEmpty()
+
+    private fun captionExists() = rule.onAllNodesWithTag("caption", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+
+    /** Les objets à trouver d'une manche en cours, lus dans la description du bandeau (le jeu tire sa manche au hasard : on ne la connaît pas). */
+    private fun targetsOnScreen(): List<String> {
+        val description = rule.onNodeWithTag("model").fetchSemanticsNode().config.getOrNull(SemanticsProperties.ContentDescription)!!.joinToString()
+        val labels = description.removePrefix("À retrouver : ").split(", ").map { it.removeSuffix(" (trouvé)") }
+        return labels.map { l -> FindObject.entries.first { it.label == l }.id }
+    }
+
+    private fun allObjectsOnScreen(): List<String> = FindObject.entries.map { it.id }.filter { exists(it) }
 
     // ------------------------------------------------------------------ les écrans
 
     @Test
-    fun levelOneShowsTheModelFiveObjectsAndTheHint() = show("70-cherche-niveau-1", content = screen(level(1)))
+    fun theFirstDifficultyShowsOneTargetFiveObjectsAndTheHint() = show("70-cherche-coup-d-oeil", content = screen(FindDifficulty.EASY))
 
     @Test
-    fun levelOneHasExactlyFiveObjectsOnScreen() {
-        show(null, content = screen(level(1)))
-        assertEquals(5, levelObjects(level(1)).count { exists(it) })
+    fun theSecondDifficultyTurnsTenObjectsAndAsksForTwo() = show("71-cherche-bon-oeil", content = screen(FindDifficulty.MEDIUM))
+
+    @Test
+    fun theThirdDifficultyHasTwentyObjectsAndThreeTargets() = show("72-cherche-oeil-vif", content = screen(FindDifficulty.HARD))
+
+    @Test
+    fun theFourthDifficultyAddsSizesWithFortyObjects() = show("73-cherche-oeil-d-aigle", content = screen(FindDifficulty.EXPERT))
+
+    @Test
+    fun theLastDifficultyFitsEightyObjectsOnTheScreen() = show("74-cherche-super-detective", content = screen(FindDifficulty.MASTER))
+
+    @Test
+    fun theMenuShowsTheFiveDifficultiesAndLocksTheHardOnes() = show("75-cherche-difficultes") {
+        FindMenuScreen(FindProgress(best = mapOf(0 to 3, 1 to 2, 2 to 1)), onPlay = {}, onBack = {})
     }
-
-    @Test
-    fun theLastLevelFitsFourteenObjectsOnTheScreen() = show("71-cherche-niveau-100", content = screen(level(100)))
-
-    @Test
-    fun aMiddleWorldHasItsOwnBackdrop() = show("72-cherche-niveau-45", content = screen(level(45)))
-
-    @Test
-    fun theMenuShowsTenWorlds() = show("73-cherche-niveaux") {
-        FindMenuScreen(FindProgress(stars = (1..24).associateWith { listOf(3, 3, 2, 1, 3)[it % 5] }), onPlay = {}, onBack = {})
-    }
-
 
     @Test
     fun theHubCardShowsObjectsAndAMagnifyingGlass() = show("78-cherche-carte") {
@@ -114,144 +128,242 @@ class FindScreenshotsTest {
             FindMiniGame.Illustration(Modifier.size(width = 330.dp, height = 170.dp))
         }
     }
-    private fun levelObjects(l: FindLevel) = l.ids
-
-    private fun exists(id: String) = rule.onAllNodesWithTag("obj-$id").fetchSemanticsNodes().isNotEmpty()
-
-    // ------------------------------------------------------------------ des niveaux joués
 
     @Test
-    fun touchingTheModelAtOnceGivesThreeStarsAndSavesBeforeTheEndCard() {
-        val l = level(1)
-        var result: Pair<Int, Int>? = null
-        show(null, content = screen(l, onFinished = { s, m -> result = s to m }))
-        tap(l.target)
-        play(16)
-        assertEquals("le niveau est enregistré dès le toucher, avant la fenêtre de bilan", 3 to 0, result)
-        assertFalse(ended())
-        play(2800)
-        assertTrue(ended())
-        shot("74-cherche-bravo")
-        rule.onNodeWithTag("final-mistakes", useUnmergedTree = true).assertExists()
+    fun everyDifficultyShowsExactlyItsObjects() {
+        for (d in FindDifficulty.entries) {
+            show(null, content = screen(d))
+            val r = round(d)
+            assertEquals("${d.name} : les objets à l'écran", r.ids.toSet(), allObjectsOnScreen().toSet())
+            assertEquals(d.objects, allObjectsOnScreen().size)
+        }
     }
 
     @Test
-    fun aWrongObjectShakesGoesPaleAndCostsOneStar() {
-        val l = level(1)
-        var result: Pair<Int, Int>? = null
-        show(null, content = screen(l, onFinished = { s, m -> result = s to m }))
-        val fake = l.others.first()
+    fun theTargetsAreNamedInTheBannerAndMultipleTargetsGetOneTilePerObject() {
+        show(null, content = screen(FindDifficulty.EXPERT))
+        val r = round(FindDifficulty.EXPERT)
+        assertEquals(r.targets.toSet(), targetsOnScreen().toSet())
+        for (t in r.targets) rule.onNodeWithTag("tile-$t", useUnmergedTree = true).assertExists()
+    }
+
+    // ------------------------------------------------------------------ des manches jouées
+
+    @Test
+    fun touchingTheTargetAtOnceGivesThreeStarsAndSavesBeforeTheEndCard() {
+        val r = round(FindDifficulty.EASY)
+        var result: Triple<Int, Int, Int>? = null
+        show(null, content = screen(FindDifficulty.EASY, onFinished = { s, m, f -> result = Triple(s, m, f) }))
+        tap(r.targets.single())
+        play(16)
+        assertEquals("la manche est enregistrée dès le toucher, avant la fenêtre de bilan", Triple(3, 0, 1), result)
+        assertFalse(ended())
+        play(2800)
+        assertTrue(ended())
+        shot("76-cherche-bravo")
+        rule.onNodeWithTag("final-mistakes", useUnmergedTree = true).assertExists()
+        rule.onNodeWithTag("unlocked", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun aWrongObjectShakesGoesPaleAndCostsAStar() {
+        val r = round(FindDifficulty.EASY)
+        var result: Triple<Int, Int, Int>? = null
+        show(null, content = screen(FindDifficulty.EASY, onFinished = { s, m, f -> result = Triple(s, m, f) }))
+        val fake = r.others.first()
         assertEquals("à toucher", stateOf(fake))
         tap(fake)
         play(500)
         assertEquals("pas le bon", stateOf(fake))
-        shot("75-cherche-erreur")
+        shot("77-cherche-erreur")
         // un objet pâle n'est plus touchable : rien ne change si on le touche encore
         rule.onNodeWithTag("obj-$fake").performClick()
         play(16)
         assertEquals(null, result)
-        tap(l.target)
+        tap(r.targets.single())
         play(16)
-        assertEquals(2 to 1, result)
+        assertEquals(Triple(2, 1, 1), result)
     }
 
     @Test
-    fun touchingEveryWrongObjectNeverEndsTheGameAndTheModelStillWins() {
-        val l = level(100)
-        var result: Pair<Int, Int>? = null
-        show(null, content = screen(l, onFinished = { s, m -> result = s to m }))
-        for (id in l.others) {
+    fun touchingEveryWrongObjectNeverEndsTheGameAndTheTargetsStillWin() {
+        val r = round(FindDifficulty.MASTER)
+        var result: Triple<Int, Int, Int>? = null
+        show(null, content = screen(FindDifficulty.MASTER, onFinished = { s, m, f -> result = Triple(s, m, f) }))
+        for (id in r.others) {
             tap(id)
-            play(80)
+            play(48)
         }
         play(1500)
-        assertFalse("aucun game over : le niveau continue", ended())
+        assertFalse("aucun game over : la manche continue", ended())
         assertEquals(null, result)
-        tap(l.target)
-        play(16)
-        assertEquals("toujours au moins une étoile", 1 to 13, result)
+        for (t in r.targets) {
+            tap(t)
+            play(16)
+        }
+        assertEquals("toujours au moins une étoile", Triple(1, 75, 5), result)
         play(2800)
         assertTrue(ended())
-        shot("76-cherche-bravo-une-etoile")
+        shot("79-cherche-bravo-une-etoile")
     }
 
     @Test
-    fun anObjectOfAnotherLevelIsNotThere() {
-        show(null, content = screen(level(1)))
-        assertTrue(!exists("licorne"))
-        assertEquals(5, level(1).ids.count { exists(it) })
-    }
-
-    @Test
-    fun theHintCaptionDisappearsAtTheFirstTouchAndOnlyShowsOnLevelOne() {
-        val l = level(1)
-        show(null, content = screen(l))
-        rule.onNodeWithTag("caption", useUnmergedTree = true).assertExists()
-        tap(l.others.first())
+    fun severalTargetsAreFoundInAnyOrderAndTheRoundEndsOnTheLastOne() {
+        val r = round(FindDifficulty.HARD)
+        val calls = mutableListOf<Triple<Int, Int, Int>>()
+        show(null, content = screen(FindDifficulty.HARD, onFinished = { s, m, f -> calls += Triple(s, m, f) }))
+        val (a, b, c) = r.targets.reversed()
+        assertTrue(captionText("Trouve-les tous !"))
+        tap(a)
+        play(600)
+        assertEquals("trouvé", stateOf(a))
+        assertTrue(captionText("Encore 2 à trouver"))
+        shot("80-cherche-un-trouve")
+        // retoucher un objet trouvé ne fait rien
+        rule.onNodeWithTag("obj-$a").performClick()
         play(16)
-        assertTrue(rule.onAllNodesWithTag("caption", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
-    }
-
-    @Test
-    fun theCaptionIsNotShownOnOtherLevels() {
-        show(null, content = screen(level(2)))
-        assertTrue(rule.onAllNodesWithTag("caption", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
-    }
-
-    @Test
-    fun theHelpWigglesTheRightObjectAfterAWhileWithoutAnyPenalty() {
-        val l = level(3)
-        var result: Pair<Int, Int>? = null
-        show(null, content = screen(l, onFinished = { s, m -> result = s to m }))
-        play(NUDGE_AFTER_MS + 600)
-        shot("77-cherche-aide")
-        // l'aide ne coûte rien : on trouve toujours du premier coup avec trois étoiles
-        tap(l.target)
+        tap(b)
+        play(600)
+        assertTrue(calls.isEmpty())
+        assertFalse(ended())
+        assertTrue(captionText("Encore 1 à trouver"))
+        tap(c)
         play(16)
-        assertEquals(3 to 0, result)
-    }
-
-    @Test
-    fun nextLevelAndReplayAndLevelsButtonsWork() {
-        val l = level(1)
-        var next = 0
-        show(null, content = screen(l, onNext = { next = it }))
-        tap(l.target)
+        assertEquals(listOf(Triple(3, 0, 3)), calls)
         play(2800)
-        rule.onNodeWithText("Niveau suivant").performClick()
-        assertEquals(2, next)
+        assertTrue(ended())
+    }
+
+    private fun captionText(text: String) = rule.onAllNodesWithText(text, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+
+    @Test
+    fun theHintCaptionShowsOnTheFirstDifficultyUntilTheFirstTouch() {
+        val r = round(FindDifficulty.EASY)
+        show(null, content = screen(FindDifficulty.EASY))
+        assertTrue(captionExists())
+        tap(r.others.first())
+        play(16)
+        assertFalse(captionExists())
+    }
+
+    @Test
+    fun theHelpWigglesATargetAfterAWhileWithoutAnyPenalty() {
+        val r = round(FindDifficulty.EASY)
+        var result: Triple<Int, Int, Int>? = null
+        show(null, content = screen(FindDifficulty.EASY, onFinished = { s, m, f -> result = Triple(s, m, f) }))
+        play(FindDifficulty.EASY.nudgeMs + 600)
+        shot("81-cherche-aide")
+        // l'aide ne coûte rien : on trouve toujours du premier coup avec trois étoiles
+        tap(r.targets.single())
+        play(16)
+        assertEquals(Triple(3, 0, 1), result)
+    }
+
+    @Test
+    fun theNextDifficultyButtonOpensItAndReplayDrawsAnotherRound() {
+        var next: FindDifficulty? = null
+        show(null, content = screen(FindDifficulty.EASY, onNext = { next = it }))
+        tap(round(FindDifficulty.EASY).targets.single())
+        play(2800)
+        rule.onNodeWithText("Essayer « Bon œil »").performClick()
+        assertEquals(FindDifficulty.MEDIUM, next)
+    }
+
+    @Test
+    fun theNextDifficultyIsAnOrdinaryButtonWhenItWasAlreadyOpen() {
+        var next: FindDifficulty? = null
+        val opened = FindProgress(best = mapOf(0 to 3))
+        show(null, content = screen(FindDifficulty.EASY, progress = opened, onNext = { next = it }))
+        tap(round(FindDifficulty.EASY).targets.single())
+        play(2800)
+        assertTrue(rule.onAllNodesWithTag("unlocked", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+        rule.onNodeWithText("Difficulté suivante").performClick()
+        assertEquals(FindDifficulty.MEDIUM, next)
+    }
+
+    @Test
+    fun noNextDifficultyAfterTwoMistakesOnTheFirstOne() {
+        show(null, content = screen(FindDifficulty.EASY))
+        val r = round(FindDifficulty.EASY)
+        tap(r.others[0])
+        play(100)
+        tap(r.others[1])
+        play(100)
+        tap(r.targets.single())
+        play(2800)
+        assertTrue(rule.onAllNodesWithText("Difficulté suivante").fetchSemanticsNodes().isEmpty())
+        assertTrue(rule.onAllNodesWithText("Essayer « Bon œil »").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun replayDrawsANewRound() {
+        show(null, content = screen(FindDifficulty.MEDIUM))
+        val before = allObjectsOnScreen().toSet()
+        assertEquals(round(FindDifficulty.MEDIUM).ids.toSet(), before)
+        rule.onNodeWithTag("restart").performClick()
+        play(1600)
+        val after = allObjectsOnScreen().toSet()
+        assertEquals(round(FindDifficulty.MEDIUM, SEED + 1).ids.toSet(), after)
+        assertNotEquals(before, after)
+    }
+
+    @Test
+    fun theMenuButtonOfTheHeaderGoesToTheDifficultyChoice() {
+        var menu = 0
+        show(null, content = screen(FindDifficulty.EASY, onMenu = { menu++ }))
+        rule.onNodeWithTag("levels").performClick()
+        assertEquals(1, menu)
+    }
+
+    @Test
+    fun theMenuLocksTheDifficultiesNotYetEarned() {
+        show(null) { FindMenuScreen(FindProgress(best = mapOf(0 to 2, 1 to 1)), onPlay = {}, onBack = {}) }
+        rule.onNodeWithTag("difficulty-0").assertIsEnabled()
+        rule.onNodeWithTag("difficulty-1").assertIsEnabled()
+        rule.onNodeWithTag("difficulty-2").assertIsNotEnabled()
+        rule.onNodeWithTag("difficulty-4").assertIsNotEnabled()
     }
 
     // ------------------------------------------------------------------ depuis l'appli
 
-    private fun profile(levelsDone: Int): Profile {
+    private fun profile(best: Map<Int, Int>): Profile {
         val base = Profile.create(0, "Léa", Avatar.CAT, now = 1L)!!
-        return if (levelsDone == 0) base else base.withGameSave(FindProgress.GAME_ID, FindProgress((1..levelsDone).associateWith { 3 }).toJson())
+        return if (best.isEmpty()) base else base.withGameSave(FindProgress.GAME_ID, FindProgress(best = best).toJson())
     }
 
     private fun openGame(store: InMemoryProfileStore) {
         rule.mainClock.autoAdvance = false
         rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, FindProgress.GAME_ID)) }
-        rule.mainClock.advanceTimeBy(1400)
+        rule.mainClock.advanceTimeBy(1600)
     }
 
     @Test
-    fun openingTheGameLandsOnTheNextLevelAndTheArrowGoesHomeAndTheGridButtonShowsTheLevels() {
-        val store = InMemoryProfileStore(listOf(profile(10)))
-        openGame(store)
+    fun openingTheGameLandsOnTheFirstDifficultyForANewPlayer() {
+        openGame(InMemoryProfileStore(listOf(profile(emptyMap()))))
         rule.onNodeWithTag("model").assertExists()
-        assertTrue(rule.onAllNodesWithTag("level-11").fetchSemanticsNodes().isEmpty())
-        rule.onNodeWithText("Niveau 11").assertExists()
-        // le bouton en grille de tuiles ouvre le choix du niveau
+        rule.onNodeWithText("Coup d'œil").assertExists()
+        assertEquals(5, allObjectsOnScreen().size)
+        assertTrue(rule.onAllNodesWithTag("difficulty-0").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun openingTheGameLandsOnTheHighestDifficultyAlreadyPlayedThenTheButtonShowsTheChoice() {
+        openGame(InMemoryProfileStore(listOf(profile(mapOf(0 to 3, 1 to 2, 2 to 1)))))
+        rule.onNodeWithText("Œil vif").assertExists()
+        assertEquals(20, allObjectsOnScreen().size)
         rule.onNodeWithTag("levels").performClick()
         play(300)
-        rule.onNodeWithTag("level-11").assertExists()
+        rule.onNodeWithTag("difficulty-0").assertExists()
+        rule.onNodeWithTag("difficulty-3").assertIsNotEnabled()
+        rule.onNodeWithTag("difficulty-1").performClick()
+        play(1600)
+        rule.onNodeWithText("Bon œil").assertExists()
+        assertEquals(10, allObjectsOnScreen().size)
     }
 
     @Test
     fun theBlueArrowGoesHome() {
-        val store = InMemoryProfileStore(listOf(profile(0)))
-        openGame(store)
+        openGame(InMemoryProfileStore(listOf(profile(emptyMap()))))
         rule.onNodeWithTag("exit").performClick()
         play(300)
         assertTrue("à l'accueil", rule.onAllNodesWithText("Parking Malin").fetchSemanticsNodes().isNotEmpty())
@@ -260,8 +372,7 @@ class FindScreenshotsTest {
 
     @Test
     fun theSystemBackGestureGoesHomeToo() {
-        val store = InMemoryProfileStore(listOf(profile(0)))
-        openGame(store)
+        openGame(InMemoryProfileStore(listOf(profile(emptyMap()))))
         rule.runOnUiThread {
             rule.activity.onBackPressedDispatcher.onBackPressed()
             Snapshot.sendApplyNotifications()
@@ -271,31 +382,34 @@ class FindScreenshotsTest {
     }
 
     @Test
-    fun aLevelPlayedInTheAppIsSavedAndTheGameOpensOnTheNextOneNextTime() {
-        val store = InMemoryProfileStore(listOf(profile(0)))
+    fun aRoundPlayedInTheAppIsSavedAndUnlocksTheNextDifficulty() {
+        val store = InMemoryProfileStore(listOf(profile(emptyMap())))
         openGame(store)
-        val l = level(1)
-        tap(l.others.first())
+        val target = targetsOnScreen().single()
+        val fake = allObjectsOnScreen().first { it != target }
+        tap(fake)
         play(300)
-        tap(l.target)
+        tap(target)
         play(2800)
         val saved = FindProgress.fromJson(store.load(0)!!.gameSave(FindProgress.GAME_ID))
-        assertEquals(2, saved.starsOf(1))
+        assertEquals(2, saved.stars(FindDifficulty.EASY))
         assertEquals(1, saved.mistakes)
+        assertEquals(1, saved.found)
         assertEquals(1, saved.played)
-        assertEquals(2, saved.currentLevel)
-        rule.onNodeWithText("Niveau suivant").performClick()
-        play(1400)
-        rule.onNodeWithText("Niveau 2").assertExists()
+        assertTrue(saved.isUnlocked(FindDifficulty.MEDIUM))
+        assertEquals(2, saved.totalStars)
+        rule.onNodeWithText("Essayer « Bon œil »").performClick()
+        play(1600)
+        rule.onNodeWithText("Bon œil").assertExists()
+        assertEquals(10, allObjectsOnScreen().size)
     }
 
     @Test
-    fun allDoneOpensTheGridInsteadOfALevel() {
-        val store = InMemoryProfileStore(listOf(profile(100)))
-        openGame(store)
-        // tout est réussi : la grille s'ouvre sur le dernier monde (où l'on en est)
-        rule.onNodeWithTag("level-100").assertExists()
-        assertTrue(rule.onAllNodesWithTag("model").fetchSemanticsNodes().isEmpty())
+    fun theHubCardShowsTheStarsAndTheProgress() {
+        val p = FindProgress(best = mapOf(0 to 3, 1 to 2), played = 4)
+        assertEquals(5, FindMiniGame.stars(p.toJson()))
+        assertEquals("Difficulté 2 sur 5", FindMiniGame.progressLabel(p.toJson()))
+        assertEquals("Nouveau !", FindMiniGame.progressLabel(null))
     }
 
     @Test
@@ -304,14 +418,22 @@ class FindScreenshotsTest {
         val feedback = object : Feedback by NoFeedback {
             override fun win() { log += "win" }
             override fun puff() { log += "puff" }
+            override fun pick(index: Int) { log += "pick$index" }
             override fun star(index: Int) { log += "star$index" }
         }
-        val l = level(1)
-        show(null) { CompositionLocalProvider(LocalFeedback provides feedback) { screen(l)() } }
-        tap(l.others.first())
+        val r = round(FindDifficulty.MEDIUM)
+        show(null) { CompositionLocalProvider(LocalFeedback provides feedback) { screen(FindDifficulty.MEDIUM)() } }
+        tap(r.others.first())
         play(300)
-        tap(l.target)
+        tap(r.targets[0])
+        play(300)
+        tap(r.targets[1])
         play(2800)
-        assertEquals(listOf("puff", "win", "star0", "star1"), log)
+        assertEquals(listOf("puff", "pick0", "win", "star0", "star1"), log)
+    }
+
+    companion object {
+        /** La graine des manches des tests (le jeu, lui, en tire une nouvelle à chaque manche). */
+        const val SEED = 20260811L
     }
 }

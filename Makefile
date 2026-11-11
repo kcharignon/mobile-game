@@ -40,9 +40,9 @@ clean: ## Remove the built APKs and the Gradle cache volume
 	@$(DOCKER_COMPOSE) --profile android down --volumes --remove-orphans
 
 ## —— Design 🎨 ——————————————————————————————————————————————————————————————
-.PHONY: design mazes find-levels
+.PHONY: design mazes
 
-design: ## Regenerate mockups, reef mockups, vehicles (SVG sheet + generated VehicleArt.kt), the 40 Cherche et Trouve objects (generated FindArt.kt + sheet) and the app icon (PNG: node tools/design/render.js, needs Playwright)
+design: ## Regenerate mockups, reef mockups, vehicles (SVG sheet + generated VehicleArt.kt), the 120 Cherche et Trouve objects (generated FindArt.kt + sheet) and the app icon (PNG: node tools/design/render.js, needs Playwright)
 	@node tools/design/make-design.js
 	@node tools/design/make-recif.js
 	@node tools/design/make-vehicles.js
@@ -51,9 +51,6 @@ design: ## Regenerate mockups, reef mockups, vehicles (SVG sheet + generated Veh
 
 mazes: ## Regenerate the 100 Poisson Perdu levels (android/app/src/main/res/raw/maze_levels.json) and their contact sheet docs/design/20-labyrinthes-planche (deterministic; published levels never change)
 	@node tools/mazes/make-mazes.js
-
-find-levels: ## Regenerate the 100 Cherche et Trouve levels (android/app/src/main/res/raw/find_levels.json; deterministic; published levels never change)
-	@node tools/find/make-levels.js
 
 ## —— Aide ———————————————————————————————————————————————————————————————————
 .PHONY: help
