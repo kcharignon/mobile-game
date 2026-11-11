@@ -393,6 +393,8 @@ private fun EndCard(
     val next = Difficulty.entries.getOrNull(d.index + 1)
     // la difficulté suivante vient de s'ouvrir avec cette partie
     val unlocked = next != null && stars >= 2 && next !in unlockedBefore
+    // la difficulté suivante est proposée dès qu'elle est ouverte : à l'instant (2 étoiles) ou depuis une partie précédente
+    val canClimb = next != null && (stars >= 2 || next in unlockedBefore)
     var shown by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) {
         for (i in 0 until stars) {
@@ -420,21 +422,14 @@ private fun EndCard(
                         Modifier.padding(top = 12.dp).fillMaxWidth().background(Color(0xFFE5F7E8), RoundedCornerShape(20.dp)).padding(horizontal = 14.dp, vertical = 10.dp).testTag("unlocked"),
                         contentAlignment = Alignment.Center,
                     ) {
-                        PjText("Nouvelle difficulté débloquée : « ${next!!.title} » !", size = 17.sp, weight = FontWeight.Bold, color = Pj.GreenDark, align = TextAlign.Center)
+                        PjText("Nouvelle difficulté débloquée : « ${next.title.replace(' ', ' ')} » !", size = 17.sp, weight = FontWeight.Bold, color = Pj.GreenDark, align = TextAlign.Center)
                     }
                 }
-                if (unlocked) {
-                    ChunkyButton("Essayer « ${next!!.title} »", { onNext(next) }, Modifier.padding(top = 14.dp).fillMaxWidth(), height = 58.dp, fontSize = 22.sp)
-                    Row(Modifier.padding(top = 10.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        ChunkyButton("Rejouer", onReplay, Modifier.weight(1f), color = Pj.Orange, dark = Pj.OrangeDark, height = 50.dp, fontSize = 19.sp)
-                        ChunkyButton("Difficultés", onMenu, Modifier.weight(1f), color = Pj.Slate, dark = Pj.SlateDark, height = 50.dp, fontSize = 19.sp)
-                    }
-                } else {
-                    ChunkyButton("Rejouer", onReplay, Modifier.padding(top = 14.dp).fillMaxWidth(), height = 58.dp, fontSize = 24.sp)
-                    Row(Modifier.padding(top = 10.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        if (next != null && stars >= 2) ChunkyButton("Difficulté suivante", { onNext(next) }, Modifier.weight(1f), color = Pj.Orange, dark = Pj.OrangeDark, height = 50.dp, fontSize = 16.sp)
-                        ChunkyButton("Difficultés", onMenu, Modifier.weight(1f), color = Pj.Slate, dark = Pj.SlateDark, height = 50.dp, fontSize = 19.sp)
-                    }
+                // le bouton vert rejoue toujours la même difficulté ; l'orange monte d'une difficulté quand elle est ouverte
+                ChunkyButton("Rejouer", onReplay, Modifier.padding(top = 14.dp).fillMaxWidth(), height = 58.dp, fontSize = 24.sp)
+                Row(Modifier.padding(top = 10.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (canClimb) ChunkyButton("Difficulté suivante", { onNext(next) }, Modifier.weight(1f), color = Pj.Orange, dark = Pj.OrangeDark, height = 50.dp, fontSize = 16.sp)
+                    ChunkyButton("Difficultés", onMenu, Modifier.weight(1f), color = Pj.Slate, dark = Pj.SlateDark, height = 50.dp, fontSize = 19.sp)
                 }
             }
         }

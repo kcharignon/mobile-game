@@ -601,9 +601,11 @@ fun WinCard(
                         "Tu as réussi les ${Worlds.LEVEL_COUNT} niveaux !", Modifier.padding(top = 14.dp),
                         size = 18.sp, weight = FontWeight.Bold, color = Pj.GreenDark, align = TextAlign.Center,
                     )
+                    // dernier niveau : rien au-dessus, le bouton vert rejoue
+                    ChunkyButton("Rejouer", onReplay, Modifier.padding(top = 10.dp).fillMaxWidth(), height = 62.dp, fontSize = 26.sp)
                 }
                 Row(Modifier.padding(top = 14.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    ChunkyButton("Rejouer", onReplay, Modifier.weight(1f), color = Pj.Blue, dark = Pj.BlueDark, height = 46.dp, fontSize = 18.sp)
+                    if (hasNext) ChunkyButton("Rejouer", onReplay, Modifier.weight(1f), color = Pj.Blue, dark = Pj.BlueDark, height = 46.dp, fontSize = 18.sp)
                     ChunkyButton("Niveaux", onLevels, Modifier.weight(1f), color = Pj.Slate, dark = Pj.SlateDark, height = 46.dp, fontSize = 18.sp)
                 }
             }

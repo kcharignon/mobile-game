@@ -237,6 +237,30 @@ class MushroomsScreenshotsTest {
         rule.onNodeWithText("Bravo !").assertExists() // jamais « perdu »
     }
 
+    /** Une partie jouée très lentement (6 s par champignon : une seule étoile). */
+    private fun playASlowGame(progress: MushroomProgress) {
+        show(null) { ShroomPlayScreen(Difficulty.EASY, progress, { _, _, _ -> }, {}, {}, {}, seed = 3L) }
+        rule.onNodeWithText("C'est parti !").performClick()
+        playToTheEnd(Difficulty.EASY, delayMs = 6000)
+        rule.mainClock.advanceTimeBy(2500)
+        rule.onNodeWithTag("final-stars", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun theNextDifficultyIsOfferedWhenItWasAlreadyOpenEvenAfterAPoorGame() {
+        playASlowGame(someProgress)
+        rule.onNodeWithText("Rejouer").assertExists()
+        rule.onNodeWithText("Difficulté suivante").assertExists()
+        assertTrue("pas de bandeau : elle était déjà ouverte", rule.onAllNodesWithTag("unlocked", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun noNextDifficultyIsOfferedWhileItIsStillClosed() {
+        playASlowGame(empty)
+        rule.onNodeWithText("Rejouer").assertExists()
+        assertTrue(rule.onAllNodesWithText("Difficulté suivante").fetchSemanticsNodes().isEmpty())
+    }
+
     @Test
     fun theBlueBackArrowGoesHomeAndTheGridButtonShowsTheDifficulties() {
         val store = InMemoryProfileStore(listOf(Profile.create(0, "Léa", Avatar.CAT, now = 1L)!!))
@@ -271,6 +295,10 @@ class MushroomsScreenshotsTest {
         rule.mainClock.advanceTimeBy(2500)
         rule.onNodeWithTag("unlocked", useUnmergedTree = true).assertExists()
         shot("48-champis-debloque")
+        // le bouton vert rejoue la même difficulté, l'orange monte d'une difficulté (qui vient de s'ouvrir)
+        rule.onNodeWithText("Rejouer").assertExists()
+        rule.onNodeWithText("Difficulté suivante").assertExists()
+        assertTrue(rule.onAllNodesWithText("Essayer", substring = true).fetchSemanticsNodes().isEmpty())
         val saved = MushroomProgress.fromJson(store.load(0)!!.gameSave(MushroomProgress.GAME_ID))
         assertTrue(saved.isUnlocked(Difficulty.MEDIUM))
         assertEquals(1, saved.played)

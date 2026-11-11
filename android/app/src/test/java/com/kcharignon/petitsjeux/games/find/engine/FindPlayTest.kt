@@ -90,4 +90,39 @@ class FindPlayTest {
         assertEquals(FindOutcome.IGNORED, FindPlay(easy).tap("licorne").outcome)
         assertFalse(FindPlay(easy).canTap("licorne"))
     }
+
+    @Test
+    fun aRoundWithNoMistakeAndNoHelpIsFlawless() {
+        assertTrue(FindPlay(easy).flawless)
+        assertTrue(FindPlay(easy).tap("pomme").play.flawless)
+        val twoTargets = FindPlay(medium).tap("ballon").play.tap("pomme").play
+        assertTrue(twoTargets.done)
+        assertTrue(twoTargets.flawless)
+    }
+
+    @Test
+    fun aMistakeMakesTheRoundImperfectEvenWithThreeStars() {
+        // la difficulté « Bon œil » garde 3 étoiles avec une erreur, mais la manche n'est plus parfaite : elle n'ouvre pas la suivante
+        val play = FindPlay(medium).tap("poire").play.tap("ballon").play.tap("pomme").play
+        assertEquals(3, play.stars)
+        assertFalse(play.flawless)
+    }
+
+    @Test
+    fun theHelpMakesTheRoundImperfectButCostsNoStar() {
+        val helped = FindPlay(easy).withHelp()
+        assertTrue(helped.helped)
+        assertFalse(helped.flawless)
+        val done = helped.tap("pomme").play
+        assertEquals(3, done.stars)
+        assertFalse(done.flawless)
+        assertEquals("l'aide ne se compte qu'une fois", helped, helped.withHelp())
+    }
+
+    @Test
+    fun theHelpComingAfterTheEndChangesNothing() {
+        val done = FindPlay(easy).tap("pomme").play
+        assertEquals(done, done.withHelp())
+        assertTrue(done.flawless)
+    }
 }

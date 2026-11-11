@@ -408,9 +408,11 @@ private fun EndPanel(level: MazeLevel, stars: Int, detours: Int, progress: MazeP
                         if (detours == 0) "Chemin parfait !" else if (detours == 1) "1 impasse" else "$detours impasses",
                         Modifier.testTag("final-detours"), size = 16.sp, weight = FontWeight.Medium, color = if (detours == 0) Pj.GreenDark else Pj.InkSoft, align = TextAlign.Center,
                     )
+                    // le bouton vert passe au niveau suivant ; au dernier niveau, rien au-dessus : il rejoue
                     if (hasNext) ChunkyButton("Niveau suivant", { onNext(next) }, Modifier.padding(top = 10.dp).fillMaxWidth(), height = 54.dp, fontSize = 24.sp)
+                    else ChunkyButton("Rejouer", onReplay, Modifier.padding(top = 10.dp).fillMaxWidth(), height = 54.dp, fontSize = 24.sp)
                     Row(Modifier.padding(top = 8.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        ChunkyButton("Rejouer", onReplay, Modifier.weight(1f), color = Pj.Blue, dark = Pj.BlueDark, height = 44.dp, fontSize = 18.sp)
+                        if (hasNext) ChunkyButton("Rejouer", onReplay, Modifier.weight(1f), color = Pj.Blue, dark = Pj.BlueDark, height = 44.dp, fontSize = 18.sp)
                         ChunkyButton("Niveaux", onMenu, Modifier.weight(1f), color = Pj.Slate, dark = Pj.SlateDark, height = 44.dp, fontSize = 18.sp)
                     }
                 }

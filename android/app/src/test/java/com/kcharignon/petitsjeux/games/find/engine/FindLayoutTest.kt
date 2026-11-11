@@ -96,19 +96,46 @@ class FindLayoutTest {
 
     @Test
     fun objectsAreBigAndGetSmallerAsThereAreMoreOfThem() {
-        val sizes = listOf(5, 10, 20, 40, 80).map { FindLayout.maxObjectSize(it, 360f, 520f) }
+        val sizes = listOf(6, 12, 20, 40, 84).map { FindLayout.maxObjectSize(it, 360f, 520f) }
         for (i in 1 until sizes.size) assertTrue("${sizes[i]} > ${sizes[i - 1]}", sizes[i] < sizes[i - 1])
-        assertTrue("80 objets doivent rester touchables (zone de toucher d'au moins 40 px de large sur 360 de large) : ${sizes.last()}", sizes.last() * FindLayout.OVERHANG >= 40f)
+        assertTrue("84 objets doivent rester touchables (zone de toucher d'au moins 40 px de large sur 360 de large) : ${sizes.last()}", sizes.last() * FindLayout.OVERHANG >= 40f)
         assertTrue(sizes.first() > sizes.last() * 2)
     }
 
     @Test
     fun theGridFitsTheRightNumberOfCellsAndAvoidsNeedlesslyThinCells() {
-        for (n in listOf(1, 2, 3, 5, 10, 20, 40, 80)) for ((w, h) in areas) {
+        for (n in listOf(1, 2, 3, 5, 6, 10, 12, 20, 40, 80, 84)) for ((w, h) in areas) {
             val (cols, rows) = FindLayout.grid(n, w, h)
             assertTrue(cols * rows >= n)
             assertTrue("${cols}x$rows pour $n", cols * rows < n + minOf(cols, rows) + 1 || n <= 3)
         }
         assertEquals(2 to 3, FindLayout.grid(5, 360f, 520f))
+    }
+
+    @Test
+    fun theNumbersOfObjectsOfTheGameFillAGridWithNoEmptyCell() {
+        for (d in FindDifficulty.entries) for ((w, h) in areas) {
+            val (cols, rows) = FindLayout.grid(d.objects, w, h)
+            assertEquals("${d.name} sur ${w}x$h : ${cols}x$rows a des cases vides", d.objects, cols * rows)
+            // et chaque objet a sa case : aucune n'est vide, aucune n'est partagée
+            val spots = FindLayout.arrange(ids(d.objects), w, h, seed = 3, rotate = d.rotates, vary = d.variesSizes)
+            val cells = spots.map { (it.cy / (h / rows)).toInt().coerceAtMost(rows - 1) * cols + (it.cx / (w / cols)).toInt().coerceAtMost(cols - 1) }.toSet()
+            assertEquals("${d.name} sur ${w}x$h : cases occupées", d.objects, cells.size)
+        }
+    }
+
+    @Test
+    fun theGridsAreTheExpectedOnACommonPhone() {
+        assertEquals(2 to 3, FindLayout.grid(6, 360f, 520f))
+        assertEquals(3 to 4, FindLayout.grid(12, 360f, 520f))
+        assertEquals(4 to 5, FindLayout.grid(20, 360f, 520f))
+        assertEquals(5 to 8, FindLayout.grid(40, 360f, 520f))
+        assertEquals(7 to 12, FindLayout.grid(84, 360f, 520f))
+    }
+
+    @Test
+    fun aCountWithoutAGoodFullGridFallsBackToTheBestGridWithAHole() {
+        // 7 objets : la seule grille pleine est une bande 1x7, bien plus petite que 2x4
+        assertEquals(2 to 4, FindLayout.grid(7, 360f, 520f))
     }
 }

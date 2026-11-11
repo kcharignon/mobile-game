@@ -95,18 +95,18 @@ class FindRoundTest {
     @Test
     fun aTinyCatalogStillGivesAValidRound() {
         // pas assez de couleurs ou de sortes différentes : on relâche les exigences plutôt que de planter
-        val tiny = List(6) { FindEntry("x$it", hue = 0, kind = 0) }
+        val tiny = List(8) { FindEntry("x$it", hue = 0, kind = 0) }
         val r = FindRound.generate(FindDifficulty.EASY, 5L, tiny)
-        assertEquals(5, r.ids.toSet().size)
+        assertEquals(6, r.ids.toSet().size)
         assertEquals(1, r.targets.size)
-        val r2 = FindRound.generate(FindDifficulty.MEDIUM, 5L, List(12) { FindEntry("y$it", hue = it % 2, kind = it % 2) })
-        assertEquals(10, r2.ids.toSet().size)
+        val r2 = FindRound.generate(FindDifficulty.MEDIUM, 5L, List(14) { FindEntry("y$it", hue = it % 2, kind = it % 2) })
+        assertEquals(12, r2.ids.toSet().size)
         assertEquals(2, r2.targets.size)
     }
 
     @Test
     fun theCatalogCanFillTheBiggestRound() {
         assertTrue(FindObject.entries.size >= FindDifficulty.MASTER.objects)
-        assertEquals(80, FindRound.generate(FindDifficulty.MASTER, 1L).ids.size)
+        assertEquals(84, FindRound.generate(FindDifficulty.MASTER, 1L).ids.size)
     }
 }

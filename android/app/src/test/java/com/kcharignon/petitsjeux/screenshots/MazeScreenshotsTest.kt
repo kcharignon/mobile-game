@@ -34,6 +34,7 @@ import com.kcharignon.petitsjeux.games.maze.MazeProgress
 import com.kcharignon.petitsjeux.games.maze.engine.Cell
 import com.kcharignon.petitsjeux.games.maze.engine.MazeLevel
 import com.kcharignon.petitsjeux.games.maze.engine.MazeLevels
+import com.kcharignon.petitsjeux.games.maze.engine.MazeWorlds
 import com.kcharignon.petitsjeux.games.maze.ui.MazeLayout
 import com.kcharignon.petitsjeux.games.maze.ui.MazeMenuScreen
 import com.kcharignon.petitsjeux.games.maze.ui.MazePlayScreen
@@ -311,6 +312,23 @@ class MazeScreenshotsTest {
         assertEquals("Chemin parfait !", text("final-detours", unmerged = true))
         rule.onNodeWithText("Niveau suivant").assertExists()
         rule.onNodeWithText("Rejouer").assertExists()
+    }
+
+    @Test
+    fun onTheLastLevelTheGreenButtonReplaysBecauseThereIsNoNextLevel() {
+        val l = level(MazeWorlds.LEVEL_COUNT)
+        show(null, content = screen(l))
+        drag(l, l.solution)
+        play(4000)
+        assertTrue(finished())
+        shot("84-labyrinthe-dernier-niveau")
+        assertTrue(rule.onAllNodesWithText("Niveau suivant").fetchSemanticsNodes().isEmpty())
+        // un seul « Rejouer » : le grand bouton vert (pas de doublon dans la rangée du bas)
+        assertEquals(1, rule.onAllNodesWithText("Rejouer").fetchSemanticsNodes().size)
+        rule.onNodeWithText("Niveaux").assertExists()
+        rule.onNodeWithText("Rejouer").performClick()
+        play(600)
+        assertTrue("on rejoue le même niveau", !finished())
     }
 
     @Test

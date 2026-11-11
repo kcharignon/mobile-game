@@ -41,6 +41,7 @@ import com.kcharignon.petitsjeux.games.road.engine.Road
 import com.kcharignon.petitsjeux.games.road.engine.RoadLevel
 import com.kcharignon.petitsjeux.games.road.engine.RoadLevels
 import com.kcharignon.petitsjeux.games.road.engine.Row
+import com.kcharignon.petitsjeux.games.road.engine.RoadWorlds
 import com.kcharignon.petitsjeux.games.road.engine.RowKind
 import com.kcharignon.petitsjeux.games.road.engine.Slot
 import com.kcharignon.petitsjeux.games.road.engine.Stream
@@ -294,6 +295,30 @@ class RoadScreenshotsTest {
         assertEquals("Jamais écrasé !", text("final-hits", unmerged = true))
         play(1500) // les trois étoiles s'allument une à une
         shot("58-route-fin")
+    }
+
+    @Test
+    fun onTheLastLevelTheGreenButtonReplaysBecauseThereIsNoNextLevel() {
+        var replays = 0
+        val level = RoadLevel(
+            RoadWorlds.LEVEL_COUNT, listOf(Row(RowKind.START), Row(RowKind.REFUGE), emptyRoad(), Row(RowKind.FINISH)), listOf(Grain(0, 2, Road.START_COL)),
+        )
+        show(null, content = noop(level))
+        start()
+        repeat(3) {
+            tapWorld()
+            play(260)
+        }
+        play(3300)
+        assertTrue("la fenêtre de fin", finished())
+        shot("59-route-dernier-niveau")
+        assertTrue(rule.onAllNodesWithText("Niveau suivant").fetchSemanticsNodes().isEmpty())
+        // un seul « Rejouer » : le grand bouton vert (pas de doublon dans la rangée du bas)
+        assertEquals(1, rule.onAllNodesWithText("Rejouer").fetchSemanticsNodes().size)
+        rule.onNodeWithText("Niveaux").assertExists()
+        rule.onNodeWithText("Rejouer").performClick()
+        play(300)
+        assertTrue("on rejoue le même niveau", !finished())
     }
 
     @Test

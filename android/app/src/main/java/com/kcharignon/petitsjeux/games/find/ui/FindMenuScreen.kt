@@ -43,7 +43,7 @@ import com.kcharignon.petitsjeux.core.ui.withTapSound
 import com.kcharignon.petitsjeux.games.find.FindProgress
 import com.kcharignon.petitsjeux.games.find.engine.FindDifficulty
 
-/** Le choix de la difficulté : cinq cartes, la suivante ne s'ouvre qu'avec 2 étoiles sur la précédente. */
+/** Le choix de la difficulté : cinq cartes, la suivante ne s'ouvre qu'avec une manche parfaite de la précédente (sans erreur, finie avant l'aide). */
 @Composable
 fun FindMenuScreen(progress: FindProgress, onPlay: (FindDifficulty) -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier) {
     BackHandler(onBack = onBack)
@@ -106,7 +106,7 @@ private fun DifficultyCard(d: FindDifficulty, progress: FindProgress, onPlay: ()
                         }
                     } else {
                         PjText(
-                            "Gagne 2 étoiles en «\u00A0${d.previous!!.title}\u00A0» pour débloquer.",
+                            "Réussis «\u00A0${d.previous!!.title}\u00A0» sans erreur ni aide pour débloquer.",
                             Modifier.padding(top = 2.dp), size = 13.sp, weight = FontWeight.Medium, color = Pj.GrayText,
                         )
                     }

@@ -11,8 +11,8 @@ import kotlin.random.Random
 data class FindSpot(val id: String, val cx: Float, val cy: Float, val size: Float, val angle: Float, val hitRadius: Float)
 
 /**
- * La mise en page d'une manche : **une grille décalée**. La zone de jeu est découpée en cellules presque carrées (au moins une par objet), chaque objet
- * va dans une cellule tirée au sort, un peu décalé dans sa cellule. Chacun a sa cellule : sa zone de toucher (le carré de côté `2 * hitRadius` centré sur l'objet, soit [OVERHANG] fois
+ * La mise en page d'une manche : **une grille décalée**. La zone de jeu est découpée en cellules presque carrées, **une par objet et sans case vide** pour les nombres d'objets du jeu
+ * (voir [grid]) ; chaque objet va dans une cellule tirée au sort, un peu décalé dans sa cellule. Chacun a sa cellule : sa zone de toucher (le carré de côté `2 * hitRadius` centré sur l'objet, soit [OVERHANG] fois
  * la taille maximale) tient dedans, donc **deux zones de toucher ne se chevauchent jamais et aucune ne sort de la zone de jeu**, quelles que soient la
  * taille (variable ou non) et l'inclinaison des objets. La même graine donne la même disposition.
  *
@@ -29,21 +29,34 @@ object FindLayout {
     /** La plus petite taille d'un objet quand les tailles varient, en part de la taille maximale. */
     const val MIN_SCALE = 0.68f
 
-    /** Le nombre de colonnes et de lignes qui donnent les plus grands objets pour [count] objets dans une zone de [width] x [height]. */
+    /** Une grille pleine est gardée si ses objets font au moins cette part de ceux de la meilleure grille (qui peut avoir des trous). */
+    const val FULL_GRID_MIN = 0.7f
+
+    /**
+     * Le nombre de colonnes et de lignes qui donnent les plus grands objets pour [count] objets dans une zone de [width] x [height].
+     * **Une grille pleine** (autant de cellules que d'objets : aucun trou) est préférée tant que ses objets ne sont pas bien plus petits
+     * ([FULL_GRID_MIN]) que ceux de la meilleure grille, qui peut avoir des cases vides : c'est le cas des nombres d'objets du jeu (6, 12, 20, 40, 84).
+     */
     fun grid(count: Int, width: Float, height: Float): Pair<Int, Int> {
         require(count >= 1 && width > 0f && height > 0f)
-        var best = 1 to count
-        var bestSide = -1f
+        var any = 1 to count
+        var anySide = -1f
+        var full = 1 to count
+        var fullSide = -1f
         for (cols in 1..count) {
             val rows = ceil(count / cols.toFloat()).toInt()
             val side = minOf(width / cols, height / rows)
             // la plus grande taille ; à égalité, la grille qui a le moins de cellules vides
-            if (side > bestSide + 1e-3f || (abs(side - bestSide) <= 1e-3f && cols * rows < best.first * best.second)) {
-                best = cols to rows
-                bestSide = side
+            if (side > anySide + 1e-3f || (abs(side - anySide) <= 1e-3f && cols * rows < any.first * any.second)) {
+                any = cols to rows
+                anySide = side
+            }
+            if (cols * rows == count && side > fullSide) {
+                full = cols to rows
+                fullSide = side
             }
         }
-        return best
+        return if (fullSide >= FULL_GRID_MIN * anySide) full else any
     }
 
     /** La taille maximale d'un objet pour [count] objets dans une zone de [width] x [height] (plafonnée par [maxSize]). */
