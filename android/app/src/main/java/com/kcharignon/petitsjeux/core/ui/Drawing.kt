@@ -62,7 +62,7 @@ fun Stars(filled: Int, modifier: Modifier = Modifier, total: Int = 3, star: Dp =
     }
 }
 
-enum class IconKind { BACK, RESTART, BULB, GEAR, LOCK, PLUS, QUESTION }
+enum class IconKind { BACK, RESTART, BULB, GEAR, LOCK, PLUS, QUESTION, LEVELS }
 
 /** Petites icônes dessinées par le code, sur une grille de 24 unités. [hole] = couleur du trou de l'engrenage. */
 @Composable
@@ -98,6 +98,10 @@ fun PjIcon(kind: IconKind, modifier: Modifier = Modifier, size: Dp = 24.dp, tint
             IconKind.PLUS -> {
                 drawRoundRect(tint, o(2f, 9.5f), Size(20 * u, 5 * u), CornerRadius(2.5f * u))
                 drawRoundRect(tint, o(9.5f, 2f), Size(5 * u, 20 * u), CornerRadius(2.5f * u))
+            }
+            // la grille de tuiles : le choix du niveau
+            IconKind.LEVELS -> for (col in 0..1) for (row in 0..1) {
+                drawRoundRect(tint, o(3f + col * 10f, 3f + row * 10f), Size(8 * u, 8 * u), CornerRadius(2.4f * u))
             }
             IconKind.QUESTION -> {
                 drawArc(tint, startAngle = 160f, sweepAngle = 230f, useCenter = false, topLeft = o(6.5f, 3f), size = Size(11 * u, 11 * u), style = Stroke(3.6f * u, cap = StrokeCap.Round))

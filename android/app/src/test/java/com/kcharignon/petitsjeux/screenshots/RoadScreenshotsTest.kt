@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -16,6 +17,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performScrollToNode
@@ -46,6 +48,7 @@ import com.kcharignon.petitsjeux.games.road.engine.VehicleKind
 import com.kcharignon.petitsjeux.games.road.ui.RoadMenuScreen
 import com.kcharignon.petitsjeux.games.road.ui.RoadPlayScreen
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -133,7 +136,7 @@ class RoadScreenshotsTest {
         .withResult(6, 3, 130, 0).withResult(7, 2, 120, 1).withResult(8, 1, 90, 3)
 
     private fun noop(level: RoadLevel, onFinished: (Int, Int, Int) -> Unit = { _, _, _ -> }, progress: RoadProgress = empty): @Composable () -> Unit =
-        { RoadPlayScreen(level, progress, onFinished, {}, {}) }
+        { RoadPlayScreen(level, progress, onFinished, {}, {}, {}) }
 
     // ------------------------------------------------------------------ les écrans
 
@@ -338,7 +341,7 @@ class RoadScreenshotsTest {
     fun hopsGrainsAndHornsMakeTheirSounds() {
         val feedback = QuietFeedback()
         val level = custom(Row(RowKind.REFUGE), emptyRoad(), jam(), grains = listOf(Grain(0, 2, Road.START_COL)))
-        show(null) { CompositionLocalProvider(LocalFeedback provides feedback) { RoadPlayScreen(level, empty, { _, _, _ -> }, {}, {}) } }
+        show(null) { CompositionLocalProvider(LocalFeedback provides feedback) { RoadPlayScreen(level, empty, { _, _, _ -> }, {}, {}, {}) } }
         start()
         repeat(3) {
             tapWorld()
@@ -361,14 +364,58 @@ class RoadScreenshotsTest {
     }
 
     @Test
+    fun theBackArrowGoesHomeFromTheIntroOfALevel() {
+        val store = InMemoryProfileStore(listOf(Profile.create(0, "Léa", Avatar.CAT, now = 1L)!!))
+        rule.mainClock.autoAdvance = false
+        rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, "road")) }
+        rule.mainClock.advanceTimeBy(300)
+        var guard = 0
+        while (rule.onAllNodesWithText("C'est parti !").fetchSemanticsNodes().isEmpty() && guard++ < 200) {
+            Thread.sleep(25)
+            rule.mainClock.advanceTimeByFrame()
+        }
+        // la flèche bleue, posée au-dessus du voile de l'introduction, ramène à l'accueil
+        rule.onNodeWithTag("exit").performClick()
+        rule.mainClock.advanceTimeBy(300)
+        assertTrue("à l'accueil", rule.onAllNodesWithText("Parking Malin").fetchSemanticsNodes().isNotEmpty())
+        assertTrue("pas dans la grille", rule.onAllNodesWithTag("level-1").fetchSemanticsNodes().isEmpty())
+        assertFalse(rule.activity.isFinishing)
+    }
+
+    @Test
+    fun theBackGestureGoesHomeFromTheIntroOfALevel() {
+        val store = InMemoryProfileStore(listOf(Profile.create(0, "Léa", Avatar.CAT, now = 1L)!!))
+        rule.mainClock.autoAdvance = false
+        rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, "road")) }
+        rule.mainClock.advanceTimeBy(300)
+        var guard = 0
+        while (rule.onAllNodesWithText("C'est parti !").fetchSemanticsNodes().isEmpty() && guard++ < 200) {
+            Thread.sleep(25)
+            rule.mainClock.advanceTimeByFrame()
+        }
+        rule.runOnUiThread {
+            rule.activity.onBackPressedDispatcher.onBackPressed()
+            Snapshot.sendApplyNotifications() // (le test pilote l'horloge à la main : on prévient Compose du nouvel état)
+        }
+        rule.mainClock.advanceTimeBy(300)
+        assertTrue("à l'accueil", rule.onAllNodesWithText("Parking Malin").fetchSemanticsNodes().isNotEmpty())
+        assertFalse(rule.activity.isFinishing)
+    }
+
+    @Test
     fun anyLevelCanBeOpenedFromTheStartEvenTheTrainWorld() {
         // tous les niveaux sont jouables : on saute au niveau 31 (le premier du passage à niveau) sans avoir fini les précédents
         val store = InMemoryProfileStore(listOf(Profile.create(0, "Léa", Avatar.CAT, now = 1L)!!))
         rule.mainClock.autoAdvance = false
         rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, "road")) }
         rule.mainClock.advanceTimeBy(300)
-        // le jeu s'ouvre sur le niveau 1 : la flèche de retour (même pendant que la route se prépare) ramène à la grille
-        rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
+        // le jeu s'ouvre sur le niveau 1 (la route se prépare un instant) ; « Choisir un autre niveau » ramène au choix du niveau
+        var ready = 0
+        while (rule.onAllNodesWithText("Choisir un autre niveau").fetchSemanticsNodes().isEmpty() && ready++ < 200) {
+            Thread.sleep(25)
+            rule.mainClock.advanceTimeByFrame()
+        }
+        rule.onNodeWithText("Choisir un autre niveau").performClick()
         rule.mainClock.advanceTimeBy(300)
         scrollListTo("worlds", "level-31")
         rule.mainClock.advanceTimeBy(100)

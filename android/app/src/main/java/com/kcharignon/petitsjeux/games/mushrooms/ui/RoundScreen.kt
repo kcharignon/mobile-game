@@ -56,6 +56,7 @@ import com.kcharignon.petitsjeux.core.ui.Panel
 import com.kcharignon.petitsjeux.core.ui.Pj
 import com.kcharignon.petitsjeux.core.ui.PjFont
 import com.kcharignon.petitsjeux.core.ui.PjText
+import com.kcharignon.petitsjeux.core.ui.ExitArrow
 import com.kcharignon.petitsjeux.core.ui.RoundIconButton
 import com.kcharignon.petitsjeux.core.ui.Stars
 import com.kcharignon.petitsjeux.core.ui.consumeTaps
@@ -96,14 +97,15 @@ fun ShroomPlayScreen(
     onFinished: (score: Int, picked: Int, bestStreak: Int) -> Unit,
     onNextDifficulty: (Difficulty) -> Unit,
     onMenu: () -> Unit,
+    onExit: () -> Unit,
     modifier: Modifier = Modifier,
     /** Pour les tests : une graine pour que la partie soit toujours la même. */
     seed: Long? = null,
 ) {
     var attempt by remember(difficulty) { mutableIntStateOf(0) }
-    BackHandler(onBack = onMenu)
+    BackHandler(onBack = onExit)
     key(difficulty, attempt) {
-        Round(difficulty, progress, seed?.plus(attempt), skipIntro = attempt > 0, onFinished, onNextDifficulty, onMenu, onReplay = { attempt++ }, modifier)
+        Round(difficulty, progress, seed?.plus(attempt), skipIntro = attempt > 0, onFinished, onNextDifficulty, onMenu, onExit, onReplay = { attempt++ }, modifier)
     }
 }
 
@@ -116,6 +118,7 @@ private fun Round(
     onFinished: (Int, Int, Int) -> Unit,
     onNextDifficulty: (Difficulty) -> Unit,
     onMenu: () -> Unit,
+    onExit: () -> Unit,
     onReplay: () -> Unit,
     modifier: Modifier,
 ) {
@@ -193,7 +196,7 @@ private fun Round(
         modifier,
         overlay = {
             when (phase) {
-                Phase.Intro -> IntroCard(difficulty, onStart = { phase = Phase.Playing }, onMenu = onMenu)
+                Phase.Intro -> IntroCard(difficulty, onStart = { phase = Phase.Playing }, onMenu = onMenu, onExit = onExit)
                 Phase.Done -> EndCard(
                     difficulty, round.score, round.bestStreak, bestBefore, unlockedBefore,
                     onReplay = onReplay, onMenu = onMenu, onNext = onNextDifficulty,
@@ -204,7 +207,8 @@ private fun Round(
     ) {
         Column(Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 6.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                RoundIconButton(IconKind.BACK, onClick = onMenu, diameter = 48.dp)
+                // (pendant l'introduction, la flèche est celle posée au-dessus du voile)
+                if (phase == Phase.Intro) Box(Modifier.size(48.dp, 52.dp)) else ExitArrow(onExit, Modifier, 48.dp)
                 Row(
                     Modifier.weight(1f).height(48.dp).background(Color.White.copy(alpha = 0.92f), CircleShape).padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
@@ -219,6 +223,7 @@ private fun Round(
                     ShroomIcon(30.dp, ShroomColors[0])
                     PjText("$remaining", size = 24.sp, weight = FontWeight.Bold, color = Pj.Ink, modifier = Modifier.testTag("remaining"))
                 }
+                RoundIconButton(IconKind.LEVELS, onClick = onMenu, modifier = Modifier.testTag("levels"), color = Pj.Slate, dark = Pj.SlateDark, diameter = 48.dp)
             }
             if (difficulty.decoys) {
                 Row(
@@ -345,8 +350,8 @@ private fun introLines(d: Difficulty): List<String> = buildList {
 }
 
 @Composable
-private fun IntroCard(d: Difficulty, onStart: () -> Unit, onMenu: () -> Unit) {
-    Modal(onDismiss = null) {
+private fun IntroCard(d: Difficulty, onStart: () -> Unit, onMenu: () -> Unit, onExit: () -> Unit) {
+    Modal(onDismiss = null, topStart = { ExitArrow(onExit, Modifier.align(Alignment.TopStart).padding(start = 14.dp, top = 6.dp), 48.dp) }) {
         Panel(
             Modifier.padding(horizontal = 26.dp).fillMaxWidth().consumeTaps(),
             corner = 36.dp, ledge = 8.dp, contentPadding = PaddingValues(horizontal = 22.dp, vertical = 22.dp),
@@ -422,13 +427,13 @@ private fun EndCard(
                     ChunkyButton("Essayer « ${next!!.title} »", { onNext(next) }, Modifier.padding(top = 14.dp).fillMaxWidth(), height = 58.dp, fontSize = 22.sp)
                     Row(Modifier.padding(top = 10.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         ChunkyButton("Rejouer", onReplay, Modifier.weight(1f), color = Pj.Orange, dark = Pj.OrangeDark, height = 50.dp, fontSize = 19.sp)
-                        ChunkyButton("Menu", onMenu, Modifier.weight(1f), color = Pj.Blue, dark = Pj.BlueDark, height = 50.dp, fontSize = 19.sp)
+                        ChunkyButton("Difficultés", onMenu, Modifier.weight(1f), color = Pj.Slate, dark = Pj.SlateDark, height = 50.dp, fontSize = 19.sp)
                     }
                 } else {
                     ChunkyButton("Rejouer", onReplay, Modifier.padding(top = 14.dp).fillMaxWidth(), height = 58.dp, fontSize = 24.sp)
                     Row(Modifier.padding(top = 10.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         if (next != null && stars >= 2) ChunkyButton("Difficulté suivante", { onNext(next) }, Modifier.weight(1f), color = Pj.Orange, dark = Pj.OrangeDark, height = 50.dp, fontSize = 16.sp)
-                        ChunkyButton("Menu", onMenu, Modifier.weight(1f), color = Pj.Blue, dark = Pj.BlueDark, height = 50.dp, fontSize = 19.sp)
+                        ChunkyButton("Difficultés", onMenu, Modifier.weight(1f), color = Pj.Slate, dark = Pj.SlateDark, height = 50.dp, fontSize = 19.sp)
                     }
                 }
             }

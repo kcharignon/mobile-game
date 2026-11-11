@@ -21,6 +21,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -251,12 +252,12 @@ class ScreenshotsTest {
 
     @Test
     fun play() = show("07-jeu") {
-        PlayScreen(LevelGenerator.level(24), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
+        PlayScreen(LevelGenerator.level(24), hasNext = true, onFinished = {}, onNext = {}, onLevels = {}, onExit = {})
     }
 
     @Test
     fun playFirstLevel() = show("07b-jeu-niveau-1") {
-        PlayScreen(LevelGenerator.level(1), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
+        PlayScreen(LevelGenerator.level(1), hasNext = true, onFinished = {}, onNext = {}, onLevels = {}, onExit = {})
     }
 
     @Test
@@ -295,7 +296,7 @@ class ScreenshotsTest {
     @Test
     fun aFreeCarDrivesOut() {
         val level = LevelGenerator.level(24)
-        show(null) { PlayScreen(level, hasNext = true, onFinished = {}, onNext = {}, onLevels = {}) }
+        show(null) { PlayScreen(level, hasNext = true, onFinished = {}, onNext = {}, onLevels = {}, onExit = {}) }
         val game = ParkingGame(level)
         val free = level.cars.first { game.canMove(it, Move.FORWARD) }
         tapCar(level, free)
@@ -306,7 +307,7 @@ class ScreenshotsTest {
     @Test
     fun aBlockedCarHonks() {
         val level = LevelGenerator.level(24)
-        show(null) { PlayScreen(level, hasNext = true, onFinished = {}, onNext = {}, onLevels = {}) }
+        show(null) { PlayScreen(level, hasNext = true, onFinished = {}, onNext = {}, onLevels = {}, onExit = {}) }
         val game = ParkingGame(level)
         val blocked = level.cars.first { !game.canMove(it, Move.FORWARD) }
         tapCar(level, blocked)
@@ -314,9 +315,9 @@ class ScreenshotsTest {
         rule.onRoot().captureRoboImage("../../docs/screenshots/09-jeu-pouet.png")
     }
 
-    /** Le geste « retour » d'Android (ou la flèche de retour) : depuis un niveau, on revient à la grille des niveaux. */
-    private fun pressBack() {
-        rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
+    /** Le bouton en grille de tuiles de la barre du haut : depuis un niveau, on va au choix du niveau. */
+    private fun openTheLevelGrid() {
+        rule.onNodeWithTag("levels").performClick()
         rule.mainClock.advanceTimeBy(300)
     }
 
@@ -336,7 +337,7 @@ class ScreenshotsTest {
         // à l'ouverture le jeu lance tout seul le prochain niveau à faire ; pour un autre niveau, on revient à la grille et on le choisit
         val opensOn = ParkingProgress.fromJson(store.load(0)!!.gameSave(ParkingProgress.GAME_ID)).launchLevel
         if (opensOn != index) {
-            pressBack()
+            openTheLevelGrid()
             rule.onNodeWithTag("level-$index").performClick()
             rule.mainClock.advanceTimeBy(300)
         }
@@ -411,12 +412,12 @@ class ScreenshotsTest {
 
     @Test
     fun theConesAndTheBigCarParkAreDrawn() {
-        show("17-jeu-plots") { PlayScreen(LevelGenerator.level(36), hasNext = true, onFinished = {}, onNext = {}, onLevels = {}) }
+        show("17-jeu-plots") { PlayScreen(LevelGenerator.level(36), hasNext = true, onFinished = {}, onNext = {}, onLevels = {}, onExit = {}) }
     }
 
     @Test
     fun theWallsOnTheBorderAreDrawn() = show("18-jeu-murs") {
-        PlayScreen(LevelGenerator.level(55), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
+        PlayScreen(LevelGenerator.level(55), hasNext = true, onFinished = {}, onNext = {}, onLevels = {}, onExit = {})
     }
 
     @Test
@@ -429,7 +430,7 @@ class ScreenshotsTest {
 
     @Test
     fun theOilSlicksAreDrawn() = show("23-jeu-huile") {
-        PlayScreen(LevelGenerator.level(90), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
+        PlayScreen(LevelGenerator.level(90), hasNext = true, onFinished = {}, onNext = {}, onLevels = {}, onExit = {})
     }
 
     @Test
@@ -445,7 +446,7 @@ class ScreenshotsTest {
         // la voiture avance tout droit, glisse sur la tache (3,2), tourne à droite et sort par le bas
         val level = Level(1, 6, 5, listOf(Car(0, 0, 2, 2, Dir.RIGHT, 0)), oils = listOf(Cell(3, 2)))
         var finished = -1
-        show(null) { PlayScreen(level, hasNext = false, onFinished = { finished = it }, onNext = {}, onLevels = {}) }
+        show(null) { PlayScreen(level, hasNext = false, onFinished = { finished = it }, onNext = {}, onLevels = {}, onExit = {}) }
         perform(level, level.cars[0], Move.FORWARD)
         rule.mainClock.advanceTimeBy(430)
         rule.onRoot().captureRoboImage("../../docs/screenshots/24-jeu-virage.png")
@@ -458,7 +459,7 @@ class ScreenshotsTest {
         // A (ligne 1) sort vers la droite en traversant la colonne 3 ; B (colonne 3) monte et croise la file de A : si on l'envoie pendant que A roule, ils se percutent
         val level = Level(1, 6, 4, listOf(Car(0, 0, 1, 2, Dir.RIGHT, 0), Car(1, 3, 2, 2, Dir.UP, 1)))
         var finishedBumps = -1
-        show(null) { PlayScreen(level, hasNext = false, onFinished = { finishedBumps = it }, onNext = {}, onLevels = {}) }
+        show(null) { PlayScreen(level, hasNext = false, onFinished = { finishedBumps = it }, onNext = {}, onLevels = {}, onExit = {}) }
         perform(level, level.cars[0], Move.FORWARD)
         rule.mainClock.advanceTimeBy(40)
         perform(level, level.cars[1], Move.FORWARD)
@@ -477,7 +478,7 @@ class ScreenshotsTest {
         // B est juste derrière A, dans le même sens : A s'éloigne, B part derrière lui sans le heurter
         val level = Level(1, 6, 3, listOf(Car(0, 2, 1, 2, Dir.RIGHT, 0), Car(1, 0, 1, 2, Dir.RIGHT, 1)))
         var finishedBumps = -1
-        show(null) { PlayScreen(level, hasNext = false, onFinished = { finishedBumps = it }, onNext = {}, onLevels = {}) }
+        show(null) { PlayScreen(level, hasNext = false, onFinished = { finishedBumps = it }, onNext = {}, onLevels = {}, onExit = {}) }
         perform(level, level.cars[0], Move.FORWARD)
         rule.mainClock.advanceTimeBy(40)
         perform(level, level.cars[1], Move.FORWARD)
@@ -491,22 +492,22 @@ class ScreenshotsTest {
 
     @Test
     fun theOneWaySignsAreDrawn() = show("26-jeu-sens-unique") {
-        PlayScreen(LevelGenerator.level(110), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
+        PlayScreen(LevelGenerator.level(110), hasNext = true, onFinished = {}, onNext = {}, onLevels = {}, onExit = {})
     }
 
     @Test
     fun theConveyorBeltsAreDrawn() = show("27-jeu-tapis") {
-        PlayScreen(LevelGenerator.level(130), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
+        PlayScreen(LevelGenerator.level(130), hasNext = true, onFinished = {}, onNext = {}, onLevels = {}, onExit = {})
     }
 
     @Test
     fun theTeleportersAreDrawn() = show("28-jeu-teleporteurs") {
-        PlayScreen(LevelGenerator.level(150), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
+        PlayScreen(LevelGenerator.level(150), hasNext = true, onFinished = {}, onNext = {}, onLevels = {}, onExit = {})
     }
 
     @Test
     fun theGatesAreDrawn() = show("29-jeu-barrieres") {
-        PlayScreen(LevelGenerator.level(170), hasNext = true, onFinished = {}, onNext = {}, onLevels = {})
+        PlayScreen(LevelGenerator.level(170), hasNext = true, onFinished = {}, onNext = {}, onLevels = {}, onExit = {})
     }
 
     private fun playToTheEnd(index: Int) {
@@ -532,7 +533,7 @@ class ScreenshotsTest {
     fun aVehicleIsPushedSidewaysByABelt() {
         val level = Level(1, 6, 5, listOf(Car(0, 0, 2, 2, Dir.RIGHT, 0)), belts = listOf(Arrow(Cell(3, 2), Dir.DOWN)))
         var finished = -1
-        show(null) { PlayScreen(level, hasNext = false, onFinished = { finished = it }, onNext = {}, onLevels = {}) }
+        show(null) { PlayScreen(level, hasNext = false, onFinished = { finished = it }, onNext = {}, onLevels = {}, onExit = {}) }
         perform(level, level.cars[0], Move.FORWARD)
         rule.mainClock.advanceTimeBy(480)
         rule.onRoot().captureRoboImage("../../docs/screenshots/30-jeu-glissement.png")
@@ -544,7 +545,7 @@ class ScreenshotsTest {
     fun aVehicleTeleports() {
         val level = Level(1, 6, 5, listOf(Car(0, 0, 2, 2, Dir.RIGHT, 0)), portals = listOf(Portal(Cell(3, 2), Cell(2, 0))))
         var finished = -1
-        show(null) { PlayScreen(level, hasNext = false, onFinished = { finished = it }, onNext = {}, onLevels = {}) }
+        show(null) { PlayScreen(level, hasNext = false, onFinished = { finished = it }, onNext = {}, onLevels = {}, onExit = {}) }
         perform(level, level.cars[0], Move.FORWARD)
         rule.mainClock.advanceTimeBy(400)
         rule.onRoot().captureRoboImage("../../docs/screenshots/31-jeu-teleportation.png")
@@ -562,7 +563,7 @@ class ScreenshotsTest {
             gates = listOf(Gate(Cell(3, 1), Cell(4, 1), startsOpen = false)),
         )
         var finished = -1
-        show(null) { PlayScreen(level, hasNext = false, onFinished = { finished = it }, onNext = {}, onLevels = {}) }
+        show(null) { PlayScreen(level, hasNext = false, onFinished = { finished = it }, onNext = {}, onLevels = {}, onExit = {}) }
         perform(level, level.cars[2], Move.FORWARD)
         rule.mainClock.advanceTimeBy(900)
         rule.onNodeWithText("Pouet !").assertExists()
@@ -586,7 +587,7 @@ class ScreenshotsTest {
             gates = listOf(Gate(Cell(3, 1), Cell(4, 1), startsOpen = false)),
         )
         var finished = -1
-        show(null) { PlayScreen(level, hasNext = false, onFinished = { finished = it }, onNext = {}, onLevels = {}) }
+        show(null) { PlayScreen(level, hasNext = false, onFinished = { finished = it }, onNext = {}, onLevels = {}, onExit = {}) }
         rule.onRoot().captureRoboImage("../../docs/screenshots/32-jeu-barriere-fermee.png")
         perform(level, level.cars[0], Move.FORWARD)
         rule.mainClock.advanceTimeBy(260) // le bras est à mi-course
@@ -609,7 +610,7 @@ class ScreenshotsTest {
         val level = (61..100).map { LevelGenerator.level(it) }.first { l -> l.cars.any { it.carrier && safeMove(l, it) != null } }
         val pickup = level.cars.first { it.carrier && safeMove(level, it) != null }
         val move = safeMove(level, pickup)!!
-        show(null) { PlayScreen(level, hasNext = true, onFinished = {}, onNext = {}, onLevels = {}) }
+        show(null) { PlayScreen(level, hasNext = true, onFinished = {}, onNext = {}, onLevels = {}, onExit = {}) }
         perform(level, pickup, move)
         rule.mainClock.advanceTimeBy(700)
         rule.onRoot().captureRoboImage("../../docs/screenshots/19-jeu-caisse.png")
@@ -636,7 +637,7 @@ class ScreenshotsTest {
         }
         assertTrue("une caisse a été écrasée", smashStep >= 0 && mirror.bumps >= 1)
         var faults = -1
-        show(null) { PlayScreen(level, hasNext = true, onFinished = { faults = it }, onNext = {}, onLevels = {}) }
+        show(null) { PlayScreen(level, hasNext = true, onFinished = { faults = it }, onNext = {}, onLevels = {}, onExit = {}) }
         for ((i, step) in plan.withIndex()) {
             perform(level, step.first, step.second)
             if (i == smashStep) {
@@ -652,7 +653,7 @@ class ScreenshotsTest {
     @Test
     fun theHintShowsWhichWayToSlide() {
         val level = LevelGenerator.level(70)
-        show(null) { PlayScreen(level, hasNext = true, onFinished = {}, onNext = {}, onLevels = {}) }
+        show(null) { PlayScreen(level, hasNext = true, onFinished = {}, onNext = {}, onLevels = {}, onExit = {}) }
         rule.onNodeWithText("Indice").performClick()
         rule.mainClock.advanceTimeBy(350)
         rule.onRoot().captureRoboImage("../../docs/screenshots/20-jeu-indice.png")
@@ -671,7 +672,7 @@ class ScreenshotsTest {
     }
 
     @Test
-    fun openingTheGameLandsOnTheNextLevelAndTheBackArrowShowsTheGrid() {
+    fun openingTheGameLandsOnTheNextLevelTheBackArrowGoesHomeAndTheGridButtonShowsTheLevels() {
         // un enfant qui a fini 10 niveaux : en touchant la carte du jeu il arrive directement sur le niveau 11, sans grille à parcourir
         val store = InMemoryProfileStore(listOf(profile(0, "Léa", Avatar.CAT, levels = 10)))
         rule.mainClock.autoAdvance = false
@@ -679,10 +680,36 @@ class ScreenshotsTest {
         rule.mainClock.advanceTimeBy(300)
         rule.onNodeWithTag("board").assertExists()
         assertTrue(rule.onAllNodesWithTag("level-11").fetchSemanticsNodes().isEmpty())
-        // la flèche de retour ramène à la grille, où tous les niveaux sont là
-        pressBack()
+        // le bouton en grille de tuiles ouvre le choix du niveau, où tous les niveaux sont là
+        openTheLevelGrid()
         rule.onNodeWithTag("level-11").assertExists()
         rule.onNodeWithTag("level-1").assertExists()
+    }
+
+    @Test
+    fun theBlueBackArrowOfALevelGoesStraightHomeNotToTheLevelGrid() {
+        val store = InMemoryProfileStore(listOf(profile(0, "Léa", Avatar.CAT, levels = 10)))
+        rule.mainClock.autoAdvance = false
+        rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, ParkingProgress.GAME_ID)) }
+        rule.mainClock.advanceTimeBy(300)
+        rule.onNodeWithTag("board").assertExists()
+        rule.onNodeWithTag("exit").performClick()
+        rule.mainClock.advanceTimeBy(300)
+        assertTrue("on est à l'accueil", rule.onAllNodesWithText("Parking Malin").fetchSemanticsNodes().isNotEmpty())
+        assertTrue("pas dans la grille des niveaux", rule.onAllNodesWithTag("level-11").fetchSemanticsNodes().isEmpty())
+        assertTrue("ni encore dans un niveau", rule.onAllNodesWithTag("board").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun theSystemBackGestureOfALevelGoesHomeToo() {
+        val store = InMemoryProfileStore(listOf(profile(0, "Léa", Avatar.CAT, levels = 10)))
+        rule.mainClock.autoAdvance = false
+        rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, ParkingProgress.GAME_ID)) }
+        rule.mainClock.advanceTimeBy(300)
+        rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
+        rule.mainClock.advanceTimeBy(300)
+        assertTrue(rule.onAllNodesWithText("Parking Malin").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(rule.onAllNodesWithTag("board").fetchSemanticsNodes().isEmpty())
     }
 
     @Test

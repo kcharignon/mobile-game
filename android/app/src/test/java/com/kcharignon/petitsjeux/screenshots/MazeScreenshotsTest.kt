@@ -78,7 +78,7 @@ class MazeScreenshotsTest {
     }
 
     private fun screen(l: MazeLevel, progress: MazeProgress = MazeProgress(), onFinished: (Int, Int) -> Unit = { _, _ -> }, onNext: (Int) -> Unit = {}): @Composable () -> Unit =
-        { MazePlayScreen(l, progress, onFinished, onNext, {}) }
+        { MazePlayScreen(l, progress, onFinished, onNext, {}, {}) }
 
     /** Où est le labyrinthe à l'écran : exactement la mise en page que l'écran de jeu calcule. */
     private fun layout(l: MazeLevel): MazeLayout {
@@ -141,14 +141,26 @@ class MazeScreenshotsTest {
     }
 
     @Test
+    fun theBlueBackArrowGoesHomeNotToTheLevelGrid() {
+        val store = InMemoryProfileStore(listOf(Profile.create(0, "Léa", Avatar.CAT, now = 1L)!!))
+        rule.mainClock.autoAdvance = false
+        rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, MazeProgress.GAME_ID)) }
+        rule.mainClock.advanceTimeBy(300)
+        rule.onNodeWithTag("exit").performClick()
+        rule.mainClock.advanceTimeBy(300)
+        assertTrue("à l'accueil", rule.onAllNodesWithText("Parking Malin").fetchSemanticsNodes().isNotEmpty())
+        assertTrue("pas dans la grille", rule.onAllNodesWithTag("level-1").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
     fun anyLevelCanBeOpenedFromTheStartEvenInTheLastWorld() {
         val player = Profile.create(0, "Léa", Avatar.CAT, now = 1L)!!
         val store = InMemoryProfileStore(listOf(player))
         rule.mainClock.autoAdvance = false
         rule.setContent { PetitsJeuxApp(store = store, initialScreen = Screen.Game(0, MazeProgress.GAME_ID)) }
         rule.mainClock.advanceTimeBy(300)
-        // le jeu s'ouvre sur le niveau 1 ; la flèche de retour ramène à la grille
-        rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
+        // le jeu s'ouvre sur le niveau 1 (avec son introduction) ; « Choisir un autre niveau » ramène au choix du niveau
+        rule.onNodeWithText("Choisir un autre niveau").performClick()
         rule.mainClock.advanceTimeBy(300)
         // on saute au niveau 97 sans rien avoir fait avant (un niveau du milieu du dernier monde : pas d'introduction)
         scrollListTo("worlds", "level-97")
@@ -366,7 +378,7 @@ class MazeScreenshotsTest {
         val l = levels.drop(10).first { level -> runCatching { branch(level).first }.getOrDefault(-1) >= 3 }
         val (at, wrong) = branch(l)
         val feedback = RecordingFeedback()
-        show(null) { CompositionLocalProvider(LocalFeedback provides feedback) { MazePlayScreen(l, MazeProgress(), { _, _ -> }, {}, {}) } }
+        show(null) { CompositionLocalProvider(LocalFeedback provides feedback) { MazePlayScreen(l, MazeProgress(), { _, _ -> }, {}, {}, {}) } }
         // le bon chemin, une case à la fois : le « bloup » ne baisse jamais
         val m = layout(l)
         rule.onNodeWithTag("maze").performTouchInput {
@@ -409,7 +421,7 @@ class MazeScreenshotsTest {
     fun theFanfareAndTheStarsPlayAtTheEnd() {
         val l = level(1)
         val feedback = RecordingFeedback()
-        show(null) { CompositionLocalProvider(LocalFeedback provides feedback) { MazePlayScreen(l, MazeProgress(), { _, _ -> }, {}, {}) } }
+        show(null) { CompositionLocalProvider(LocalFeedback provides feedback) { MazePlayScreen(l, MazeProgress(), { _, _ -> }, {}, {}, {}) } }
         rule.onNodeWithText("C'est parti !").performClick()
         play(100)
         drag(l, l.solution)

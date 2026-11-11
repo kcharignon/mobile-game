@@ -193,6 +193,7 @@ fun levelCaption(index: Int): String? = when (index) {
 /**
  * Un niveau en cours : barre du haut, plateau, barre du bas, puis la fenêtre de victoire.
  * [onFinished] est appelé UNE fois quand le dernier véhicule est sorti, avec le nombre de fautes.
+ * La flèche de retour (et le retour d'Android) appelle [onExit] : on revient à l'accueil. Le bouton en grille de tuiles appelle [onLevels] : le choix du niveau.
  */
 @Composable
 fun PlayScreen(
@@ -201,12 +202,13 @@ fun PlayScreen(
     onFinished: (bumps: Int) -> Unit,
     onNext: () -> Unit,
     onLevels: () -> Unit,
+    onExit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var attempt by remember(level.index) { mutableIntStateOf(0) }
-    BackHandler(onBack = onLevels)
+    BackHandler(onBack = onExit)
     key(level.index, attempt) {
-        PlayBoard(level, hasNext, onFinished, onNext, onLevels, onRestart = { attempt++ }, modifier)
+        PlayBoard(level, hasNext, onFinished, onNext, onLevels, onExit, onRestart = { attempt++ }, modifier)
     }
 }
 
@@ -217,6 +219,7 @@ private fun PlayBoard(
     onFinished: (Int) -> Unit,
     onNext: () -> Unit,
     onLevels: () -> Unit,
+    onExit: () -> Unit,
     onRestart: () -> Unit,
     modifier: Modifier,
 ) {
@@ -337,14 +340,15 @@ private fun PlayBoard(
         },
     ) {
         Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                RoundIconButton(IconKind.BACK, onClick = onLevels, diameter = 48.dp)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                RoundIconButton(IconKind.BACK, onClick = onExit, modifier = Modifier.testTag("exit"), diameter = 48.dp)
                 Box(
-                    Modifier.weight(1f).padding(horizontal = 14.dp).height(46.dp).background(Color.White.copy(alpha = 0.92f), CircleShape),
+                    Modifier.weight(1f).height(46.dp).background(Color.White.copy(alpha = 0.92f), CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     PjText("Niveau ${level.index}", size = 24.sp, weight = FontWeight.Bold)
                 }
+                RoundIconButton(IconKind.LEVELS, onClick = onLevels, modifier = Modifier.testTag("levels"), color = Pj.Slate, dark = Pj.SlateDark, diameter = 48.dp)
                 RoundIconButton(IconKind.RESTART, onClick = onRestart, diameter = 48.dp)
             }
             Box(Modifier.fillMaxWidth().padding(top = 6.dp), contentAlignment = Alignment.Center) {

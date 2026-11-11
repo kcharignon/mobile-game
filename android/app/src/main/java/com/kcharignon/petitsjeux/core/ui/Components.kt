@@ -35,6 +35,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -183,6 +184,12 @@ fun RoundIconButton(
     }
 }
 
+/** La flèche bleue en haut à gauche d'un niveau : elle ramène à l'accueil (le choix du niveau a son propre bouton en grille de tuiles). */
+@Composable
+fun ExitArrow(onClick: () -> Unit, modifier: Modifier = Modifier, diameter: Dp = 48.dp) {
+    RoundIconButton(IconKind.BACK, onClick, modifier.testTag("exit"), diameter = diameter)
+}
+
 /** Pastille blanche « ★ 74 » ou « ★ Niv. 27 ». */
 @Composable
 fun StarPill(label: String, modifier: Modifier = Modifier, textColor: Color = Pj.StarDark) {
@@ -223,10 +230,10 @@ fun Modifier.consumeTaps(): Modifier = composed {
 
 /**
  * Une fenêtre posée sur l'écran (réglages, nouveau joueur, victoire) : un voile sombre puis [content], dans les zones sûres (et au-dessus du clavier).
- * Faite dans l'écran, sans fenêtre système, pour rester simple (et photographiable en test). Retour ou toucher du voile = [onDismiss] (s'il y en a un).
+ * Faite dans l'écran, sans fenêtre système, pour rester simple (et photographiable en test). Retour ou toucher du voile = [onDismiss] (s'il y en a un). [topStart] se pose au-dessus du voile, en haut à gauche.
  */
 @Composable
-fun Modal(onDismiss: (() -> Unit)?, modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+fun Modal(onDismiss: (() -> Unit)?, modifier: Modifier = Modifier, topStart: (@Composable BoxScope.() -> Unit)? = null, content: @Composable BoxScope.() -> Unit) {
     if (onDismiss != null) BackHandler(onBack = onDismiss)
     Box(
         modifier
@@ -235,5 +242,7 @@ fun Modal(onDismiss: (() -> Unit)?, modifier: Modifier = Modifier, content: @Com
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = { onDismiss?.invoke() }),
     ) {
         Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.Center, content = content)
+        // au-dessus du voile, donc touchable : la flèche de retour reste utilisable derrière une fenêtre d'introduction
+        if (topStart != null) Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), content = topStart)
     }
 }
