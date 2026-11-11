@@ -1,7 +1,7 @@
 
-| Cherche et Trouve : trouve le même objet | Cherche et Trouve : bravo | Cherche et Trouve : 14 objets au dernier niveau |
+| Cherche et Trouve : 5 objets, 1 à trouver | Cherche et Trouve : 20 objets, 3 à trouver | Cherche et Trouve : 80 objets, 5 à trouver |
 |---|---|---|
-| ![Cherche et Trouve](docs/screenshots/70-cherche-niveau-1.png) | ![Bravo](docs/screenshots/74-cherche-bravo.png) | ![14 objets](docs/screenshots/71-cherche-niveau-100.png) |
+| ![Coup d'œil](docs/screenshots/70-cherche-coup-d-oeil.png) | ![Œil vif](docs/screenshots/72-cherche-oeil-vif.png) | ![Super détective](docs/screenshots/74-cherche-super-detective.png) |
 # Petits Jeux
 
 **Des petits jeux pour les enfants, sur Android. Sans pub, sans compte, sans suivi.**
@@ -22,9 +22,9 @@ et on ne « perd » jamais : une faute coûte une étoile, jamais la partie.
 |---|---|---|
 | ![Poisson Perdu](docs/screenshots/64-labyrinthe-jeu.png) | ![Victoire](docs/screenshots/67-labyrinthe-victoire.png) | ![Abysses](docs/screenshots/68-labyrinthe-abysses.png) |
 
-| Cherche et Trouve : trouve le même objet | Cherche et Trouve : bravo | Cherche et Trouve : 14 objets au dernier niveau |
+| Cherche et Trouve : 5 objets, 1 à trouver | Cherche et Trouve : 20 objets, 3 à trouver | Cherche et Trouve : 80 objets, 5 à trouver |
 |---|---|---|
-| ![Cherche et Trouve](docs/screenshots/70-cherche-niveau-1.png) | ![Bravo](docs/screenshots/74-cherche-bravo.png) | ![14 objets](docs/screenshots/71-cherche-niveau-100.png) |
+| ![Coup d'œil](docs/screenshots/70-cherche-coup-d-oeil.png) | ![Œil vif](docs/screenshots/72-cherche-oeil-vif.png) | ![Super détective](docs/screenshots/74-cherche-super-detective.png) |
 
 ## Les jeux
 
@@ -55,9 +55,9 @@ de 4×5 à 11×16 cases, des boucles et même une maison au milieu du labyrinthe
 
 ### Cherche et Trouve
 
-Un **modèle** s'affiche en haut (« Trouve : une pomme ») : il faut **retrouver le même objet** parmi ceux éparpillés sur l'écran. 100 niveaux fabriqués à l'avance, dix décors (chambre, jardin, plage, cuisine, ferme, forêt, ville, ciel, grenier, fête),
-40 objets de toutes les couleurs. Tous les 10 niveaux il y a plus d'objets, de 5 à 14, et les faux ressemblent de plus en plus au modèle (même couleur, même sorte).
-Pas de chronomètre et pas de game over : un mauvais objet pâlit et coûte une étoile, c'est tout. Si l'enfant hésite longtemps, le bon objet se balance doucement.
+Des **objets à trouver** s'affichent en haut : il faut les **retrouver parmi ceux éparpillés** sur l'écran. Comme Champis Magiques, **cinq difficultés** et des manches **tirées au hasard** à chaque partie ; les règles s'additionnent :
+5 objets (1 à trouver), puis 10 qui tournent (2), 20 (3), 40 de toutes tailles (4) et 80 (5). 120 objets différents de toutes les couleurs, dix décors.
+Pas de chronomètre et pas de game over : un mauvais objet pâlit et coûte une étoile, c'est tout. Si l'enfant hésite longtemps, un objet à trouver se balance doucement.
 
 ### Et ensuite
 

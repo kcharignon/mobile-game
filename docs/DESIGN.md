@@ -299,47 +299,52 @@ Ce que les maquettes ont tranché : la trace est **bleue** (le blanc ne se voyai
 
 ## Cherche et Trouve : règles
 
-Une **carte modèle** en haut (l'objet à trouver, grand, qui brille doucement, avec son nom : « Trouve : une pomme ») et, dessous, des **objets éparpillés** sur un décor. L'enfant touche celui qui est **pareil que le modèle**.
-**Pas de chronomètre, on ne perd jamais** : se tromper ne fait perdre que des étoiles. En portrait, une main. Analyse et plan : [issue #29](https://github.com/kcharignon/mobile-game/issues/29).
+Des **objets à trouver** en haut (un seul : grand, avec son nom ; plusieurs : une rangée de pastilles qui se cochent) et, dessous, des **objets éparpillés** sur un décor. L'enfant touche ceux qui sont **pareils que le bandeau**.
+Comme Champis Magiques : **cinq difficultés**, des **manches tirées au hasard** à chaque partie, la suivante se débloque avec 2 étoiles sur la précédente.
+**Pas de chronomètre, on ne perd jamais** : se tromper ne fait perdre que des étoiles. En portrait, une main. Analyse de la première version : [issue #29](https://github.com/kcharignon/mobile-game/issues/29) ; refonte en manches aléatoires : voir ci-dessous.
 
-### Règles
+### Les cinq difficultés
 
-- **Bon objet** : il saute de joie, les autres pâlissent, les étoiles s'affichent. **Mauvais objet** : il secoue la tête et pâlit ; **on ne peut plus le toucher**, donc un niveau finit toujours (il reste au moins le bon objet).
-- **Étoiles** : 0 erreur = ★★★, 1 erreur = ★★, 2 erreurs ou plus = ★ (toujours au moins une). Chaque mauvais objet compte une fois. Un niveau rejoué garde sa meilleure note.
-- **Aide sans bouton ni pénalité** : après 8 secondes sans rien toucher, le bon objet se balance doucement.
-- Niveau 1 : la carte du modèle dit « Touche le même objet » jusqu'au premier toucher (pas de fenêtre d'introduction : elle bloquerait les boutons du haut).
-- Tous les niveaux sont jouables dès le début. Ouvrir le jeu lance **le prochain niveau à faire** ; la flèche bleue ramène à l'accueil, le bouton en grille de tuiles ouvre le choix du niveau.
+Les règles **s'additionnent** d'une difficulté à la suivante :
 
-### Les 100 niveaux : fabriqués à l'avance
+| # | Nom | Objets | À trouver | Nouveauté | Étoiles (erreurs permises : ★★★ / ★★) | Aide après |
+|---|---|---|---|---|---|---|
+| 1 | Coup d'œil | 5 | 1 | objets droits, tous différents | 0 / 1 | 8 s |
+| 2 | Bon œil | 10 | 2 | **rotations** : chaque objet est posé dans un sens quelconque | 1 / 3 | 12 s |
+| 3 | Œil vif | 20 | 3 | | 2 / 5 | 16 s |
+| 4 | Œil d'aigle | 40 | 4 | **tailles variables** (de 68 % à 100 % de la taille maximale) | 3 / 8 | 20 s |
+| 5 | Super détective | 80 | 5 | | 5 / 12 | 25 s |
 
-10 mondes de 10 niveaux ; **le monde `w` montre `4 + w` objets** (5 au premier, 14 au dernier). `res/raw/find_levels.json`, fabriqué par `tools/find/make-levels.js` (Node, déterministe, `make find-levels`, `--check` dans la CI) : pour chaque niveau, le modèle, les faux et une graine de mise en page. Les 100 niveaux sont **gelés** (empreinte de chaque monde dans un test) : on en ajoute à la suite, jamais en retouchant un existant.
-La difficulté monte aussi par la **ressemblance des faux** (sans jamais piéger : le bon objet est toujours exactement le modèle) :
+- **Un objet à trouver, touché** : il saute de joie, reçoit un halo et une coche, sa pastille se coche en haut. **Un faux** : il secoue la tête et pâlit ; **on ne peut plus le toucher**, donc une manche finit toujours (il ne reste que les bons). La manche est finie quand **tous** les objets à trouver le sont, dans n'importe quel ordre ; la sauvegarde se fait à ce moment-là, avant la fenêtre de bilan.
+- **Étoiles** : au moins une, toujours ; chaque faux touché compte une fois. Chaque difficulté garde sa meilleure note (15 étoiles au total dans tout le jeu).
+- **Aide sans bouton ni pénalité** : après un moment sans rien toucher (plus long quand il y a plus d'objets), un objet à trouver se balance doucement.
+- Coup d'œil : le bandeau dit « Touche le même objet » jusqu'au premier toucher ; plusieurs objets : « Trouve-les tous ! », puis « Encore N à trouver » (pas de fenêtre d'introduction : elle bloquerait les boutons du haut).
+- Ouvrir le jeu lance **la plus haute difficulté déjà jouée** (la première pour un nouveau joueur) ; la flèche bleue ramène à l'accueil, le bouton en grille de tuiles ouvre le choix de la difficulté. « Rejouer » tire une manche nouvelle.
 
-| Mondes | Les faux par rapport au modèle |
-|---|---|
-| 1-2 | tous très différents : autre couleur et autre sorte, jamais deux faux de la même couleur |
-| 3-4 | autre couleur que le modèle, deux à deux différentes ; ils peuvent être de la même sorte |
-| 5-7 | à partir du 4e niveau du monde, un faux a la même couleur que le modèle (il faut regarder la forme) |
-| 8 | un faux de la même sorte ; un faux de la même couleur à partir du 5e niveau |
-| 9-10 | un faux de la même sorte et deux de la même couleur (un seul avant le 4e niveau du monde 9) |
+### Une manche au hasard : `FindRound`
 
-### Les 40 objets
+`FindRound.generate(difficulté, graine)` est une fonction pure : la même graine redonne la même manche (les tests s'appuient dessus) ; le jeu tire une graine neuve à chaque manche et la garde si l'écran tourne. Elle tire, parmi les 120 objets du catalogue :
+- les **objets à trouver**, de **couleurs toutes différentes** (on les distingue d'un coup d'œil dans le bandeau) ;
+- les **faux**, tous différents. Coup d'œil : d'une autre couleur et d'une autre sorte que la cible, et de couleurs différentes entre eux. Bon œil : d'une autre couleur et d'une autre sorte que les cibles. À partir de la 3e difficulté : au hasard (donc de plus en plus ressemblants, sans jamais piéger : le bon objet est exactement l'image du bandeau).
+- le décor (un des dix, selon la graine) et la graine de la mise en page.
 
-Décrits une seule fois dans `tools/design/objects.js` (qui génère `FindArt.kt` et la planche `docs/design/objets.svg`), à partir du catalogue `tools/find/catalog.js` (identifiant, nom, **couleur** : rouge, orange, jaune, vert, bleu, violet, rose, marron, neutre ; **sorte** : nourriture, animal, transport, nature, objet). Chaque objet tient dans un carré, avec un contour encre.
+### Les 120 objets
+
+Décrits une seule fois dans `tools/design/objects.js` (les 40 premiers) et `tools/design/objects-b1.js` à `objects-b4.js` (les 80 autres), avec les outils communs de `tools/design/objkit.js` ; ils génèrent `FindArt.kt` et la planche `docs/design/objets.svg`. Le catalogue `tools/find/catalog.js` donne identifiant (qui ne change jamais), nom, **couleur** (rouge, orange, jaune, vert, bleu, violet, rose, marron, neutre ; 12 à 15 objets chacune) et **sorte** (nourriture, animal, transport, nature, objet, vêtement, instrument). Chaque objet tient dans un carré, avec un contour encre, et doit rester reconnaissable petit (à 80 objets, un objet fait de 25 à 40 dp) et à l'envers.
 
 ### Mise en page
 
-Une **grille décalée** (`FindLayout`) : la zone de jeu est découpée en cellules presque carrées (au moins une par objet, les plus grandes possibles), chaque objet va dans une cellule tirée au sort graine, un peu décalé et incliné (± 9°) à l'intérieur. Chacun tient dans sa cellule même incliné : **deux objets ne se touchent jamais et aucun ne sort de la zone**, quelle que soit la taille de l'écran. La zone de toucher est le cercle de 0,6 fois le côté de l'objet. La même graine donne la même disposition ; « Rejouer » ajoute 1 à la graine (mêmes objets, autres places).
+Une **grille décalée** (`FindLayout`) : la zone de jeu est découpée en cellules presque carrées (au moins une par objet, les plus grandes possibles), chaque objet va dans une cellule tirée au sort, un peu décalé à l'intérieur. Avec les **rotations**, chaque objet est tourné d'un angle quelconque (0 à 360°) ; avec les **tailles variables**, il a une taille entre 68 % et 100 % de la taille maximale. La **zone de toucher** est le carré de la cellule libre autour de l'objet (1,2 fois la taille maximale), **la même pour tous, même les petits** : elle ne dépend ni de la rotation ni de la taille, deux zones ne se chevauchent jamais et aucune ne sort de la zone de jeu, quelle que soit la taille de l'écran. La même graine donne la même disposition.
 
 ### Dessin et sons
 
-Dix décors pastel de couleur moyenne (chambre, jardin, plage, cuisine, ferme, forêt, ville, ciel, grenier, fête) avec un motif léger : les objets blancs comme les objets à contour encre y restent lisibles (test de contraste). Sons : ceux qui existent déjà (`win`, `star`, `puff`, `tap`), rien de nouveau à écouter.
+Dix décors pastel de couleur moyenne (lilas, prairie, turquoise, pêche, blé, menthe, ardoise, ciel, bois clair, bonbon) avec un motif léger : les objets blancs comme les objets à contour encre y restent lisibles (test de contraste). Sons : ceux qui existent déjà (`pick` pour chaque objet trouvé, `win`, `star`, `puff`, `tap`), rien de nouveau à écouter.
 
 ### Comment c'est fait
 
-`games/find/engine` est du Kotlin pur, sans Android, testé sur la JVM : `FindLevels` (lecture du fichier), `FindPlay` (toucher, erreurs, étoiles : une valeur qu'on remplace), `FindLayout`. Sauvegarde : `games.find` = `{"stars": {"1": 3, …}, "mistakes": N, "played": N}`, tolérante.
+`games/find/engine` est du Kotlin pur, sans Android, testé sur la JVM : `FindDifficulty` (les cinq réglages et les étoiles), `FindRound` (le tirage), `FindPlay` (toucher, erreurs, étoiles : une valeur qu'on remplace), `FindLayout`. Sauvegarde : `games.find` = `{"best": {"0": 3, …}, "found": N, "mistakes": N, "played": N}` (indice de difficulté -> meilleure note), tolérante. La première version du jeu (100 niveaux fixes, clé `stars`) est simplement ignorée.
 
-Tests : le fichier relu **tel qu'il est livré** (100 niveaux, 5 à 14 objets, aucun doublon, chaque objet sert 2 à 4 fois de modèle, jamais deux fois de suite, règles de ressemblance de chaque monde), l'empreinte de chaque monde, la mise en page sans chevauchement sur toutes les tailles d'écran et les 100 niveaux, **tous les ordres de touchers** (on finit toujours, avec au moins une étoile), le contraste des dix décors, et à l'écran (Robolectric) l'ouverture directe sur le prochain niveau, la flèche vers l'accueil, le bouton en grille, un mauvais puis le bon objet, 13 erreurs de suite sans game over, l'aide, les sons et la sauvegarde depuis l'appli.
+Tests : le catalogue (120 objets, 9 couleurs, les 40 premiers identifiants inchangés), le tirage (bon nombre d'objets différents, cibles de couleurs différentes, règles de ressemblance des deux premières difficultés, même graine = même manche, chaque objet sort), la mise en page sans chevauchement sur toutes les tailles d'écran et toutes les difficultés, **tous les ordres de touchers** (on finit toujours, avec au moins une étoile), le contraste des dix décors, et à l'écran (Robolectric) les cinq difficultés avec leurs objets, plusieurs objets à trouver dans n'importe quel ordre, 75 erreurs de suite sans game over, le déblocage, l'ouverture directe, la flèche vers l'accueil, l'aide, les sons et la sauvegarde depuis l'appli.
 
 ## Progression du joueur (« l'évolution »)
 
@@ -359,7 +364,7 @@ Tests : le fichier relu **tel qu'il est livré** (100 niveaux, 5 à 14 objets, a
 | 540 | Légende absolue (toutes les étoiles de Parking Malin : 180 niveaux × 3) |
 | 696 | Grand explorateur (toutes les étoiles des trois premiers jeux : 540 + 12 + 144) |
 | 996 | Œil de lynx (toutes les étoiles des quatre premiers jeux : 696 + 300 de Poisson Perdu) |
-| 1296 | Super champion (toutes les étoiles de tous les jeux : 996 + 300 de Cherche et Trouve) |
+| 1011 | Super champion (toutes les étoiles de tous les jeux : 996 + 15 de Cherche et Trouve : 5 difficultés × 3) |
 
 - Statistiques gardées : voitures sorties, fautes, niveaux réussis, plus haut niveau atteint.
 - Le choix du **joueur** : un prénom (12 caractères) et un **animal** parmi 12 (chat, chien, ours, panda, lapin, grenouille, renard, lion, licorne, tigre, hibou, pingouin), dessinés par le code.
@@ -422,8 +427,8 @@ games/road/engine      règles pures de Poussin Traverse : véhicules (fonctions
 games/road/ui          dessin de la route, des véhicules et du poussin, menu des niveaux, écran de traversée (paysage)
 games/maze/engine      règles pures de Poisson Perdu : lecture du fichier de niveaux, grille et distances, tracé au doigt, impasses, indice, étoiles
 games/maze/ui          récif (murs en corail, ruban de bulles, poisson, anémone, 10 décors), menu des niveaux, écran de jeu
-games/find/engine      règles pures de Cherche et Trouve : lecture du fichier de niveaux, toucher et étoiles, mise en page en grille décalée
-games/find/ui          les 40 objets (dessin généré), carte du modèle, 10 décors, menu des niveaux, écran de jeu
+games/find/engine      règles pures de Cherche et Trouve : difficultés, tirage d'une manche au hasard, toucher et étoiles, mise en page en grille décalée
+games/find/ui          les 120 objets (dessin généré), bandeau des objets à trouver, 10 décors, menu des difficultés, écran de jeu
 ```
 
 Le moteur de Parking Malin est du Kotlin pur, testé sur la JVM : règles de sortie et de faute, solveur, **les 180 niveaux solubles et stables**.

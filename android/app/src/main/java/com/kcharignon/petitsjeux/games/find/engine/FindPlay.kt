@@ -1,42 +1,46 @@
 package com.kcharignon.petitsjeux.games.find.engine
 
-/** Les étoiles d'un niveau : 3 sans erreur, 2 avec une erreur, 1 avec deux erreurs ou plus. **On en gagne toujours au moins une.** */
-object FindScoring {
-    fun stars(mistakes: Int): Int = (3 - mistakes).coerceIn(1, 3)
-}
-
 /** Ce qui s'est passé quand l'enfant a touché un objet. */
 enum class FindOutcome {
-    /** Le bon objet : le niveau est réussi. */
+    /** Un des objets à trouver : il est trouvé (la manche est finie quand ils le sont tous, voir [FindPlay.done]). */
     FOUND,
 
-    /** Un mauvais objet : il pâlit (on ne peut plus le toucher) et une étoile de moins. */
+    /** Un faux : il pâlit (on ne peut plus le toucher) et on risque une étoile. */
     WRONG,
 
-    /** Rien : objet déjà pâle, niveau déjà réussi, ou objet qui n'est pas dans le niveau. */
+    /** Rien : objet déjà pâle ou déjà trouvé, manche déjà finie, ou objet qui n'est pas dans la manche. */
     IGNORED,
 }
 
 /**
- * Un niveau en cours, sans Android : une valeur qu'on remplace à chaque toucher ([tap]).
- * **On ne peut pas perdre** : un mauvais objet pâlit et ne peut plus être touché, donc après au plus `objectCount - 1` erreurs il ne reste que le bon.
+ * Une manche en cours, sans Android : une valeur qu'on remplace à chaque toucher ([tap]).
+ * **On ne perd jamais** : un faux pâlit et ne peut plus être touché, donc après au plus `objects - targets` erreurs il ne reste que les bons.
  * Pas de temps, pas de limite d'essais.
  */
-data class FindPlay(val level: FindLevel, val wrong: Set<String> = emptySet(), val found: Boolean = false) {
-    /** Les erreurs de ce niveau (chaque mauvais objet touché compte une fois). */
+data class FindPlay(val round: FindRound, val wrong: Set<String> = emptySet(), val found: Set<String> = emptySet()) {
+    /** Les erreurs de cette manche (chaque faux touché compte une fois). */
     val mistakes: Int get() = wrong.size
 
-    /** Les étoiles de ce niveau (celles qu'on aura si on trouve maintenant ; définitives quand [found]). */
-    val stars: Int get() = FindScoring.stars(mistakes)
+    /** Les étoiles de cette manche (celles qu'on aura si on finit maintenant ; définitives quand [done]). */
+    val stars: Int get() = round.difficulty.stars(mistakes)
+
+    /** Combien d'objets restent à trouver. */
+    val remaining: Int get() = round.targets.size - found.size
+
+    /** Tout est trouvé : la manche est finie. */
+    val done: Boolean get() = remaining == 0
+
+    /** Les objets à trouver qui ne le sont pas encore, dans l'ordre du bandeau. */
+    val missing: List<String> get() = round.targets.filter { it !in found }
 
     /** Cet objet peut-il encore être touché ? */
-    fun canTap(id: String): Boolean = !found && id in level.ids && id !in wrong
+    fun canTap(id: String): Boolean = !done && id in round.ids && id !in wrong && id !in found
 
     class Tapped(val play: FindPlay, val outcome: FindOutcome)
 
     fun tap(id: String): Tapped = when {
         !canTap(id) -> Tapped(this, FindOutcome.IGNORED)
-        id == level.target -> Tapped(copy(found = true), FindOutcome.FOUND)
+        id in round.targets -> Tapped(copy(found = found + id), FindOutcome.FOUND)
         else -> Tapped(copy(wrong = wrong + id), FindOutcome.WRONG)
     }
 }
