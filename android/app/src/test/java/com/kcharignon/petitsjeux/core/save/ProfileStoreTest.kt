@@ -174,8 +174,8 @@ class RanksTest {
         assertEquals("Grand explorateur", Ranks.of(696).name)
         assertEquals("Grand explorateur", Ranks.of(995).name)
         assertEquals("Œil de lynx", Ranks.of(996).name)
-        assertEquals("Œil de lynx", Ranks.of(1010).name)
-        assertEquals("Super champion", Ranks.of(1011).name)
+        assertEquals("Œil de lynx", Ranks.of(1022).name)
+        assertEquals("Super champion", Ranks.of(1023).name)
         assertEquals("Super champion", Ranks.of(9999).name)
     }
 
@@ -187,8 +187,8 @@ class RanksTest {
         assertEquals(100, Ranks.next(99)!!.minStars)
         assertEquals(696, Ranks.next(540)!!.minStars)
         assertEquals(996, Ranks.next(696)!!.minStars)
-        assertEquals(1011, Ranks.next(996)!!.minStars)
-        assertNull(Ranks.next(1011))
+        assertEquals(1023, Ranks.next(996)!!.minStars)
+        assertNull(Ranks.next(1023))
     }
 
     @Test

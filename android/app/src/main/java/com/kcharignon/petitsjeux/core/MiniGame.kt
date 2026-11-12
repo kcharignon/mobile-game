@@ -8,6 +8,7 @@ import com.kcharignon.petitsjeux.games.maze.MazeMiniGame
 import com.kcharignon.petitsjeux.games.mushrooms.MushroomMiniGame
 import com.kcharignon.petitsjeux.games.parking.ParkingMiniGame
 import com.kcharignon.petitsjeux.games.road.RoadMiniGame
+import com.kcharignon.petitsjeux.games.skate.SkateMiniGame
 import org.json.JSONObject
 
 /**
@@ -39,7 +40,7 @@ interface MiniGame {
 }
 
 object Games {
-    val all: List<MiniGame> = listOf(ParkingMiniGame, MushroomMiniGame, RoadMiniGame, MazeMiniGame, FindMiniGame)
+    val all: List<MiniGame> = listOf(ParkingMiniGame, MushroomMiniGame, RoadMiniGame, MazeMiniGame, FindMiniGame, SkateMiniGame)
 
     fun byId(id: String): MiniGame? = all.firstOrNull { it.id == id }
 

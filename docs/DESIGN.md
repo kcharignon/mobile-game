@@ -1,7 +1,7 @@
 # Petits Jeux — document de design
 
 Appli Android **sans pub et sans suivi**, pour les enfants : un menu principal où l'on choisit **qui joue** (5 sauvegardes
-locales distinctes), puis **le jeu**. Quatre jeux : **Parking Malin** (des voitures garées, à faire sortir une par une dans le bon ordre), **Champis Magiques** (des champignons s'allument, à toucher vite), **Poussin Traverse** (traverser des routes de plus en plus larges, en paysage) et **Poisson Perdu** (tracer au doigt le chemin d'un labyrinthe de corail jusqu'à la sortie).
+locales distinctes), puis **le jeu**. Six jeux : **Parking Malin** (des voitures garées, à faire sortir une par une dans le bon ordre), **Champis Magiques** (des champignons s'allument, à toucher vite), **Poussin Traverse** (traverser des routes de plus en plus larges, en paysage), **Poisson Perdu** (tracer au doigt le chemin d'un labyrinthe de corail jusqu'à la sortie), **Cherche et Trouve** (retrouver des objets parmi d'autres) et **Super Skate** (glisser le doigt de gauche à droite pour éviter les obstacles d'une rue en skate).
 D'autres jeux viendront : le menu et la sauvegarde sont faits pour ça.
 
 Maquettes : [`docs/design/`](design/) (SVG générés par `tools/design/`, PNG rendus à côté). Elles sont la référence visuelle ;
@@ -20,7 +20,7 @@ le Kotlin reprend les mêmes proportions.
 ## Principes
 
 - **Pensé pour un enfant** : gros boutons, peu de texte, jamais de « perdu » : une faute coûte une étoile, pas la partie. Un bouton **Indice** gratuit.
-- **Fin de niveau : le gros bouton vert fait toujours ce qu'on attend.** Jeux à **niveaux prédéfinis** (Parking Malin, Poussin Traverse, Poisson Perdu) : **« Niveau suivant »**, sauf au tout dernier niveau, où il n'y a rien au-dessus : le vert devient **« Rejouer »** (et la rangée du bas ne garde que « Niveaux »). Jeux à **manches aléatoires** (Champis Magiques, Cherche et Trouve) : le vert est **toujours « Rejouer »** (même difficulté, nouvelle manche) ; l'orange **« Difficulté suivante »** apparaît dès que la difficulté d'après est ouverte (y compris à l'instant où la manche vient de l'ouvrir) ; le gris ramène au choix de la difficulté.
+- **Fin de niveau : le gros bouton vert fait toujours ce qu'on attend.** Jeux à **niveaux prédéfinis** (Parking Malin, Poussin Traverse, Poisson Perdu) : **« Niveau suivant »**, sauf au tout dernier niveau, où il n'y a rien au-dessus : le vert devient **« Rejouer »** (et la rangée du bas ne garde que « Niveaux »). Jeux à **manches aléatoires** (Champis Magiques, Cherche et Trouve, Super Skate) : le vert est **toujours « Rejouer »** (même difficulté, nouvelle manche) ; l'orange **« Difficulté suivante »** apparaît dès que la difficulté d'après est ouverte (y compris à l'instant où la manche vient de l'ouvrir) ; le gris ramène au choix de la difficulté.
 - **Zéro pub, zéro suivi.** Permissions : la vibration (retour tactile, désactivable), et Internet + installation **uniquement pour la mise à jour** de l'appli (voir plus bas).
 - **Portrait** partout, une main, Android 8+ (API 26) ; **sauf Poussin Traverse, qui force le paysage** (voir plus bas).
 - **Rapide** : tout est dessiné par le code (Canvas), pas d'image, pas de son à charger. Les sons sont synthétisés.
@@ -350,6 +350,49 @@ Dix décors pastel de couleur moyenne (lilas, prairie, turquoise, pêche, blé, 
 
 Tests : le catalogue (120 objets, 9 couleurs, les 40 premiers identifiants inchangés), le tirage (bon nombre d'objets différents, cibles de couleurs différentes, règles de ressemblance des deux premières difficultés, même graine = même manche, chaque objet sort), la mise en page sans chevauchement sur toutes les tailles d'écran et toutes les difficultés, **tous les ordres de touchers** (on finit toujours, avec au moins une étoile), le contraste des dix décors, et à l'écran (Robolectric) les cinq difficultés avec leurs objets, plusieurs objets à trouver dans n'importe quel ordre, 79 erreurs de suite sans game over, le déblocage (parfaite seulement : ni 2 étoiles, ni une manche aidée n'ouvrent), les grilles sans case vide, les boutons de fin, l'ouverture directe, la flèche vers l'accueil, l'aide, les sons et la sauvegarde depuis l'appli.
 
+## Super Skate : règles
+
+Portrait. Un skateur file dans une rue, vu de derrière et d'un peu au-dessus (pseudo-3D : la rue converge vers l'horizon, les choses grossissent en approchant, une brume les cache au loin). **Un seul geste** : le doigt se pose n'importe où et glisse de gauche à droite ; le skateur suit **1 pour 1** (glisser de la largeur d'une demi-rue au niveau du skateur le déplace d'une demi-rue), sans jamais sortir de la rue, et sans dépasser une vitesse de côté (traverser toute la rue prend 0,6 s). Tant que le doigt n'a pas glissé, deux flèches montrent le geste.
+
+![En ville](screenshots/94-skate-ville.png) ![Choc](screenshots/98-skate-choc.png) ![Saut](screenshots/99-skate-saut.png)
+
+### Étoiles, chocs et rampes
+
+- On part avec **3 étoiles**, affichées en haut. Un **choc** en enlève une (jamais en dessous de 0 à l'écran) ; une **rampe** prise en rend une (jamais plus de 3). À l'arche d'arrivée : les étoiles qui restent, **toujours au moins 1**. On ne perd jamais.
+- **Le choc** : l'obstacle est projeté sur le côté en tournant, un éclat et l'étoile perdue s'envole, « Aïe ! », les bords de l'écran rougissent un instant, l'écran tremble, **bruit d'impact** et vibration ; la vitesse **tombe à 30 %**, reste basse 0,35 s, puis **remonte** (4,5 m/s²) ; le skateur **clignote** et est protégé 1,6 s (pas deux chocs d'affilée). Les chocs restent gentils : il faut se toucher franchement (80 % de la largeur des deux).
+- **La rampe** : on roule dessus (elle est large et sur le couloir) et on décolle ; 1 s en l'air avec une figure (un tour sur soi-même), **sans rien heurter** pendant le saut ; +50 points, une étoile de retour, « Super saut ! ». Atterrissage : deux petits claquements.
+- **Points** : 10 par obstacle dépassé sans l'avoir heurté, 50 par rampe. Le meilleur score de chaque difficulté est gardé. Les étoiles de la difficulté sont la meilleure note (1 à 3).
+
+### Les quatre difficultés
+
+Comme Champis Magiques : on choisit au début, la suivante s'ouvre avec **2 étoiles** sur la précédente, le jeu s'ouvre sur la plus haute **déjà jouée**. Dans une course, la difficulté **monte toute seule du départ à l'arrivée** : la vitesse (m/s), l'écart entre deux rangées d'obstacles (m) et le nombre d'obstacles par rangée passent de la première à la seconde valeur.
+
+| Difficulté | Durée sans choc | Vitesse | Écart entre rangées | Obstacles par rangée | Variété |
+|---|---|---|---|---|---|
+| Petite balade | 50 s | 5 à 8 | 17 à 12 | 1 à 2 | piétons, lampadaires, plots, poubelles |
+| Bon rythme | 65 s | 6,5 à 11 | 14 à 9 | 1,5 à 3 | + bancs, piétons qui traversent |
+| Grande vitesse | 80 s | 8 à 14 | 12 à 7,5 | 2 à 3,5 | + barrières de chantier |
+| Skate de fou | 95 s | 9 à 17 | 10 à 6,5 | 2,5 à 4,5 | beaucoup de piétons qui traversent |
+
+La longueur de la rue en découle (`SkateDifficulty.length` : le temps à vitesse linéaire de départ à arrivée donne exactement la durée annoncée, testé). Une rampe tous les 110 à 170 m en moyenne, jamais dans les 75 derniers mètres.
+
+### Une rue au hasard : `SkateWorld`
+
+`SkateWorld.generate(difficulty, seed)` est pur : la même graine redonne la même rue (le jeu en prend une nouvelle à chaque course, les graines voisines donnent des rues sans rapport : brassage SplitMix64 comme Cherche et Trouve), la graine tire aussi le **décor** (ville, parc, bord de mer, nuit).
+
+**Garantie « toujours faisable »** : le générateur trace d'abord un **couloir libre** (une ligne qui serpente sur la rue, de largeur 0,6, ne sortant jamais de ±0,62) dont le décalage entre deux rangées ne dépasse jamais **la moitié de ce que le skateur sait faire** (2 unités/s demandées au plus, 3,2 permises), à la vitesse de la rangée ; puis il pose les obstacles **hors du couloir** (avec une marge), et jamais dedans. Une rampe se pose sur le couloir. Les **piétons qui traversent** partent du trottoir et marchent vers leur place finale en fonction de la **distance** qui reste jusqu'à eux, pas du temps : un ralentissement après un choc ne change donc pas où ils seront quand le skateur arrive. Les tests le prouvent : un robot qui suit le couloir (avec 0,1 s d'avance, ou rattrapant à 80 % de la vitesse de côté permise) finit **sans aucun choc** 120 courses de chacune des 4 difficultés ; un skateur immobile et un skateur qui s'agite au hasard finissent toujours, avec 1 étoile au moins.
+
+### Dessin et sons
+
+Tout est dessiné par le code : le skateur (casque de **la couleur de son animal**), 5 piétons (habits, casquette, queue de cheval, sac à dos, téléphone ; ils se mettent à marcher en traversant et la bouche s'arrondit à l'approche), lampadaires, plots, poubelles, bancs, barrières (feu qui clignote), rampes à chevrons, arche d'arrivée à damier, et 4 décors (ville, parc, bord de mer au coucher du soleil, nuit étoilée avec lanternes qui brillent). La caméra est `Cam` : l'échelle d'une chose à la distance *d* est `7,5 / (d + 7,5)`. Les choses dépassées s'effacent avant de remplir l'écran.
+Sons synthétisés (`Synth`) : `crash` (claquement de bruit, « boum » qui descend, trois cliquetis), `jump` (souffle qui monte), `land` (deux claquements) ; les étoiles et la fanfare de fin sont celles qui existent déjà. Jamais entendus sur un téléphone : seuls leur niveau, leur durée, leur forme et leur silence final sont testés.
+
+### Comment c'est fait
+
+`games/skate/engine` est du Kotlin pur, sans Android : `SkateDifficulty` (les réglages et les étoiles), `SkateWorld` (la rue), `SkateRun` (une course : `update(dt)` par pas de 1/60 s au plus, donc le même résultat à toute cadence, `steer(dx)`). Sauvegarde : `games.skate` = `{"stars": {"0": 3, …}, "best": {"0": 640, …}, "hits": N, "jumps": N, "played": N}` (indice de difficulté -> meilleure note / meilleur score), tolérante.
+
+Tests : le couloir ne bouche jamais ; la vitesse de côté demandée reste sous le plafond ; la densité monte du début à la fin et de difficulté en difficulté ; la variété d'obstacles suit la difficulté ; les rampes ; le temps annoncé ; le robot ; le choc (étoile perdue, vitesse qui tombe puis remonte, protection, obstacle projeté, jamais en dessous de 0) ; la rampe (saut, étoile rendue, rien heurté en l'air, jamais plus de 3) ; l'arrivée et l'arrêt ; la sauvegarde ; les sons ; et à l'écran (Robolectric) le geste (glisser d'une largeur d'écran déplace d'autant, jamais hors de la rue, rien pendant l'introduction), une vraie course gagnée **au doigt seul** (aucun choc, 3 étoiles), un skateur immobile (toutes les étoiles perdues, la course finit quand même et se sauvegarde avec 1 étoile), les boutons de fin, le déblocage, l'ouverture directe, la flèche vers l'accueil, les sons.
+
 ## Progression du joueur (« l'évolution »)
 
 - **Étoiles** cumulées (somme des meilleures notes) → **rang**, affiché partout où le joueur apparaît :
@@ -368,7 +411,7 @@ Tests : le catalogue (120 objets, 9 couleurs, les 40 premiers identifiants incha
 | 540 | Légende absolue (toutes les étoiles de Parking Malin : 180 niveaux × 3) |
 | 696 | Grand explorateur (toutes les étoiles des trois premiers jeux : 540 + 12 + 144) |
 | 996 | Œil de lynx (toutes les étoiles des quatre premiers jeux : 696 + 300 de Poisson Perdu) |
-| 1011 | Super champion (toutes les étoiles de tous les jeux : 996 + 15 de Cherche et Trouve : 5 difficultés × 3) |
+| 1023 | Super champion (toutes les étoiles de tous les jeux : 996 + 15 de Cherche et Trouve : 5 difficultés × 3 + 12 de Super Skate : 4 difficultés × 3) |
 
 - Statistiques gardées : voitures sorties, fautes, niveaux réussis, plus haut niveau atteint.
 - Le choix du **joueur** : un prénom (12 caractères) et un **animal** parmi 12 (chat, chien, ours, panda, lapin, grenouille, renard, lion, licorne, tigre, hibou, pingouin), dessinés par le code.
@@ -433,6 +476,8 @@ games/maze/engine      règles pures de Poisson Perdu : lecture du fichier de ni
 games/maze/ui          récif (murs en corail, ruban de bulles, poisson, anémone, 10 décors), menu des niveaux, écran de jeu
 games/find/engine      règles pures de Cherche et Trouve : difficultés, tirage d'une manche au hasard, toucher et étoiles, mise en page en grille décalée
 games/find/ui          les 120 objets (dessin généré), bandeau des objets à trouver, 10 décors, menu des difficultés, écran de jeu
+games/skate/engine     règles pures de Super Skate : difficultés, rue tirée au hasard (couloir libre garanti), course (vitesse, chocs, rampes, étoiles)
+games/skate/ui         caméra en pseudo-3D, 4 décors, skateur, piétons et mobilier de rue, menu des difficultés, écran de course
 ```
 
 Le moteur de Parking Malin est du Kotlin pur, testé sur la JVM : règles de sortie et de faute, solveur, **les 180 niveaux solubles et stables**.

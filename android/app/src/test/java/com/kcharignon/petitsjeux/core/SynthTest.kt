@@ -31,6 +31,9 @@ class SynthTest {
             "bloup-grave" to Synth.bloop(Synth.BLOOP_HZ.first()),
             "bloup-aigu" to Synth.bloop(Synth.BLOOP_HZ.last()),
             "bulle-eclate" to Synth.burst(),
+            "skate-choc" to Synth.crash(),
+            "skate-saut" to Synth.jump(),
+            "skate-atterrissage" to Synth.land(),
         )
     }
 
@@ -93,6 +96,9 @@ class SynthTest {
         assertTrue(seconds(sounds.getValue("indice")) < 0.8)
         assertTrue(seconds(sounds.getValue("saut")) < 0.12)
         assertTrue(seconds(sounds.getValue("cloche")) in 1.3..1.7)
+        assertTrue(seconds(sounds.getValue("skate-choc")) in 0.45..0.7)
+        assertTrue(seconds(sounds.getValue("skate-saut")) in 0.35..0.5)
+        assertTrue(seconds(sounds.getValue("skate-atterrissage")) in 0.15..0.3)
     }
 
     @Test
@@ -101,6 +107,31 @@ class SynthTest {
         assertTrue(zeroCrossings(hop, 0.05, 0.075) > zeroCrossings(hop, 0.005, 0.03))
         // la cloche du passage à niveau est aiguë (mi6 / sol6 : plus de 1 300 Hz), bien au-dessus d'un saut de 480 Hz au départ
         assertTrue(zeroCrossings(sounds.getValue("cloche"), 0.0, 0.15) / 2 > 1000)
+    }
+
+    @Test
+    fun theCrashStartsWithALowThumpAndTheJumpRisesLikeAWhoosh() {
+        val crash = sounds.getValue("skate-choc")
+        // un claquement de bruit tout au début (aigu), puis un « boum » grave qui lui survit : bien moins de passages par zéro (moins de 1 000 par seconde, soit moins de 500 Hz)
+        val slap = zeroCrossings(crash, 0.0, 0.03)
+        val thump = zeroCrossings(crash, 0.08, 0.14)
+        assertTrue("claquement ($slap) puis boum grave ($thump)", thump < 1000 && slap > 2 * thump)
+        // le choc est plus fort au début qu'à la fin
+        fun energy(from: Double, to: Double) = crash.slice((from * Synth.RATE).toInt() until (to * Synth.RATE).toInt()).sumOf { it.toDouble() * it }
+        assertTrue("énergie ${energy(0.0, 0.1)} contre ${energy(0.35, 0.45)}", energy(0.0, 0.1) > 4 * energy(0.35, 0.45))
+        // le souffle du saut monte : plus aigu à la fin qu'au début
+        val jump = sounds.getValue("skate-saut")
+        val start = zeroCrossings(jump, 0.03, 0.11)
+        val end = zeroCrossings(jump, 0.25, 0.33)
+        assertTrue("le saut monte ($start puis $end)", end > start)
+        // l'atterrissage fait deux claquements : forts tous les deux, avec un creux entre eux, puis le silence
+        val land = sounds.getValue("skate-atterrissage")
+        fun peak(from: Double, to: Double) = land.slice((from * Synth.RATE).toInt() until (to * Synth.RATE).toInt()).maxOf { abs(it.toInt()) }
+        val p1 = peak(0.0, 0.03)
+        val gap = peak(0.05, 0.07)
+        val p2 = peak(0.075, 0.105)
+        val tail = peak(0.18, 0.24)
+        assertTrue("deux claquements ($p1, $gap, $p2, $tail)", p1 > gap * 1.5 && p2 > gap * 1.2 && p1 > p2 && p2 > tail * 2)
     }
 
     @Test
