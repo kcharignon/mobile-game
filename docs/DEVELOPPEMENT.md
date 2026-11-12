@@ -28,7 +28,7 @@ android/app/src/main/java/com/kcharignon/petitsjeux/
   games/mushrooms  Champis Magiques : engine/ (difficultés, score, partie, forêt), ui/ (forêt, champignons, écrans), progression
   games/maze       Poisson Perdu : engine/ (niveaux lus du fichier, partie, indice), ui/ (récif, tracé au doigt, écrans), progression
   games/road       Poussin Traverse : engine/ (véhicules, traversée, robot de preuve, 48 niveaux), ui/ (route, véhicules, poussin, écrans en paysage), progression
-  games/skate      Super Skate : engine/ (difficultés, rue tirée au hasard avec couloir libre garanti, course), ui/ (caméra pseudo-3D, 4 décors, skateur, piétons, mobilier, écrans), progression
+  games/plane      Super Avion : engine/ (difficultés, ciel tiré au hasard : voies, vagues d'un seul genre, couloir libre garanti, vol et atterrissage), ui/ (caméra pseudo-3D, 4 décors, avion, obstacles, aéroport, écrans), progression
 android/app/src/test/    tests Kotlin ; screenshots/ = interface rendue par Robolectric (sans téléphone)
 docs/                    DESIGN.md, maquettes (design/), captures du README (screenshots/)
 tools/mazes/             l'outil qui fabrique à l'avance les 100 niveaux de Poisson Perdu (make-mazes.js, déterministe)

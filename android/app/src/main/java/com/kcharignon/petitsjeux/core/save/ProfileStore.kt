@@ -25,6 +25,12 @@ interface ProfileStore {
 object ProfileJson {
     const val VERSION = 1
 
+    /**
+     * Les jeux dont l'identifiant a changé (ancien -> nouveau) : « skate » (le skateur de la version 0.15.0) est devenu « plane » (Super Avion),
+     * qui lit la même part de sauvegarde (mêmes difficultés, mêmes étoiles).
+     */
+    val RENAMED_GAMES = mapOf("skate" to "plane")
+
     fun encode(profile: Profile): String {
         val games = JSONObject()
         for ((id, text) in profile.games) games.put(id, JSONObject(text))
@@ -50,6 +56,11 @@ object ProfileJson {
         val gamesJson = json.optJSONObject("games")
         val games = LinkedHashMap<String, String>()
         gamesJson?.keys()?.forEach { id -> gamesJson.optJSONObject(id)?.let { games[id] = it.toString() } }
+        // un jeu qui a changé d'identifiant garde sa progression : on déplace sa part sans toucher à son contenu
+        for ((oldId, newId) in RENAMED_GAMES) {
+            val old = games.remove(oldId) ?: continue
+            if (newId !in games) games[newId] = old
+        }
         val created = json.optLong("created", 0L)
         return Profile(
             slot = slot,
