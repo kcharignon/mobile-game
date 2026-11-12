@@ -61,13 +61,13 @@ interface Feedback {
     /** La trace recule : les bulles de la partie effacée éclatent. */
     fun burst() {}
 
-    /** Super Skate : le skateur heurte un obstacle (un « boum » sourd et des petits bruits qui s'éparpillent). */
+    /** Super Avion : l'avion heurte un obstacle (un « boum » sourd et des petits bruits qui s'éparpillent). */
     fun crash() {}
 
-    /** Super Skate : le skateur décolle d'une rampe (un souffle qui monte). */
-    fun jump() {}
+    /** Super Avion : l'avion traverse un anneau lumineux et fait un tonneau (un souffle qui monte, des notes qui scintillent). */
+    fun roll() {}
 
-    /** Super Skate : le skateur retombe sur ses roues (deux petits claquements). */
+    /** Super Avion : les roues touchent la piste de l'aéroport (deux petits claquements). */
     fun land() {}
 }
 
@@ -87,7 +87,7 @@ object NoFeedback : Feedback {
     override fun bloop(pitch: Int) = Unit
     override fun burst() = Unit
     override fun crash() = Unit
-    override fun jump() = Unit
+    override fun roll() = Unit
     override fun land() = Unit
 }
 
@@ -118,7 +118,7 @@ class AndroidFeedback(private val context: Context, private val soundOn: () -> B
     private val blops = AtomicReferenceArray<Sound>(Synth.BLOOP_HZ.size)
     @Volatile private var burst: Sound? = null
     @Volatile private var crash: Sound? = null
-    @Volatile private var jump: Sound? = null
+    @Volatile private var roll: Sound? = null
     @Volatile private var land: Sound? = null
     @Volatile private var win: Sound? = null
     @Volatile private var tap: Sound? = null
@@ -142,7 +142,7 @@ class AndroidFeedback(private val context: Context, private val soundOn: () -> B
                 for ((k, hz) in Synth.BLOOP_HZ.withIndex()) blops.set(k, Sound(Synth.bloop(hz), Synth.RATE))
                 burst = Sound(Synth.burst(), Synth.RATE)
                 crash = Sound(Synth.crash(), Synth.RATE)
-                jump = Sound(Synth.jump(), Synth.RATE)
+                roll = Sound(Synth.roll(), Synth.RATE)
                 land = Sound(Synth.land(), Synth.RATE)
                 win =Sound(Synth.fanfare(), Synth.RATE)
             }
@@ -213,8 +213,8 @@ class AndroidFeedback(private val context: Context, private val soundOn: () -> B
         buzz(90)
     }
 
-    override fun jump() {
-        play { jump }
+    override fun roll() {
+        play { roll }
         buzz(25)
     }
 

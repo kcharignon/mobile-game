@@ -31,9 +31,9 @@ class SynthTest {
             "bloup-grave" to Synth.bloop(Synth.BLOOP_HZ.first()),
             "bloup-aigu" to Synth.bloop(Synth.BLOOP_HZ.last()),
             "bulle-eclate" to Synth.burst(),
-            "skate-choc" to Synth.crash(),
-            "skate-saut" to Synth.jump(),
-            "skate-atterrissage" to Synth.land(),
+            "avion-choc" to Synth.crash(),
+            "avion-tonneau" to Synth.roll(),
+            "avion-atterrissage" to Synth.land(),
         )
     }
 
@@ -96,9 +96,9 @@ class SynthTest {
         assertTrue(seconds(sounds.getValue("indice")) < 0.8)
         assertTrue(seconds(sounds.getValue("saut")) < 0.12)
         assertTrue(seconds(sounds.getValue("cloche")) in 1.3..1.7)
-        assertTrue(seconds(sounds.getValue("skate-choc")) in 0.45..0.7)
-        assertTrue(seconds(sounds.getValue("skate-saut")) in 0.35..0.5)
-        assertTrue(seconds(sounds.getValue("skate-atterrissage")) in 0.15..0.3)
+        assertTrue(seconds(sounds.getValue("avion-choc")) in 0.45..0.7)
+        assertTrue(seconds(sounds.getValue("avion-tonneau")) in 0.7..1.1)
+        assertTrue(seconds(sounds.getValue("avion-atterrissage")) in 0.15..0.3)
     }
 
     @Test
@@ -110,8 +110,8 @@ class SynthTest {
     }
 
     @Test
-    fun theCrashStartsWithALowThumpAndTheJumpRisesLikeAWhoosh() {
-        val crash = sounds.getValue("skate-choc")
+    fun theCrashStartsWithALowThumpAndTheRollRisesLikeAWhoosh() {
+        val crash = sounds.getValue("avion-choc")
         // un claquement de bruit tout au début (aigu), puis un « boum » grave qui lui survit : bien moins de passages par zéro (moins de 1 000 par seconde, soit moins de 500 Hz)
         val slap = zeroCrossings(crash, 0.0, 0.03)
         val thump = zeroCrossings(crash, 0.08, 0.14)
@@ -120,12 +120,12 @@ class SynthTest {
         fun energy(from: Double, to: Double) = crash.slice((from * Synth.RATE).toInt() until (to * Synth.RATE).toInt()).sumOf { it.toDouble() * it }
         assertTrue("énergie ${energy(0.0, 0.1)} contre ${energy(0.35, 0.45)}", energy(0.0, 0.1) > 4 * energy(0.35, 0.45))
         // le souffle du saut monte : plus aigu à la fin qu'au début
-        val jump = sounds.getValue("skate-saut")
+        val jump = sounds.getValue("avion-tonneau")
         val start = zeroCrossings(jump, 0.03, 0.11)
         val end = zeroCrossings(jump, 0.25, 0.33)
         assertTrue("le saut monte ($start puis $end)", end > start)
         // l'atterrissage fait deux claquements : forts tous les deux, avec un creux entre eux, puis le silence
-        val land = sounds.getValue("skate-atterrissage")
+        val land = sounds.getValue("avion-atterrissage")
         fun peak(from: Double, to: Double) = land.slice((from * Synth.RATE).toInt() until (to * Synth.RATE).toInt()).maxOf { abs(it.toInt()) }
         val p1 = peak(0.0, 0.03)
         val gap = peak(0.05, 0.07)

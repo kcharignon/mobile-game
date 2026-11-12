@@ -22,9 +22,9 @@ et on ne « perd » jamais : une faute coûte une étoile, jamais la partie. En 
 |---|---|---|
 | ![Coup d'œil](docs/screenshots/70-cherche-coup-d-oeil.png) | ![Œil vif](docs/screenshots/72-cherche-oeil-vif.png) | ![Super détective](docs/screenshots/74-cherche-super-detective.png) |
 
-| Super Skate : en ville | Super Skate : un choc, une étoile de moins | Super Skate : une rampe, un saut | Super Skate : de nuit |
+| Super Avion : des avions en rangée | Super Avion : un slalom d'oiseaux | Super Avion : un tonneau dans l'anneau | Super Avion : l'atterrissage |
 |---|---|---|---|
-| ![En ville](docs/screenshots/94-skate-ville.png) | ![Choc](docs/screenshots/98-skate-choc.png) | ![Saut](docs/screenshots/99-skate-saut.png) | ![De nuit](docs/screenshots/97-skate-nuit.png) |
+| ![Avions](docs/screenshots/94-avion-campagne.png) | ![Slalom](docs/screenshots/99-avion-slalom.png) | ![Tonneau](docs/screenshots/101-avion-tonneau.png) | ![Atterrissage](docs/screenshots/102-avion-atterrissage.png) |
 
 ## Les jeux
 
@@ -59,12 +59,13 @@ Des **objets à trouver** s'affichent en haut : il faut les **retrouver parmi ce
 6 objets (1 à trouver), puis 12 qui tournent (2), 20 (3), 40 de toutes tailles (4) et 84 (5), toujours rangés dans une grille sans trou. 120 objets différents de toutes les couleurs, dix décors.
 Pas de chronomètre et pas de game over : un mauvais objet pâlit et coûte une étoile, c'est tout. Si l'enfant hésite longtemps, un objet à trouver se balance doucement. Pour **débloquer la difficulté suivante**, il faut une manche parfaite : aucune erreur, et tout trouvé avant que les objets se mettent à bouger.
 
-### Super Skate
+### Super Avion
 
-Un skateur file dans la rue, vu de derrière : on **glisse le doigt de gauche à droite** pour qu'il évite les **piétons** (certains traversent !), les lampadaires, les plots, les poubelles, les bancs et les barrières de chantier. C'est le seul geste du jeu.
-Comme Champis Magiques, **quatre difficultés** à débloquer (2 étoiles sur la précédente) et une rue **tirée au hasard** à chaque course : ville, parc, bord de mer ou nuit. Dans une course, la vitesse et le nombre d'obstacles montent jusqu'à l'arche d'arrivée.
-On part avec **trois étoiles** : un choc en enlève une (le skateur clignote, ça fait « boum », l'écran tremble, la vitesse tombe puis remonte), mais on ne perd jamais, et on finit toujours avec au moins une étoile. Une **rampe** fait sauter, avec une figure en l'air : des points, et **une étoile de retour**.
-Chaque rue est faisable sans le moindre choc : un robot qui suit le couloir libre le prouve, course après course.
+Un petit avion vole vers un aéroport, vu de derrière : on **glisse le doigt de gauche à droite** pour éviter les **bancs d'oiseaux**, les **autres avions**, les **montgolfières** et les **parapentistes**. C'est le seul geste du jeu, et il reste libre et précis.
+Le ciel a **cinq voies**, que de fins tirets montrent : chaque obstacle est au milieu d'une voie, jamais à cheval sur deux, et une même rangée n'a **qu'un seul genre** d'obstacle (des oiseaux avec des oiseaux, des avions avec des avions). Plus on avance, plus il y a de rangées, de murs et de slaloms à suivre.
+Comme Champis Magiques, **quatre difficultés** à débloquer (2 étoiles sur la précédente) et un ciel **tiré au hasard** à chaque vol : campagne, mer, désert ou nuit.
+On part avec **trois étoiles** : un choc en enlève une (l'avion clignote, ça fait « boum », l'écran tremble, la vitesse tombe puis remonte), mais on ne perd jamais, et on finit toujours avec au moins une étoile. Un **anneau lumineux** traversé fait faire un **tonneau** à l'avion : des points, et **une étoile de retour**. À la fin, l'avion se pose tout seul sur la piste de l'**aéroport**.
+Chaque ciel est faisable sans le moindre choc : un robot qui suit le couloir libre le prouve, vol après vol.
 
 ### Et ensuite
 

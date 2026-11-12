@@ -331,21 +331,22 @@ object Synth {
         return pcm(out, 0.85)
     }
 
-    /** Le décollage d'une rampe : un souffle qui monte (bruit filtré de 400 à 2600 Hz) avec un « bwip » rond qui grimpe. */
-    fun jump(): ShortArray {
+    /** Un tonneau dans un anneau lumineux : un souffle qui monte (bruit filtré de 400 à 2600 Hz), un « bwip » rond qui grimpe, puis trois notes de cloche qui scintillent (do, mi, sol). */
+    fun roll(): ShortArray {
         val dur = 0.42
-        val out = samples(dur)
+        val out = samples(0.9)
         val noise = Noise(31)
         val air = BandPass(0.55)
         var phase = 0.0
-        for (i in out.indices) {
+        for (i in 0 until (dur * RATE).toInt()) {
             val t = i / RATE.toDouble()
             val p = t / dur
             phase += (260.0 + 760.0 * p * p) / RATE
             val whoosh = air.process(noise.next(), 400.0 + 2200.0 * p) * sin(PI * p.coerceAtMost(1.0)).pow(1.5) * 1.6
             out[i] = (whoosh + sin(TWO_PI * phase) * 0.35 * sin(PI * p.coerceAtMost(1.0))) * minOf(1.0, t / 0.01)
         }
-        return pcm(out, 0.6)
+        for ((k, f) in listOf(C6, E6, G6).withIndex()) out.mix(bell(f, 0.3, 0.5), 0.18 + k * 0.1)
+        return pcm(reverb(out, 0.15), 0.6)
     }
 
     /** L'atterrissage : deux claquements de roues (un « tac-tac »), chacun un petit coup sourd et un bruit sec. */

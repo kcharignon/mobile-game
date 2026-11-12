@@ -81,6 +81,29 @@ class ProfileStoreTest {
     }
 
     @Test
+    fun theSkaterSaveOfVersion0150BecomesTheAirplaneSave() {
+        // Super Skate (0.15.0, identifiant « skate ») est devenu Super Avion (« plane ») : les étoiles déjà gagnées suivent
+        val store = store()
+        store.save(lea().withGameSave("skate", JSONObject().put("stars", JSONObject().put("0", 3)).put("best", JSONObject().put("0", 640)).put("played", 2)))
+        val loaded = store.load(0)!!
+        assertNull(loaded.gameSave("skate"))
+        assertEquals(3, loaded.gameSave("plane")!!.getJSONObject("stars").getInt("0"))
+        assertEquals(640, loaded.gameSave("plane")!!.getJSONObject("best").getInt("0"))
+        // une fois sauvegardé, le fichier ne contient plus que « plane »
+        store.save(loaded)
+        val text = File(File(tmp.root, "saves"), "slot-0.json").readText()
+        assertFalse(text.contains("\"skate\""))
+        assertTrue(text.contains("\"plane\""))
+    }
+
+    @Test
+    fun anAirplaneSaveAlreadyThereIsNeverOverwrittenByTheOldSkaterOne() {
+        val store = store()
+        store.save(lea().withGameSave("skate", JSONObject().put("played", 1)).withGameSave("plane", JSONObject().put("played", 9)))
+        assertEquals(9, store.load(0)!!.gameSave("plane")!!.getInt("played"))
+    }
+
+    @Test
     fun aCorruptFileIsSetAsideAndTheSlotLooksEmpty() {
         val dir = File(tmp.root, "saves").apply { mkdirs() }
         File(dir, "slot-1.json").writeText("{ pas du json")
