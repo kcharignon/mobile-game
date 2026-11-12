@@ -155,28 +155,155 @@ class PlaneWorldTest {
         }
     }
 
+    /** Toutes les rangées, anneaux compris (un anneau est seul sur sa rangée : il laisse tout le reste libre). */
+    private fun allRows(w: PlaneWorld) = w.pieces.groupBy { it.z }.toSortedMap().values.toList()
+
+    private fun freeLanes(row: List<Piece>) = (-PlaneWorld.MAX_LANE..PlaneWorld.MAX_LANE).filter { l -> row.none { it.lane == l } }
+
+    private fun hasTwoFreeLanesSideBySide(row: List<Piece>) = freeLanes(row).let { free -> free.any { it + 1 in free } }
+
+    private fun narrowRows(w: PlaneWorld) = allRows(w).mapIndexedNotNull { i, row -> i.takeIf { freeLanes(row).size == 1 } }
+
+    @Test
+    fun theFirstTwoDifficultiesAlwaysKeepTwoFreeLanesSideBySide() {
+        for (d in listOf(PlaneDifficulty.EASY, PlaneDifficulty.MEDIUM)) for (w in worlds(d, 120)) for ((i, row) in allRows(w).withIndex()) {
+            assertTrue("${d.title} graine ${w.seed} : la rangée $i (à ${row.first().z} m) n'a pas deux voies libres côte à côte", hasTwoFreeLanesSideBySide(row))
+        }
+        // et il y a moins d'obstacles par rangée : 2 au plus au premier niveau, 3 au deuxième
+        for (w in worlds(PlaneDifficulty.EASY, 60)) for (row in rows(w).values) assertTrue(row.size <= 2)
+        for (w in worlds(PlaneDifficulty.MEDIUM, 60)) for (row in rows(w).values) assertTrue(row.size <= 3)
+    }
+
+    @Test
+    fun onTheThirdDifficultyASingleFreeLaneOnlyComesAsAnIsolatedWall() {
+        var walls = 0
+        for (w in worlds(PlaneDifficulty.HARD, 120)) {
+            val all = allRows(w)
+            val narrow = narrowRows(w)
+            walls += narrow.size
+            for (i in narrow) {
+                // un mur est seul sur sa rangée (une vague d'une rangée) : ni avant ni après, une seule voie libre
+                if (i > 0) assertTrue("graine ${w.seed} : deux rangées étroites d'affilée", hasTwoFreeLanesSideBySide(all[i - 1]))
+                if (i + 1 < all.size) assertTrue("graine ${w.seed} : deux rangées étroites d'affilée", hasTwoFreeLanesSideBySide(all[i + 1]))
+            }
+            // et deux murs sont toujours séparés d'au moins trois rangées larges
+            for ((a, b) in narrow.zipWithNext()) assertTrue("graine ${w.seed} : des murs trop proches (rangées $a et $b)", b - a > PlaneWorld.SOLO_SPACING)
+        }
+        assertTrue("$walls murs isolés sur 120 vols : il doit en rester", walls > 30)
+    }
+
+    @Test
+    fun onlyTheLastDifficultyKeepsASingleFreeLaneForSeveralRowsInARow() {
+        fun streaks(d: PlaneDifficulty, minimum: Int) = worlds(d, 120).sumOf { w ->
+            val narrow = narrowRows(w).toSet()
+            allRows(w).indices.count { i -> (0 until minimum).all { (i + it) in narrow } }
+        }
+        for (d in PlaneDifficulty.entries.dropLast(1)) assertEquals(d.title, 0, streaks(d, 2))
+        assertTrue("des passages étroits d'affilée à la dernière difficulté", streaks(PlaneDifficulty.EXPERT, 3) > 30)
+    }
+
     @Test
     fun formationsAppearWithTheDifficulty() {
-        // un slalom : au moins 3 rangées de suite qui ne laissent qu'une voie libre, dont la place change d'une voie à chaque rangée
-        fun slaloms(w: PlaneWorld): Int {
-            val rs = rows(w).values.toList()
+        // un slalom : au moins 3 rangées de suite du même genre et de la même taille, dont le couloir change d'une voie à chaque rangée
+        fun slaloms(w: PlaneWorld, size: Int): Int {
+            val rs = rows(w).entries.toList()
             var count = 0
-            var i = 0
-            while (i + 2 < rs.size) {
-                val full = rs.subList(i, i + 3).all { it.size == PlaneWorld.LANES - 1 && it.map { p -> p.kind }.toSet().size == 1 }
+            for (i in 0 until rs.size - 2) {
+                val three = rs.subList(i, i + 3)
+                val full = three.all { it.value.size == size && it.value.map { p -> p.kind }.toSet().size == 1 } && three.map { it.value.first().kind }.toSet().size == 1
                 if (full) {
-                    val frees = rs.subList(i, i + 3).map { row -> (-2..2).first { l -> row.none { it.lane == l } } }
-                    if (frees[0] != frees[1] && frees[1] != frees[2]) count++
+                    val centers = three.map { Math.round(w.pathAt(it.key) / PlaneWorld.LANE_WIDTH) }
+                    if (centers[0] != centers[1] && centers[1] != centers[2]) count++
                 }
-                i++
             }
             return count
         }
-        assertEquals(0, worlds(PlaneDifficulty.EASY).sumOf { slaloms(it) })
-        for (d in listOf(PlaneDifficulty.HARD, PlaneDifficulty.EXPERT)) assertTrue(d.title, worlds(d).sumOf { slaloms(it) } > 20)
+        // des slaloms à deux voies libres dès la deuxième difficulté (trois obstacles par rangée) ; à une seule voie libre (quatre obstacles) à la dernière seulement
+        assertEquals(0, worlds(PlaneDifficulty.EASY).sumOf { slaloms(it, 3) })
+        for (d in listOf(PlaneDifficulty.MEDIUM, PlaneDifficulty.HARD)) assertTrue(d.title, worlds(d, 120).sumOf { slaloms(it, 3) } > 10)
+        for (d in PlaneDifficulty.entries.dropLast(1)) assertEquals(d.title, 0, worlds(d, 120).sumOf { slaloms(it, 4) })
+        assertTrue(worlds(PlaneDifficulty.EXPERT, 120).sumOf { slaloms(it, 4) } > 20)
         // des murs (4 voies sur 5) dès la troisième difficulté seulement
-        assertEquals(0, worlds(PlaneDifficulty.EASY).sumOf { w -> rows(w).values.count { it.size == 4 } })
-        assertTrue(worlds(PlaneDifficulty.HARD).sumOf { w -> rows(w).values.count { it.size == 4 } } > 50)
+        for (d in listOf(PlaneDifficulty.EASY, PlaneDifficulty.MEDIUM)) assertEquals(d.title, 0, worlds(d).sumOf { w -> rows(w).values.count { it.size == 4 } })
+        assertTrue(worlds(PlaneDifficulty.HARD, 120).sumOf { w -> rows(w).values.count { it.size == 4 } } > 20)
+    }
+
+    @Test
+    fun wavesAreShortAndLeaveRoomToBreathe() {
+        // une vague de plus de quatre rangées du même genre n'existe pas ; et les slaloms ne s'enchaînent pas sans une vague éparpillée entre eux
+        for (d in PlaneDifficulty.entries) for (w in worlds(d, 60)) {
+            var run = 1
+            val kinds = rows(w).values.map { it.first().kind }
+            for ((a, b) in kinds.zipWithNext()) {
+                run = if (a == b) run + 1 else 1
+                assertTrue("${d.title} graine ${w.seed} : $run rangées du même genre d'affilée", run <= 5)
+            }
+        }
+        // le plus souvent, une vague n'a qu'une ou deux rangées : au moins un tiers des rangées sont suivies d'une rangée d'un autre genre
+        for (d in PlaneDifficulty.entries) {
+            var changes = 0
+            var total = 0
+            for (w in worlds(d, 60)) rows(w).values.map { it.first().kind }.zipWithNext().forEach { (a, b) -> total++; if (a != b) changes++ }
+            assertTrue("${d.title} : $changes changements de genre sur $total rangées", changes * 100 >= total * 35)
+        }
+    }
+
+    @Test
+    fun planesCrossTheSkyOnTheThirdAndFourthDifficultiesOnly() {
+        for (d in listOf(PlaneDifficulty.EASY, PlaneDifficulty.MEDIUM)) for (w in worlds(d, 120)) assertTrue(d.title, w.pieces.none { it.crossing })
+        for (d in listOf(PlaneDifficulty.HARD, PlaneDifficulty.EXPERT)) {
+            val crossing = worlds(d, 120).flatMap { w -> w.pieces.filter { it.crossing } }
+            assertTrue("${d.title} : ${crossing.size} avions qui traversent", crossing.size > 40)
+            for (p in crossing) {
+                assertEquals(PieceKind.PLANE, p.kind)
+                assertTrue("traversée de ${p.drift} voies", abs(p.drift) in PlaneWorld.CROSS_MIN_LANES..PlaneWorld.CROSS_MIN_LANES + 1)
+                assertTrue(p.span > 0f)
+            }
+            // dans les deux sens
+            assertTrue(crossing.any { it.drift > 0 } && crossing.any { it.drift < 0 })
+        }
+    }
+
+    @Test
+    fun aCrossingWaveCrossesTogetherAndNeverMixesWithPlanesThatStayPut() {
+        for (d in listOf(PlaneDifficulty.HARD, PlaneDifficulty.EXPERT)) for (w in worlds(d, 120)) {
+            for ((z, row) in rows(w)) {
+                if (row.any { it.crossing }) {
+                    assertTrue("${d.title} : tous les avions d'une rangée traversent", row.all { it.crossing })
+                    assertEquals("même sens et même durée dans la rangée à $z m", 1, row.map { it.drift to it.span }.toSet().size)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun aCrossingPlaneGlidesToItsLaneAndIsInItWhenYouPassIt() {
+        val plane = Piece(0, PieceKind.PLANE, 100f, 1, 0, drift = 4, span = 60f)
+        assertEquals(plane.x, plane.xAt(0f), 1e-6f)
+        assertEquals(plane.x, plane.xAt(-3f), 1e-6f)
+        // loin, il est 4 voies plus loin sur le côté d'où il vient
+        assertEquals(plane.x - 4 * PlaneWorld.LANE_WIDTH, plane.xAt(60f), 1e-5f)
+        assertEquals(plane.x - 4 * PlaneWorld.LANE_WIDTH, plane.xAt(500f), 1e-5f)
+        // à mi-chemin, à mi-chemin
+        assertEquals(plane.x - 2 * PlaneWorld.LANE_WIDTH, plane.xAt(30f), 1e-5f)
+        // il avance toujours dans le même sens, et se pose en douceur (presque plus de mouvement de côté tout près, comme tout au bout)
+        var last = plane.xAt(60f)
+        for (rel in 59 downTo 0) {
+            val x = plane.xAt(rel.toFloat())
+            assertTrue("recule à $rel m", x >= last - 1e-6f)
+            last = x
+        }
+        assertTrue(abs(plane.xAt(0.5f) - plane.x) < 0.01f)
+        assertTrue(abs(plane.xAt(59.5f) - plane.xAt(60f)) < 0.01f)
+        // il penche du côté où il va, le plus au milieu de la traversée
+        assertEquals(1f, plane.bankAt(30f), 1e-5f)
+        assertEquals(0f, plane.bankAt(0f), 1e-6f)
+        assertEquals(0f, plane.bankAt(80f), 1e-6f)
+        assertEquals(-1f, Piece(1, PieceKind.PLANE, 100f, 0, 0, drift = -3, span = 40f).bankAt(20f), 1e-5f)
+        // un obstacle ordinaire ne bouge jamais de côté
+        val bird = Piece(2, PieceKind.BIRDS, 100f, -2, 0)
+        assertEquals(bird.x, bird.xAt(40f), 1e-6f)
+        assertEquals(0f, bird.bankAt(40f), 1e-6f)
     }
 
     @Test

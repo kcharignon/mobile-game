@@ -12,7 +12,8 @@ import kotlin.math.ln
  *
  * - [seconds] : la durée d'un vol sans le moindre choc (la longueur du trajet en découle, voir [length]) ;
  * - [tier] : la variété. 0 = oiseaux, montgolfières et parapentes, en rangées éparses ; 1 = + avions, et de petits slaloms ;
- *   2 = + murs d'obstacles et slaloms plus longs ; 3 = encore plus de slaloms et de murs ;
+ *   2 = + quelques murs isolés (une seule voie libre, une rangée, de temps en temps) et des avions qui traversent le ciel ;
+ *   3 = + des murs et des slaloms où il ne reste qu'une voie libre, plusieurs rangées d'affilée ;
  * - [ringEvery] : un anneau lumineux tous les tant de mètres, en moyenne.
  */
 enum class PlaneDifficulty(
@@ -29,11 +30,30 @@ enum class PlaneDifficulty(
     val ringEvery: Float,
 ) {
     EASY("Petit vol", "Doucement, avec peu d'obstacles.", 50, 8f, 12f, 22f, 16f, 1.0f, 2.0f, 0, 130f),
-    MEDIUM("Vol rapide", "Ça va plus vite, et des avions arrivent !", 65, 10f, 16f, 20f, 13f, 1.5f, 3.0f, 1, 150f),
-    HARD("Haute voltige", "Plus de monde, avec des slaloms à faire !", 80, 12f, 20f, 18f, 11f, 2.0f, 3.5f, 2, 170f),
-    EXPERT("Pilote de chasse", "Le ciel est bondé et tu files à toute allure.", 95, 14f, 24f, 16f, 9f, 2.5f, 4.0f, 3, 190f);
+    MEDIUM("Vol rapide", "Ça va plus vite, et des avions arrivent !", 65, 10f, 16f, 20f, 13f, 1.3f, 2.6f, 1, 150f),
+    HARD("Haute voltige", "Des avions traversent le ciel, avec des slaloms !", 80, 12f, 20f, 18f, 11f, 1.6f, 3.0f, 2, 170f),
+    EXPERT("Pilote de chasse", "Le ciel est bondé, avec des passages étroits !", 95, 14f, 24f, 16f, 9f, 2.0f, 3.8f, 3, 190f);
 
     val index: Int get() = ordinal
+
+    /**
+     * Le plus d'obstacles dans une rangée (sur 5 voies). Avant la dernière difficulté il reste toujours **deux voies libres côte à côte**
+     * (sauf pour un mur isolé, voir [soloWalls]) ; à la dernière, une seule voie libre suffit.
+     */
+    val maxPerRow: Int get() = when (tier) {
+        0 -> 2
+        1, 2 -> 3
+        else -> 4
+    }
+
+    /** Des murs isolés (une seule voie libre, une seule rangée, jamais deux de suite) dès la troisième difficulté. */
+    val soloWalls: Boolean get() = tier >= 2
+
+    /** Des murs et des slaloms où il ne reste qu'une voie libre, plusieurs rangées d'affilée : seulement à la dernière difficulté. */
+    val narrowStreaks: Boolean get() = tier >= 3
+
+    /** Des avions qui traversent le ciel de côté en arrivant : à partir de la troisième difficulté. */
+    val crossingPlanes: Boolean get() = tier >= 2
 
     /** La difficulté qu'il faut réussir (2 étoiles) pour débloquer celle-ci (`null` pour la première). */
     val previous: PlaneDifficulty? get() = entries.getOrNull(ordinal - 1)

@@ -56,6 +56,8 @@ internal class Cam(val width: Float, val height: Float, altitude: Float = 1f) {
 private const val BAND = 8f
 /** Les obstacles sont dessinés un peu plus grands que leur zone de choc : ils remplissent bien leur voie. */
 private const val SPRITE_SCALE = 1.25f
+/** De combien de degrés penche, au plus, un avion qui traverse le ciel. */
+private const val CROSSING_BANK = 16f
 private const val CLOUD_SPACING = 19f
 private const val GROUND_SPACING = 14f
 
@@ -357,10 +359,11 @@ private fun DrawScope.drawFog(cam: Cam, theme: PlaneTheme) {
 
 private fun DrawScope.drawPiece(cam: Cam, piece: Piece, rel: Float, knock: PlaneRun.Knock?, time: Float, theme: PlaneTheme) {
     val u = cam.u(rel)
-    var x = piece.x
+    // un avion qui traverse le ciel glisse vers sa voie en penchant du côté où il va
+    var x = piece.xAt(rel)
     val by = cam.yFlight(rel)
     var drop = 0f
-    var tilt = 0f
+    var tilt = piece.bankAt(rel) * CROSSING_BANK
     var alpha = 1f
     if (knock != null) {
         // projeté sur le côté en tournant et en tombant, puis il s'efface
