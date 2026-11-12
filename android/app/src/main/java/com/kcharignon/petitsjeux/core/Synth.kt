@@ -309,4 +309,60 @@ object Synth {
         }
         return pcm(out, 0.4)
     }
+
+    /**
+     * Le choc d'un skateur contre un obstacle : un « boum » sourd qui descend (sinus de 170 à 55 Hz), un claquement de bruit filtré, et trois petits
+     * cliquetis métalliques qui s'éparpillent (le mobilier qui valse).
+     */
+    fun crash(): ShortArray {
+        val dur = 0.55
+        val out = samples(dur)
+        val noise = Noise(23)
+        val band = BandPass(0.6)
+        var phase = 0.0
+        for (i in out.indices) {
+            val t = i / RATE.toDouble()
+            phase += (55.0 + 115.0 * exp(-t / 0.05)) / RATE
+            val thump = sin(TWO_PI * phase) * exp(-t / 0.11)
+            val slap = band.process(noise.next(), 900.0 - 500.0 * (t / 0.12).coerceAtMost(1.0)) * 4.5 * exp(-t / 0.035)
+            out[i] = (thump * 1.2 + slap) * minOf(1.0, t / 0.002)
+        }
+        for ((k, at) in listOf(0.07 to 1500.0, 0.14 to 2100.0, 0.23 to 1750.0).withIndex()) out.mix(bell(at.second, 0.07, 0.16 - k * 0.03, 0.6), at.first)
+        return pcm(out, 0.85)
+    }
+
+    /** Le décollage d'une rampe : un souffle qui monte (bruit filtré de 400 à 2600 Hz) avec un « bwip » rond qui grimpe. */
+    fun jump(): ShortArray {
+        val dur = 0.42
+        val out = samples(dur)
+        val noise = Noise(31)
+        val air = BandPass(0.55)
+        var phase = 0.0
+        for (i in out.indices) {
+            val t = i / RATE.toDouble()
+            val p = t / dur
+            phase += (260.0 + 760.0 * p * p) / RATE
+            val whoosh = air.process(noise.next(), 400.0 + 2200.0 * p) * sin(PI * p.coerceAtMost(1.0)).pow(1.5) * 1.6
+            out[i] = (whoosh + sin(TWO_PI * phase) * 0.35 * sin(PI * p.coerceAtMost(1.0))) * minOf(1.0, t / 0.01)
+        }
+        return pcm(out, 0.6)
+    }
+
+    /** L'atterrissage : deux claquements de roues (un « tac-tac »), chacun un petit coup sourd et un bruit sec. */
+    fun land(): ShortArray {
+        val out = samples(0.24)
+        val noise = Noise(41)
+        val band = BandPass(0.5)
+        for ((n, at) in listOf(0.0, 0.075).withIndex()) {
+            val tick = samples(0.12)
+            var phase = 0.0
+            for (i in tick.indices) {
+                val t = i / RATE.toDouble()
+                phase += (150.0 - 60.0 * (t / 0.1).coerceAtMost(1.0)) / RATE
+                tick[i] = sin(TWO_PI * phase) * exp(-t / 0.03) + band.process(noise.next(), 2400.0) * 2.5 * exp(-t / 0.008)
+            }
+            out.mix(tick, at, if (n == 0) 1.0 else 0.7)
+        }
+        return pcm(out, 0.55)
+    }
 }

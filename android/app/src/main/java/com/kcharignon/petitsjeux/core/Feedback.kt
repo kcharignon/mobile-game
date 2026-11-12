@@ -60,6 +60,15 @@ interface Feedback {
 
     /** La trace recule : les bulles de la partie effacée éclatent. */
     fun burst() {}
+
+    /** Super Skate : le skateur heurte un obstacle (un « boum » sourd et des petits bruits qui s'éparpillent). */
+    fun crash() {}
+
+    /** Super Skate : le skateur décolle d'une rampe (un souffle qui monte). */
+    fun jump() {}
+
+    /** Super Skate : le skateur retombe sur ses roues (deux petits claquements). */
+    fun land() {}
 }
 
 object NoFeedback : Feedback {
@@ -77,6 +86,9 @@ object NoFeedback : Feedback {
     override fun bell() = Unit
     override fun bloop(pitch: Int) = Unit
     override fun burst() = Unit
+    override fun crash() = Unit
+    override fun jump() = Unit
+    override fun land() = Unit
 }
 
 val LocalFeedback = compositionLocalOf<Feedback> { NoFeedback }
@@ -105,6 +117,9 @@ class AndroidFeedback(private val context: Context, private val soundOn: () -> B
     @Volatile private var bell: Sound? = null
     private val blops = AtomicReferenceArray<Sound>(Synth.BLOOP_HZ.size)
     @Volatile private var burst: Sound? = null
+    @Volatile private var crash: Sound? = null
+    @Volatile private var jump: Sound? = null
+    @Volatile private var land: Sound? = null
     @Volatile private var win: Sound? = null
     @Volatile private var tap: Sound? = null
     @Volatile private var hint: Sound? = null
@@ -126,6 +141,9 @@ class AndroidFeedback(private val context: Context, private val soundOn: () -> B
                 bell = Sound(Synth.crossingBell(), Synth.RATE)
                 for ((k, hz) in Synth.BLOOP_HZ.withIndex()) blops.set(k, Sound(Synth.bloop(hz), Synth.RATE))
                 burst = Sound(Synth.burst(), Synth.RATE)
+                crash = Sound(Synth.crash(), Synth.RATE)
+                jump = Sound(Synth.jump(), Synth.RATE)
+                land = Sound(Synth.land(), Synth.RATE)
                 win =Sound(Synth.fanfare(), Synth.RATE)
             }
             runCatching {
@@ -189,6 +207,21 @@ class AndroidFeedback(private val context: Context, private val soundOn: () -> B
     override fun bloop(pitch: Int) = play { blops.get(pitch.coerceIn(0, blops.length() - 1)) }
 
     override fun burst() = play { burst }
+
+    override fun crash() {
+        play { crash }
+        buzz(90)
+    }
+
+    override fun jump() {
+        play { jump }
+        buzz(25)
+    }
+
+    override fun land() {
+        play { land }
+        buzz(30)
+    }
 
     private fun buzz(ms: Long) {
         if (!vibrationOn()) return
