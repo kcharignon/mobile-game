@@ -164,6 +164,34 @@ class PlaneRunTest {
     }
 
     @Test
+    fun aCrossingPlaneOnlyHurtsInTheLaneItEndsIn() {
+        // l'avion arrive de quatre voies plus loin et se pose dans la voie 1 (x = 0,4) ; il traverse la voie du milieu pendant qu'il est encore loin, sans toucher personne
+        val hunter = Piece(0, PieceKind.PLANE, 100f, 1, 0, drift = 4, span = 60f)
+        val stay = PlaneRun(sky(hunter, length = 330f))
+        stay.steerTo(0f)
+        playToTheEnd(stay)
+        assertEquals("au milieu, l'avion traversant ne touche pas", 0, stay.hits)
+
+        val wait = PlaneRun(sky(Piece(0, PieceKind.PLANE, 100f, 1, 0, drift = 4, span = 60f), length = 330f))
+        wait.steerTo(0.4f)
+        playToTheEnd(wait)
+        assertEquals("dans la voie d'arrivée, on le heurte", 1, wait.hits)
+    }
+
+    @Test
+    fun aCrossingPlaneHurtsWhereItIsNotWhereItCameFrom() {
+        // il vient de la droite (voie 2) et se pose dans la voie -2 : celui qui l'attend là d'où il vient (à droite) n'est pas touché, celui qui l'attend là où il va l'est
+        fun fly(at: Float): PlaneRun {
+            val run = PlaneRun(sky(Piece(0, PieceKind.PLANE, 100f, -2, 0, drift = -4, span = 60f), length = 330f))
+            run.steerTo(at)
+            return playToTheEnd(run)
+        }
+        assertEquals(PlaneWorld.LANE_WIDTH * 2, Piece(0, PieceKind.PLANE, 100f, -2, 0, drift = -4, span = 60f).xAt(60f), 1e-5f)
+        assertEquals(0, fly(0.8f).hits)
+        assertEquals(1, fly(-0.8f).hits)
+    }
+
+    @Test
     fun anAirplaneCannotSqueezeBetweenTwoFullLanes() {
         // entre deux voies pleines (au milieu, à 0,2 de chaque obstacle) il y a trop peu de place : on heurte
         val run = PlaneRun(sky(Piece(0, PieceKind.BIRDS, 60f, -1, 0), Piece(1, PieceKind.BIRDS, 60f, 0, 0)))

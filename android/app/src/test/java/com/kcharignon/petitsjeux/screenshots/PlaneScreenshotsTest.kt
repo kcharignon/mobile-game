@@ -285,13 +285,37 @@ class PlaneScreenshotsTest {
     }
 
     @Test
-    fun aSlalomShowsAZigzagOfFreeLanes() {
-        val frees = listOf(0, 1, 2, 1, 0, -1)
+    fun aSlalomKeepsTwoFreeLanesSideBySideAndShiftsThemByOneLaneAtATime() {
+        // avant la dernière difficulté : trois obstacles par rangée, la paire de voies libres se décale d'une voie à chaque rangée
+        val frees = listOf(0 to 1, 1 to 2, 2 to 1, 1 to 0, 0 to -1, -1 to 0)
         val pieces = ArrayList<Piece>()
-        for ((i, free) in frees.withIndex()) pieces += row(100 * i, PieceKind.BIRDS, 90f + i * 13f, (-2..2).filter { it != free })
-        val path = listOf(PathPoint(0f, 0f)) + frees.mapIndexed { i, f -> PathPoint(90f + i * 13f, f * 0.4f) }
+        for ((i, free) in frees.withIndex()) pieces += row(100 * i, PieceKind.BIRDS, 90f + i * 13f, (-2..2).filter { it != free.first && it != free.second })
+        val path = listOf(PathPoint(0f, 0f)) + frees.mapIndexed { i, f -> PathPoint(90f + i * 13f, f.first * 0.4f) }
         val world = sky(*pieces.toTypedArray(), length = 400f, path = path, difficulty = PlaneDifficulty.HARD)
         show("99-avion-slalom", content = screen(PlaneDifficulty.HARD, world = world, startingRun = advancedRun(world, 62f)))
+        assertTrue(rule.onAllNodesWithTag("road").fetchSemanticsNodes().isNotEmpty())
+    }
+
+    @Test
+    fun theLastDifficultyHasNarrowSlaloms() {
+        // à la dernière difficulté seulement : une seule voie libre, rangée après rangée
+        val frees = listOf(0, 1, 2, 1, 0, -1)
+        val pieces = ArrayList<Piece>()
+        for ((i, free) in frees.withIndex()) pieces += row(100 * i, PieceKind.BIRDS, 90f + i * 11f, (-2..2).filter { it != free })
+        val path = listOf(PathPoint(0f, 0f)) + frees.mapIndexed { i, f -> PathPoint(90f + i * 11f, f * 0.4f) }
+        val world = sky(*pieces.toTypedArray(), length = 400f, path = path, difficulty = PlaneDifficulty.EXPERT)
+        show("108-avion-passage-etroit", content = screen(PlaneDifficulty.EXPERT, world = world, startingRun = advancedRun(world, 62f)))
+        assertTrue(rule.onAllNodesWithTag("road").fetchSemanticsNodes().isNotEmpty())
+    }
+
+    @Test
+    fun planesCrossTheSkyAndGlideToTheirLane() {
+        // deux rangées d'avions qui traversent le ciel dans le même sens : ils arrivent de plus loin sur la gauche et glissent vers leur voie en penchant
+        val first = listOf(-2, -1, 2).mapIndexed { i, l -> Piece(i, PieceKind.PLANE, 92f, l, 1, drift = 3, span = 70f) }
+        val second = listOf(-1, 0).mapIndexed { i, l -> Piece(10 + i, PieceKind.PLANE, 112f, l, 1, drift = 3, span = 70f) }
+        val path = listOf(PathPoint(0f, 0f), PathPoint(92f, 0f), PathPoint(112f, 0.8f))
+        val world = sky(*(first + second).toTypedArray(), length = 400f, path = path, difficulty = PlaneDifficulty.HARD)
+        show("109-avion-traversee", content = screen(PlaneDifficulty.HARD, world = world, startingRun = advancedRun(world, 66f)))
         assertTrue(rule.onAllNodesWithTag("road").fetchSemanticsNodes().isNotEmpty())
     }
 

@@ -22,7 +22,7 @@ et on ne « perd » jamais : une faute coûte une étoile, jamais la partie. En 
 |---|---|---|
 | ![Coup d'œil](docs/screenshots/70-cherche-coup-d-oeil.png) | ![Œil vif](docs/screenshots/72-cherche-oeil-vif.png) | ![Super détective](docs/screenshots/74-cherche-super-detective.png) |
 
-| Super Avion : des avions en rangée | Super Avion : un slalom d'oiseaux | Super Avion : un tonneau dans l'anneau | Super Avion : l'atterrissage |
+| Super Avion : des avions en rangée | Super Avion : un slalom (deux voies libres) | Super Avion : un tonneau dans l'anneau | Super Avion : l'atterrissage |
 |---|---|---|---|
 | ![Avions](docs/screenshots/94-avion-campagne.png) | ![Slalom](docs/screenshots/99-avion-slalom.png) | ![Tonneau](docs/screenshots/101-avion-tonneau.png) | ![Atterrissage](docs/screenshots/102-avion-atterrissage.png) |
 
@@ -62,7 +62,7 @@ Pas de chronomètre et pas de game over : un mauvais objet pâlit et coûte une 
 ### Super Avion
 
 Un petit avion vole vers un aéroport, vu de derrière : on **glisse le doigt de gauche à droite** pour éviter les **bancs d'oiseaux**, les **autres avions**, les **montgolfières** et les **parapentistes**. C'est le seul geste du jeu, et il reste libre et précis.
-Le ciel a **cinq voies**, que de fins tirets montrent : chaque obstacle est au milieu d'une voie, jamais à cheval sur deux, et une même rangée n'a **qu'un seul genre** d'obstacle (des oiseaux avec des oiseaux, des avions avec des avions). Plus on avance, plus il y a de rangées, de murs et de slaloms à suivre.
+Le ciel a **cinq voies**, que de fins tirets montrent : chaque obstacle est au milieu d'une voie, jamais à cheval sur deux, et une même rangée n'a **qu'un seul genre** d'obstacle (des oiseaux avec des oiseaux, des avions avec des avions). Les vagues restent courtes et laissent respirer ; avant le dernier niveau il y a toujours **deux voies libres côte à côte** (un mur à une seule voie libre n'arrive qu'isolé, au troisième niveau, et seul le dernier niveau enchaîne les passages étroits), et aux deux derniers niveaux certains avions **traversent le ciel** de côté en arrivant.
 Comme Champis Magiques, **quatre difficultés** à débloquer (2 étoiles sur la précédente) et un ciel **tiré au hasard** à chaque vol : campagne, mer, désert ou nuit.
 On part avec **trois étoiles** : un choc en enlève une (l'avion clignote, ça fait « boum », l'écran tremble, la vitesse tombe puis remonte), mais on ne perd jamais, et on finit toujours avec au moins une étoile. Un **anneau lumineux** traversé fait faire un **tonneau** à l'avion : des points, et **une étoile de retour**. À la fin, l'avion se pose tout seul sur la piste de l'**aéroport**.
 Chaque ciel est faisable sans le moindre choc : un robot qui suit le couloir libre le prouve, vol après vol.

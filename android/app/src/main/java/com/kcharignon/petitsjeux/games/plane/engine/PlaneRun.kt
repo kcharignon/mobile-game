@@ -191,14 +191,14 @@ class PlaneRun(val world: PlaneWorld) {
             if (piece.id in knocks || rolling || hurtLeft > 0f) continue
             val half = piece.kind.depth / 2f
             if (piece.z + half < before - PLANE_DEPTH || piece.z - half > dist + PLANE_DEPTH) continue
-            if (abs(x - piece.x) < (piece.kind.width + PLANE_WIDTH) / 2f) {
+            if (abs(x - piece.xAt(piece.z - dist)) < (piece.kind.width + PLANE_WIDTH) / 2f) {
                 hits++
                 if (lives > 0) lives--
                 hurtLeft = HURT_SECONDS
                 sinceHit = 0f
                 speed = min(speed, 0.3f * world.difficulty.speedAt(dist))
                 holdLeft = HOLD_SECONDS
-                knocks[piece.id] = Knock(0f, if (piece.x >= x) 1f else -1f)
+                knocks[piece.id] = Knock(0f, if (piece.xAt(piece.z - dist) >= x) 1f else -1f)
                 events += PlaneEvent.Hit(piece, lives)
             }
         }
