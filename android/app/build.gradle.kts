@@ -113,7 +113,7 @@ dependencies {
     testImplementation("org.json:json:20250517")
 
     // Captures d'écran sans téléphone : Robolectric (rendu natif) + Roborazzi + tests Compose.
-    testImplementation("org.robolectric:robolectric:4.16")
+    testImplementation("org.robolectric:robolectric:4.17")
     testImplementation("io.github.takahirom.roborazzi:roborazzi:1.69.0")
     testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.69.0")
     testImplementation("androidx.compose.ui:ui-test-junit4")
